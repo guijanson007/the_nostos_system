@@ -1,0 +1,12 @@
+Checks: >
+  -*,
+  bugprone-switch-missing-default-case,
+  cppcoreguidelines-avoid-goto,
+  readability-identifier-naming
+
+CheckOptions:
+  readability-identifier-naming.FunctionCase: camelBack
+  readability-identifier-naming.VariableCase: camelBack
+  readability-identifier-naming.GlobalVariablePrefix: g
+  readability-identifier-naming.GlobalConstantCase: UPPER_CASE
+  readability-identifier-naming.MacroDefinitionCase: UPPER_CASE
