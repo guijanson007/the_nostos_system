@@ -1,5 +1,5 @@
 CC      = gcc
-CFLAGS  = -Wall -Wextra -std=c99 -g -I$(INCLUDE_DIR) -Ilib/sphragis
+CFLAGS  = -Wall -Wextra -lpthread -std=c99 -g -I$(INCLUDE_DIR) -Ilib/sphragis
 
 TARGET  = program
 
