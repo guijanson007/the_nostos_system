@@ -23,6 +23,35 @@ void printErr(const char *message) {
     write(STDERR_FILENO, "\n", strlen("\n"));
 }
 
+//Return a malloced string that must be free by the caller
+//Check if the malloc worked
+char *readLine(int fd) {
+    int cap = 150;
+    char *buff = malloc(cap);
+    char c;
+    int size = 0, n = 1;
+
+    if (buff == NULL) return NULL;
+
+    while((n = read(fd, &c, 1)) > 0) {
+        if(c == '\n') break;
+        buff[size++] = c;
+    }
+    
+    if (n <= 0 && size == 0) {
+        free(buff);
+        return NULL;
+    }
+
+    if (size > 0 && buff[size - 1] == '\r') size--;
+    buff[size] = '\0';
+    
+    char *exact = realloc(buff, size + 1);
+    if (exact) buff = exact;
+
+    return buff;
+}
+
 // This function works similarly to malloc
 // fd = file descriptor to be read (can be a pipe)
 // element_size = size of the element to be read (use 1 byte for reading byte by
