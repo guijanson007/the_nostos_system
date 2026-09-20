@@ -10,7 +10,7 @@
 // own
 #include "utils/utils.h"
 
-Odysseus parseFile() {
+Odysseus odysseusParseFile() {
     Odysseus odysseus;
 
     int fd = open("src/odysseus/odysseus.dat", O_RDONLY);

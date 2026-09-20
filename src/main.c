@@ -3,6 +3,6 @@
 #include <unistd.h>
 
 int main() {
-    Odysseus odysseus = parseFile();
+    Odysseus odysseus = odysseusParseFile();
     odysseusPrintInfo(&odysseus);
 }
