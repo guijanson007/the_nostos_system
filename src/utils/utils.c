@@ -10,7 +10,7 @@
 
 #define READ_CHUNK_SIZE 4096
 
-static void freeLines(char **lines, size_t count) {
+void freeLines(char **lines, size_t count) {
     if (!lines)
         return;
     for (size_t i = 0; i < count; i++) {
@@ -34,34 +34,6 @@ void printErr(const char *message) {
     write(STDERR_FILENO, "\n", strlen("\n"));
 }
 
-//Return a malloced string that must be free by the caller
-//Check if the malloc worked
-char *readLine(int fd) {
-    int cap = 150;
-    char *buff = malloc(cap);
-    char c;
-    int size = 0, n = 1;
-
-    if (buff == NULL) return NULL;
-
-    while((n = read(fd, &c, 1)) > 0) {
-        if(c == '\n') break;
-        buff[size++] = c;
-    }
-    
-    if (n <= 0 && size == 0) {
-        free(buff);
-        return NULL;
-    }
-
-    if (size > 0 && buff[size - 1] == '\r') size--;
-    buff[size] = '\0';
-    
-    char *exact = realloc(buff, size + 1);
-    if (exact) buff = exact;
-
-    return buff;
-}
 
 // This function works similarly to malloc
 // fd = file descriptor to be read (can be a pipe)
@@ -138,6 +110,43 @@ void *readUntilEmpty(int fd, size_t elementSize, size_t *outCount) {
     return buff;
 }
 
+
+//Return a malloced string that must be free by the caller
+//Check if the malloc worked
+char *readLine(int fd) {
+    size_t cap = 150;
+    size_t len = 0;
+    char *buff = malloc(cap);
+    char c;
+    ssize_t n;
+ 
+    if (buff == NULL) return NULL;
+ 
+    while ((n = read(fd, &c, 1)) > 0) {
+        if (c == '\n') break;
+        if (len + 1 >= cap) {
+            char *tmp = realloc(buff, cap * 2);
+            if (!tmp) { free(buff); return NULL; }
+            buff = tmp;
+            cap *= 2;
+        }
+        buff[len++] = c;
+    }
+ 
+    if (n <= 0 && len == 0) {
+        free(buff);
+        return NULL;
+    }
+ 
+    if (len > 0 && buff[len - 1] == '\r') len--;
+    buff[len] = '\0';
+ 
+    char *exact = realloc(buff, len + 1);
+    if (exact) buff = exact;
+ 
+    return buff;
+}
+
 // returns an array of strings, each string is a line read from the file
 // descriptor
 char **readLines(int fd, size_t *outCount) {
@@ -151,6 +160,26 @@ char **readLines(int fd, size_t *outCount) {
     if (!lines)
         return NULL;
 
+    char *line;
+    while((line = readLine(fd)) != NULL) {
+        if (linesCount >= linesCap) {
+            linesCap *= 2;
+            char **tmp = realloc(lines, linesCap * sizeof(char*));
+            if (!tmp) {
+                free(line);
+                freeLines(lines, linesCount);
+                return NULL;
+            }
+            lines = tmp;
+        }
+        lines[linesCount++] = line;
+    }
+
+    *outCount = linesCount;
+    return lines;
+}
+
+    /*
     size_t lineLen = 0;
     size_t lineCap = 128;
     char *line = (char *)malloc(lineCap * sizeof(char));
@@ -251,7 +280,6 @@ char **readLines(int fd, size_t *outCount) {
     } else {
         free(line);
     }
+        */
 
-    *outCount = linesCount;
-    return lines;
-}
+ 
