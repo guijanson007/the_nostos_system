@@ -13,6 +13,7 @@
 // System includes
 #include <stdio.h>
 
+void freeLines(char **lines, size_t count);
 void writeToFileAndStdOut(int fd, const char *message);
 void println(const char *message);
 void printErr(const char *message);
