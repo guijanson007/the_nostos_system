@@ -11,7 +11,7 @@
 #include "../include/ithaca/ithaca.h"
 #include "../include/utils/utils.h"
 
-#define ERROR_ARGC "ERROR ITHACA: Invalid number of arguments"
+#define ERROR_ARGC "Usage: ./ithaca <ithaca.dat> <voyages.db>"
 #define ERROR_FILE_ITHACA "ERROR ITHACA: The file couldn't been open"
 #define ERROR_FILE_VOYAGE "ERROR VOYAGE: The file couldn't been open"
 #define ERROR_LOAD_ITHACA                                                      \
