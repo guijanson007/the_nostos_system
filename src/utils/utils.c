@@ -1,4 +1,4 @@
-#include "utils/utils.h"
+#include "../include/utils/utils.h"
 
 // System headers
 #include <errno.h>
@@ -33,7 +33,6 @@ void printErr(const char *message) {
     write(STDERR_FILENO, message, strlen(message));
     write(STDERR_FILENO, "\n", strlen("\n"));
 }
-
 
 // This function works similarly to malloc
 // fd = file descriptor to be read (can be a pipe)
@@ -110,40 +109,46 @@ void *readUntilEmpty(int fd, size_t elementSize, size_t *outCount) {
     return buff;
 }
 
-
-//Return a malloced string that must be free by the caller
-//Check if the malloc worked
+// Return a malloced string that must be free by the caller
+// Check if the malloc worked
 char *readLine(int fd) {
     size_t cap = 150;
     size_t len = 0;
     char *buff = malloc(cap);
     char c;
     ssize_t n;
- 
-    if (buff == NULL) return NULL;
- 
+
+    if (buff == NULL)
+        return NULL;
+
     while ((n = read(fd, &c, 1)) > 0) {
-        if (c == '\n') break;
+        if (c == '\n')
+            break;
         if (len + 1 >= cap) {
             char *tmp = realloc(buff, cap * 2);
-            if (!tmp) { free(buff); return NULL; }
+            if (!tmp) {
+                free(buff);
+                return NULL;
+            }
             buff = tmp;
             cap *= 2;
         }
         buff[len++] = c;
     }
- 
+
     if (n <= 0 && len == 0) {
         free(buff);
         return NULL;
     }
- 
-    if (len > 0 && buff[len - 1] == '\r') len--;
+
+    if (len > 0 && buff[len - 1] == '\r')
+        len--;
     buff[len] = '\0';
- 
+
     char *exact = realloc(buff, len + 1);
-    if (exact) buff = exact;
- 
+    if (exact)
+        buff = exact;
+
     return buff;
 }
 
@@ -161,10 +166,10 @@ char **readLines(int fd, size_t *outCount) {
         return NULL;
 
     char *line;
-    while((line = readLine(fd)) != NULL) {
+    while ((line = readLine(fd)) != NULL) {
         if (linesCount >= linesCap) {
             linesCap *= 2;
-            char **tmp = realloc(lines, linesCap * sizeof(char*));
+            char **tmp = realloc(lines, linesCap * sizeof(char *));
             if (!tmp) {
                 free(line);
                 freeLines(lines, linesCount);
@@ -179,107 +184,105 @@ char **readLines(int fd, size_t *outCount) {
     return lines;
 }
 
-    /*
-    size_t lineLen = 0;
-    size_t lineCap = 128;
-    char *line = (char *)malloc(lineCap * sizeof(char));
-    if (!line) {
-        free(lines);
-        return NULL;
+/*
+size_t lineLen = 0;
+size_t lineCap = 128;
+char *line = (char *)malloc(lineCap * sizeof(char));
+if (!line) {
+    free(lines);
+    return NULL;
+}
+
+char buf[READ_CHUNK_SIZE];
+ssize_t bytesRead;
+int errorOccurred = 0;
+
+while (!errorOccurred && (bytesRead = read(fd, buf, sizeof(buf))) != 0) {
+    if (bytesRead < 0) {
+        if (errno == EINTR) // read was interrupted, try again
+            continue;
+        errorOccurred = 1;
+        break;
     }
 
-    char buf[READ_CHUNK_SIZE];
-    ssize_t bytesRead;
-    int errorOccurred = 0;
+    for (ssize_t i = 0; i < bytesRead; i++) {
+        char c = buf[i];
 
-    while (!errorOccurred && (bytesRead = read(fd, buf, sizeof(buf))) != 0) {
-        if (bytesRead < 0) {
-            if (errno == EINTR) // read was interrupted, try again
-                continue;
-            errorOccurred = 1;
-            break;
-        }
+        if (c == '\n') {
+            line[lineLen] = '\0';
 
-        for (ssize_t i = 0; i < bytesRead; i++) {
-            char c = buf[i];
-
-            if (c == '\n') {
-                line[lineLen] = '\0';
-
-                // Shrink line buffer to exact size to save memory across text
-                // files
-                char *shrunk = realloc(line, lineLen + 1);
-                if (shrunk) {
-                    line = shrunk;
-                }
-                // resize lines array if needed
-                if (linesCount >= linesCap) {
-                    size_t newCap = linesCap * 2;
-                    char **tmp = realloc(lines, newCap * sizeof(char *));
-                    if (!tmp) {
-                        errorOccurred = 1;
-                        break;
-                    }
-                    lines = tmp;
-                    linesCap = newCap;
-                }
-
-                lines[linesCount++] = line;
-
-                lineLen = 0;
-                lineCap = 128;
-                line = malloc(lineCap);
-                if (!line) {
+            // Shrink line buffer to exact size to save memory across text
+            // files
+            char *shrunk = realloc(line, lineLen + 1);
+            if (shrunk) {
+                line = shrunk;
+            }
+            // resize lines array if needed
+            if (linesCount >= linesCap) {
+                size_t newCap = linesCap * 2;
+                char **tmp = realloc(lines, newCap * sizeof(char *));
+                if (!tmp) {
                     errorOccurred = 1;
                     break;
                 }
-            } else {
-                // resize line buffer if needed
-                if (lineLen + 1 >= lineCap) {
-                    size_t newCap = lineCap * 2;
-                    char *tmp = realloc(line, newCap);
-                    if (!tmp) {
-                        errorOccurred = 1;
-                        break;
-                    }
-                    line = tmp;
-                    lineCap = newCap;
+                lines = tmp;
+                linesCap = newCap;
+            }
+
+            lines[linesCount++] = line;
+
+            lineLen = 0;
+            lineCap = 128;
+            line = malloc(lineCap);
+            if (!line) {
+                errorOccurred = 1;
+                break;
+            }
+        } else {
+            // resize line buffer if needed
+            if (lineLen + 1 >= lineCap) {
+                size_t newCap = lineCap * 2;
+                char *tmp = realloc(line, newCap);
+                if (!tmp) {
+                    errorOccurred = 1;
+                    break;
                 }
-                line[lineLen++] = c;
+                line = tmp;
+                lineCap = newCap;
             }
+            line[lineLen++] = c;
         }
     }
+}
 
-    if (errorOccurred) {
-        free(line);
-        freeLines(lines, linesCount);
-        return NULL;
+if (errorOccurred) {
+    free(line);
+    freeLines(lines, linesCount);
+    return NULL;
+}
+
+// Trailing line if the .txt file doesn't end with a \n
+if (lineLen > 0) {
+    line[lineLen] = '\0';
+
+    // shrink line buffer to exact size to save memory across text files
+    char *shrunk = realloc(line, lineLen + 1);
+    if (shrunk) {
+        line = shrunk;
     }
-
-    // Trailing line if the .txt file doesn't end with a \n
-    if (lineLen > 0) {
-        line[lineLen] = '\0';
-
-        // shrink line buffer to exact size to save memory across text files
-        char *shrunk = realloc(line, lineLen + 1);
-        if (shrunk) {
-            line = shrunk;
+    // resize lines array if needed
+    if (linesCount >= linesCap) {
+        char **tmp = realloc(lines, (linesCount + 1) * sizeof(char *));
+        if (!tmp) {
+            free(line);
+            freeLines(lines, linesCount);
+            return NULL;
         }
-        // resize lines array if needed
-        if (linesCount >= linesCap) {
-            char **tmp = realloc(lines, (linesCount + 1) * sizeof(char *));
-            if (!tmp) {
-                free(line);
-                freeLines(lines, linesCount);
-                return NULL;
-            }
-            lines = tmp;
-        }
-        // give ownership of the line to the lines array to not leak memory
-        lines[linesCount++] = line;
-    } else {
-        free(line);
+        lines = tmp;
     }
-        */
-
- 
+    // give ownership of the line to the lines array to not leak memory
+    lines[linesCount++] = line;
+} else {
+    free(line);
+}
+    */
