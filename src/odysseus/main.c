@@ -1,8 +1,13 @@
-#include "odysseus/odysseus.h"
-#include "utils/utils.h"
+// System headers
 #include <fcntl.h>
 #include <stdlib.h>
 #include <unistd.h>
+
+// Own headers
+#include "odysseus/menu.h"
+#include "odysseus/odysseus.h"
+#include "utils/utils.h"
+
 int main(int argc, char *argv[]) {
     if (argc != 2) {
         printErr("Usage: odysseus <config_file>.dat");
@@ -18,7 +23,10 @@ int main(int argc, char *argv[]) {
     }
 
     Odysseus odysseus = odysseusParseFile(fd);
-    odysseusPrintInfo(&odysseus);
+    // odysseusPrintInfo(&odysseus);
+
+    odysseusStartMenu(odysseus);
+
     odysseusDestroy(&odysseus);
     close(fd);
     return EXIT_SUCCESS;

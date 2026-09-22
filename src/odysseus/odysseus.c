@@ -56,13 +56,13 @@ Odysseus odysseusParseFile(int fd) {
             // Ensure we don't read beyond outCount or initialNumSupplies
             while (i < outCount &&
                    (i - 6) < (size_t)odysseus.initialNumSupplies) {
-                char *token = strtok(lines[i], " ");
-                if (token) {
-                    strncpy(odysseus.supplies[i - 6].name, token,
+                char *arg1 = strtok(lines[i], " ");
+                if (arg1) {
+                    strncpy(odysseus.supplies[i - 6].name, arg1,
                             sizeof(odysseus.supplies[i - 6].name) - 1);
-                    token = strtok(NULL, " ");
-                    if (token) {
-                        odysseus.supplies[i - 6].amount = atoi(token);
+                    arg1 = strtok(NULL, " ");
+                    if (arg1) {
+                        odysseus.supplies[i - 6].amount = atoi(arg1);
                     }
                 }
                 ++i;
