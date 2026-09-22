@@ -26,7 +26,7 @@ typedef struct {
 } Odysseus;
 
 void odysseusDestroy(Odysseus *odysseus);
-Odysseus odysseusParseFile();
+Odysseus odysseusParseFile(int fd);
 void odysseusPrintInfo(Odysseus *odysseus);
 
 #endif // !__ODYSSEUS_H

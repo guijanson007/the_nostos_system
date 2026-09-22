@@ -11,11 +11,10 @@
 // own
 #include "utils/utils.h"
 
-Odysseus odysseusParseFile() {
+Odysseus odysseusParseFile(int fd) {
     Odysseus odysseus;
     memset(&odysseus, 0, sizeof(Odysseus));
 
-    int fd = open("src/odysseus/odysseus.dat", O_RDONLY);
     if (fd == -1) {
         printErr("Failed to open odysseus.dat");
         return odysseus;
