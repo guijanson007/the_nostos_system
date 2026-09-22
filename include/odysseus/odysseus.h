@@ -25,7 +25,7 @@ typedef struct {
     Supply *supplies;
 } Odysseus;
 
-void odysseusDestroy(Odysseus *odysseus);
+void freeOdysseus(Odysseus *odysseus);
 Odysseus odysseusParseFile(int fd);
 void odysseusPrintInfo(Odysseus *odysseus);
 

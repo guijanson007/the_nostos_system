@@ -79,7 +79,7 @@ Odysseus odysseusParseFile(int fd) {
     return odysseus;
 }
 
-void odysseusDestroy(Odysseus *odysseus) {
+void freeOdysseus(Odysseus *odysseus) {
     if (odysseus->supplies) {
         free(odysseus->supplies);
         odysseus->supplies = NULL;

@@ -27,7 +27,7 @@ int main(int argc, char *argv[]) {
 
     odysseusStartMenu(odysseus);
 
-    odysseusDestroy(&odysseus);
+    freeOdysseus(&odysseus);
     close(fd);
     return EXIT_SUCCESS;
 }
