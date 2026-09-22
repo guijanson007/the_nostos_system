@@ -1,6 +1,5 @@
 CompileFlags:
-  Add:
-    - -I/home/guijanson/projects/os/the_nostos_system/lib/sphragis
-    - -I/home/guijanson/projects/os/the_nostos_system/include
+  CompilationDatabase: .
+
 
 
