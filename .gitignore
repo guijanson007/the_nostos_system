@@ -2,13 +2,17 @@
 # Build Outputs
 # -----------------------------------------------------------------------------
 /build/
-program
+/program
+/odysseus
+/ithaca
+/island
 *.exe
 *.out
 *.app
 
 # Object files, dependency files, and precompiled headers
 *.o
+!lib/sphragis/*.o
 *.d
 *.gch
 *.pch
