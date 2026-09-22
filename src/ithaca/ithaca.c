@@ -1,46 +1,17 @@
 #define _GNU_SOURCE
 
 #include <fcntl.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <signal.h>
 
+#include "../include/ithaca/ithaca.h"
 #include "../include/utils/utils.h"
 
-#define ERROR_ARGC "ERROR ITHACA: Invalid number of arguments"
-#define ERROR_FILE_ITHACA "ERROR ITHACA: The file couldn't been open"
-#define ERROR_FILE_VOYAGE "ERROR VOYAGE: The file couldn't been open"
-#define ERROR_LOAD_ITHACA                                                      \
-    "ERROR ITHACA: The data couldn't been loaded from the file"
-#define ERROR_LOAD_VOYAGE                                                      \
-    "ERROR VOYAGE: The data couldn't been loaded from the file"
-#define FARWEL "\nFinishing the Ithaca prosses"
 
-typedef struct {
-    char *name;
-    char *mision;
-    char *ipAddress;
-    int port;
-} Ithaca;
-
-typedef struct {
-    int id;
-    char *object;
-    char *file;
-    char *destination;
-    int reward;
-} Voyage;
-
-static int running = 1;
-
-static void onSigint(int sig) {
-    (void)sig;
-    println(FARWEL);
-    running = 0;
-}
 
 void freeIthaca(Ithaca *ithaca) {
     free(ithaca->name);
@@ -132,70 +103,5 @@ int loadVoyageData(int fd, Voyage **voyage, size_t *numVoyage) {
     *numVoyage = count;
     freeLines(lines, count);
 
-    return 0;
-}
-
-int main(int argc, char *argv[]) {
-    if (argc != 3) {
-        printErr(ERROR_ARGC);
-        return 1;
-    }
-
-    signal(SIGINT, onSigint);
-
-    int fd_ithaca = open(argv[1], O_RDONLY);
-    if (fd_ithaca == -1) {
-        printErr(ERROR_FILE_ITHACA);
-        return 1;
-    }
-
-    int fd_voyage = open(argv[2], O_RDONLY);
-    if (fd_voyage == -1) {
-        printErr(ERROR_FILE_VOYAGE);
-        return 1;
-    }
-
-    Ithaca ithaca;
-    Voyage *voyage;
-    size_t numVoyage = 0;
-
-    if (loadIthacaData(fd_ithaca, &ithaca) == -1) {
-        printErr(ERROR_LOAD_ITHACA);
-        return 1;
-    }
-
-    if (loadVoyageData(fd_voyage, &voyage, &numVoyage) == -1) {
-        printErr(ERROR_LOAD_VOYAGE);
-        return 1;
-    }
-
-    close(fd_ithaca);
-
-
-    // DEBUGING //
-    char *dbg = NULL;
-    if (asprintf(&dbg, "%s - %s - %s - %d", ithaca.name, ithaca.mision,
-                 ithaca.ipAddress, ithaca.port) >= 0) {
-        println(dbg);
-        free(dbg);
-    }
-
-    for (size_t i = 0; i < numVoyage; i++) {
-        char *dbg = NULL;
-        if (asprintf(&dbg, "%d: %s - %s - %s - %d", voyage[i].id,
-                     voyage[i].object, voyage[i].file, voyage[i].destination,
-                     voyage[i].reward) >= 0) {
-            println(dbg);
-            free(dbg);
-        }
-    }
-    /////////////
-
-    while (running) {
-        pause();
-    }
-
-    freeIthaca(&ithaca);
-    freeVoyage(voyage, &numVoyage);
     return 0;
 }
