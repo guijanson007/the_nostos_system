@@ -1,5 +1,6 @@
 // System headers
 #include <fcntl.h>
+#include <signal.h>
 #include <stdlib.h>
 #include <unistd.h>
 
@@ -7,6 +8,20 @@
 #include "odysseus/menu.h"
 #include "odysseus/odysseus.h"
 #include "utils/utils.h"
+
+Odysseus gOdysseus; // Global variable to hold the Odysseus instance
+
+void quitProgram(int signum) {
+    (void)signum; // Unused parameter
+                  // println("\nReceived SIGINT. Exiting...");
+
+    // first check if the odysseus struct has been initialized before trying to
+    // free it
+    if (gOdysseus.name)
+        freeOdysseus(&gOdysseus);
+
+    exit(EXIT_SUCCESS);
+}
 
 int main(int argc, char *argv[]) {
     if (argc != 2) {
@@ -21,13 +36,14 @@ int main(int argc, char *argv[]) {
         printErr(errorMsg);
         return EXIT_FAILURE;
     }
+    signal(SIGINT, quitProgram);
 
-    Odysseus odysseus = odysseusParseFile(fd);
-    // odysseusPrintInfo(&odysseus);
+    gOdysseus = odysseusParseFile(fd);
+    odysseusPrintInfo(&gOdysseus);
 
-    odysseusStartMenu(odysseus);
+    odysseusStartMenu(gOdysseus);
 
-    freeOdysseus(&odysseus);
+    freeOdysseus(&gOdysseus);
     close(fd);
     return EXIT_SUCCESS;
 }

@@ -1,3 +1,5 @@
+#define _GNU_SOURCE 1
+
 // header
 #include "odysseus/odysseus.h"
 
@@ -36,11 +38,33 @@ Odysseus odysseusParseFile(int fd) {
         return odysseus;
     }
 
-    // Copy data using strncpy to prevent buffer overflows
-    strncpy(odysseus.name, lines[0], sizeof(odysseus.name) - 1);
-    strncpy(odysseus.path, lines[1], sizeof(odysseus.path) - 1);
-    strncpy(odysseus.ipPort, lines[2], sizeof(odysseus.ipPort) - 1);
-    strncpy(odysseus.initialInfo, lines[3], sizeof(odysseus.initialInfo) - 1);
+    odysseus.name = strdup(lines[0]);
+    odysseus.path = strdup(lines[1]);
+
+    char *ipPort = strdup(lines[2]);
+    char *token = ipPort ? strtok(ipPort, " ") : NULL;
+    odysseus.ip = token ? strdup(token) : NULL;
+    token = token ? strtok(NULL, " ") : NULL;
+    odysseus.port = token ? strdup(token) : NULL;
+    free(ipPort); // only needed as strtok scratch space; ip/port are
+                  // independent copies now
+
+    odysseus.initialInfo = strdup(lines[3]);
+
+    if (!odysseus.name || !odysseus.path || !odysseus.ip || !odysseus.port ||
+        !odysseus.initialInfo) {
+        printErr("Failed to allocate/parse odysseus fields");
+        free(odysseus.name);
+        free(odysseus.path);
+        free(odysseus.ip);
+        free(odysseus.port);
+        free(odysseus.initialInfo);
+        for (size_t j = 0; j < outCount; j++)
+            free(lines[j]);
+        free(lines);
+        memset(&odysseus, 0, sizeof(Odysseus));
+        return odysseus;
+    }
 
     odysseus.initialMoney = atof(lines[4]);
     odysseus.initialNumSupplies = atoi(lines[5]);
@@ -50,16 +74,15 @@ Odysseus odysseusParseFile(int fd) {
             malloc(odysseus.initialNumSupplies * sizeof(Supply));
         if (!odysseus.supplies) {
             printErr("Failed to allocate memory for supplies");
-            // Fallthrough to cleanup
+            odysseus.initialNumSupplies =
+                0; // keep struct internally consistent
         } else {
             size_t i = 6;
-            // Ensure we don't read beyond outCount or initialNumSupplies
             while (i < outCount &&
                    (i - 6) < (size_t)odysseus.initialNumSupplies) {
                 char *arg1 = strtok(lines[i], " ");
                 if (arg1) {
-                    strncpy(odysseus.supplies[i - 6].name, arg1,
-                            sizeof(odysseus.supplies[i - 6].name) - 1);
+                    odysseus.supplies[i - 6].name = strdup(arg1);
                     arg1 = strtok(NULL, " ");
                     if (arg1) {
                         odysseus.supplies[i - 6].amount = atoi(arg1);
@@ -70,7 +93,6 @@ Odysseus odysseusParseFile(int fd) {
         }
     }
 
-    // Free the dynamically allocated memory from readLines
     for (size_t j = 0; j < outCount; j++) {
         free(lines[j]);
     }
@@ -80,7 +102,16 @@ Odysseus odysseusParseFile(int fd) {
 }
 
 void freeOdysseus(Odysseus *odysseus) {
+    free(odysseus->name);
+    free(odysseus->path);
+    free(odysseus->ip);
+    free(odysseus->port);
+    free(odysseus->initialInfo);
+
     if (odysseus->supplies) {
+        for (int i = 0; i < odysseus->initialNumSupplies; ++i) {
+            free(odysseus->supplies[i].name);
+        }
         free(odysseus->supplies);
         odysseus->supplies = NULL;
     }
@@ -95,7 +126,7 @@ void odysseusPrintInfo(Odysseus *odysseus) {
     sprintf(pathStr, "Path: %s", odysseus->path);
     println(pathStr);
     char ipPortStr[200];
-    sprintf(ipPortStr, "IP:Port: %s", odysseus->ipPort);
+    sprintf(ipPortStr, "IP:%s | Port: %s", odysseus->ip, odysseus->port);
     println(ipPortStr);
     char initialInfoStr[300];
     sprintf(initialInfoStr, "Initial Info: %s", odysseus->initialInfo);

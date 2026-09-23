@@ -11,15 +11,16 @@
  ************************************************/
 
 typedef struct {
-    char name[100];
+    char *name;
     int amount;
 } Supply;
 
 typedef struct {
-    char name[100];
-    char path[100];
-    char ipPort[100];
-    char initialInfo[200];
+    char *name;
+    char *path;
+    char *ip;
+    char *port;
+    char *initialInfo;
     float initialMoney;
     int initialNumSupplies;
     Supply *supplies;
