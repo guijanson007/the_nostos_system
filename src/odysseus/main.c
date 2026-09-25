@@ -37,9 +37,10 @@ int main(int argc, char *argv[]) {
 
     // something went wrong while parsing the file, we should exit
     if (!odysseus.name || !odysseus.path || !odysseus.ip || !odysseus.port ||
-        !odysseus.initialInfo || !odysseus.supplies ||
-        !odysseus.initialNumSupplies || !odysseus.supplies->name ||
-        !odysseus.supplies->amount) {
+        !odysseus.initialInfo ||
+        (odysseus.initialNumSupplies > 0 &&
+         (!odysseus.supplies || !odysseus.supplies->name ||
+          !odysseus.supplies->amount))) {
         freeOdysseus(&odysseus);
         close(fd);
         return EXIT_FAILURE;
