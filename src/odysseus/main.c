@@ -26,23 +26,31 @@ int main(int argc, char *argv[]) {
 
     if (fd == -1) {
         char errorMsg[256];
-        sprintf(errorMsg, "Failed to open file: %s", argv[1]);
+        snprintf(errorMsg, sizeof(errorMsg), "Failed to open file: %s",
+                 argv[1]);
         printErr(errorMsg);
         return EXIT_FAILURE;
     }
     signal(SIGINT, quitProgram);
 
     Odysseus odysseus = odysseusParseFile(fd);
-    // odysseusPrintInfo(&odysseus);
+
+    // something went wrong while parsing the file, we should exit
+    if (!odysseus.name || !odysseus.path || !odysseus.ip || !odysseus.port ||
+        !odysseus.initialInfo || !odysseus.supplies ||
+        !odysseus.initialNumSupplies || !odysseus.supplies->name ||
+        !odysseus.supplies->amount) {
+        freeOdysseus(&odysseus);
+        close(fd);
+        return EXIT_FAILURE;
+    }
+
+    odysseusPrintInfo(&odysseus);
 
     // Print the initial message
     odysseusStartMenu(odysseus);
 
-    while (1) {
-        if (gEv_quit) {
-            break;
-        }
-        odysseusShowMenu(odysseus);
+    while (!gEv_quit && odysseusShowMenu(odysseus) == 1) {
     }
 
     freeOdysseus(&odysseus);

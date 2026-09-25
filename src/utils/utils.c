@@ -1,3 +1,6 @@
+#define _GNU_SOURCE 1
+
+// header
 #include "../include/utils/utils.h"
 
 // System headers
@@ -109,47 +112,31 @@ void *readUntilEmpty(int fd, size_t elementSize, size_t *outCount) {
     return buff;
 }
 
-// Return a malloced string that must be free by the caller
-// Check if the malloc worked
-char *readLine(int fd) {
-    size_t cap = 150;
-    size_t len = 0;
-    char *buff = malloc(cap);
+// returns 1 if a line was read, 0 if error
+int readLine(int fd, char *buff, size_t bufferSize) {
     char c;
     ssize_t n;
-
+    size_t len = 0;
     if (buff == NULL)
-        return NULL;
+        return 0;
 
     while ((n = read(fd, &c, 1)) > 0) {
         if (c == '\n')
             break;
-        if (len + 1 >= cap) {
-            char *tmp = realloc(buff, cap * 2);
-            if (!tmp) {
-                free(buff);
-                return NULL;
-            }
-            buff = tmp;
-            cap *= 2;
+        if (len + 1 >= bufferSize) {
+            return 0;
         }
         buff[len++] = c;
     }
 
     if (n <= 0 && len == 0) {
-        free(buff);
-        return NULL;
+        return 0;
     }
 
     if (len > 0 && buff[len - 1] == '\r')
         len--;
     buff[len] = '\0';
-
-    char *exact = realloc(buff, len + 1);
-    if (exact)
-        buff = exact;
-
-    return buff;
+    return 1;
 }
 
 // returns an array of strings, each string is a line read from the file
@@ -159,31 +146,41 @@ char **readLines(int fd, size_t *outCount) {
         return NULL;
     *outCount = 0;
 
-    size_t linesCount = 0;
     size_t linesCap = 16;
-    char **lines = (char **)malloc(linesCap * sizeof(char *));
+    size_t linesCount = 0;
+    char **lines = malloc(linesCap * sizeof(char *));
     if (!lines)
         return NULL;
 
-    char *line;
-    while ((line = readLine(fd)) != NULL) {
+    char scratch[READ_CHUNK_SIZE];
+
+    while (readLine(fd, scratch, sizeof(scratch)) == 1) {
         if (linesCount >= linesCap) {
-            linesCap *= 2;
-            char **tmp = realloc(lines, linesCap * sizeof(char *));
+            size_t newCap = linesCap * 2;
+            char **tmp = realloc(lines, newCap * sizeof(char *));
             if (!tmp) {
-                free(line);
-                freeLines(lines, linesCount);
+                for (size_t i = 0; i < linesCount; i++)
+                    free(lines[i]);
+                free(lines);
                 return NULL;
             }
             lines = tmp;
+            linesCap = newCap;
         }
-        lines[linesCount++] = line;
+
+        lines[linesCount] = strdup(scratch);
+        if (!lines[linesCount]) {
+            for (size_t i = 0; i < linesCount; i++)
+                free(lines[i]);
+            free(lines);
+            return NULL;
+        }
+        linesCount++;
     }
 
     *outCount = linesCount;
     return lines;
 }
-
 int isAllDigits(const char *str) {
     if (!str || *str == '\0') {
         return 0;
