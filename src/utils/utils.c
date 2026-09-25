@@ -200,6 +200,7 @@ int isPositiveInteger(const char *str) {
     if (!str || *str == '\0') {
         return 0;
     }
+
     if (!isAllDigits(str))
         return 0;
 

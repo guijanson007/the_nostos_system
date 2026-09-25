@@ -9,18 +9,12 @@
 #include "odysseus/odysseus.h"
 #include "utils/utils.h"
 
-Odysseus gOdysseus; // Global variable to hold the Odysseus instance
+// event flag to indicate when to quit the program
+int gEv_quit = 0;
 
 void quitProgram(int signum) {
     (void)signum; // Unused parameter
-                  // println("\nReceived SIGINT. Exiting...");
-
-    // first check if the odysseus struct has been initialized before trying to
-    // free it
-    if (gOdysseus.name)
-        freeOdysseus(&gOdysseus);
-
-    exit(EXIT_SUCCESS);
+    gEv_quit = 1;
 }
 
 int main(int argc, char *argv[]) {
@@ -38,12 +32,20 @@ int main(int argc, char *argv[]) {
     }
     signal(SIGINT, quitProgram);
 
-    gOdysseus = odysseusParseFile(fd);
-    odysseusPrintInfo(&gOdysseus);
+    Odysseus odysseus = odysseusParseFile(fd);
+    // odysseusPrintInfo(&odysseus);
 
-    odysseusStartMenu(gOdysseus);
+    // Print the initial message
+    odysseusStartMenu(odysseus);
 
-    freeOdysseus(&gOdysseus);
+    while (1) {
+        if (gEv_quit) {
+            break;
+        }
+        odysseusShowMenu(odysseus);
+    }
+
+    freeOdysseus(&odysseus);
     close(fd);
     return EXIT_SUCCESS;
 }

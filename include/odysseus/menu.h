@@ -13,6 +13,7 @@
 // Own includes
 #include "odysseus/odysseus.h"
 
+void odysseusShowMenu(Odysseus odysseus);
 void odysseusStartMenu(Odysseus odysseus);
 
 #endif // !#ifndef __MENU_H__
