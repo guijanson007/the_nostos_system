@@ -46,7 +46,7 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
     }
 
-    odysseusPrintInfo(&odysseus);
+    // odysseusPrintInfo(&odysseus);
 
     // Print the initial message
     odysseusStartMenu(odysseus);
