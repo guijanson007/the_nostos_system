@@ -183,3 +183,25 @@ char **readLines(int fd, size_t *outCount) {
     *outCount = linesCount;
     return lines;
 }
+
+int isAllDigits(const char *str) {
+    if (!str || *str == '\0') {
+        return 0;
+    }
+    for (const char *p = str; *p != '\0'; p++) {
+        if (*p < '0' || *p > '9') {
+            return 0;
+        }
+    }
+    return 1;
+}
+
+int isPositiveInteger(const char *str) {
+    if (!str || *str == '\0') {
+        return 0;
+    }
+    if (!isAllDigits(str))
+        return 0;
+
+    return (atoi(str) > 0);
+}

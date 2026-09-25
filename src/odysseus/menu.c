@@ -13,9 +13,6 @@
 
 static void informCommandUnknow() { printErr("Unknown command"); }
 
-// TODO: fix error messages (unknown command, invalid arguments, etc.) and add
-// more commands
-
 void odysseusStartMenu(Odysseus odysseus) {
     char buff[1028];
 
@@ -62,7 +59,7 @@ void odysseusStartMenu(Odysseus odysseus) {
                 odysseusConnect(odysseus, arg1);
             } else {
                 error = 1;
-                informCommandUnknow();
+                printErr("Usage: CONNECT ITHACA\n");
             }
         } else if (strcmp(cmd, "LIST") == 0) {
             if (arg1 != NULL && strcmp(arg1, "VOYAGES") == 0) {
@@ -71,44 +68,59 @@ void odysseusStartMenu(Odysseus odysseus) {
                 odysseusListMarket(odysseus);
             } else {
                 error = 1;
-                informCommandUnknow();
+                printErr("Usage: LIST VOYAGES | LIST MARKET\n");
             }
         } else if (strcmp(cmd, "ACCEPT") == 0) {
             if (arg1 != NULL) {
+                if (!isPositiveInteger(arg1)) {
+                    error = 1;
+                    printErr("Voyage ID must be a positive integer\n");
+                    continue;
+                }
                 odysseusAcceptVoyage(odysseus, arg1);
             } else {
                 error = 1;
-                informCommandUnknow();
+                printErr("Usage: ACCEPT <voyage_id>\n");
             }
         } else if (strcmp(cmd, "SAIL") == 0) {
             if (arg1 != NULL) {
                 odysseusSail(odysseus, arg1);
             } else {
                 error = 1;
-                informCommandUnknow();
+                printErr("Usage: SAIL <ISLAND>\n");
             }
         }
         // 2-argument commands
         else if (strcmp(cmd, "BUY") == 0) {
             if (arg1 != NULL && arg2 != NULL) {
+                if (!isPositiveInteger(arg2)) {
+                    error = 1;
+                    printErr("Amount must be a positive integer\n");
+                    continue;
+                }
                 odysseusBuy(odysseus, arg1, arg2);
             } else {
                 error = 1;
-                informCommandUnknow();
+                printErr("Usage: BUY <PRODUCT> <AMOUNT>\n");
             }
         } else if (strcmp(cmd, "SELL") == 0) {
             if (arg1 != NULL && arg2 != NULL) {
+                if (!isPositiveInteger(arg2)) {
+                    error = 1;
+                    printErr("Amount must be a positive integer\n");
+                    continue;
+                }
                 odysseusSell(odysseus, arg1, arg2);
             } else {
                 error = 1;
-                informCommandUnknow();
+                printErr("Usage: SELL <PRODUCT> <AMOUNT>\n");
             }
         } else {
             error = 1;
             informCommandUnknow();
         }
         if (!error) {
-            println("Command OK");
+            println("Command OK\n");
         }
     }
 }

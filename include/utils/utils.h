@@ -19,5 +19,7 @@ void println(const char *message);
 void printErr(const char *message);
 void *readUntilEmpty(int fd, size_t elementSize, size_t *outCount);
 char **readLines(int fd, size_t *outCount);
+int isAllDigits(const char *str);
+int isPositiveInteger(const char *str);
 
 #endif // __UTILS_H__
