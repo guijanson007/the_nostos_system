@@ -25,7 +25,7 @@ int odysseusShowMenu(Odysseus odysseus) {
     OdysseusCommand command;
     const char *errorMessage;
 
-    static char input[ODYSSEUS_INPUT_SIZE];
+    char input[ODYSSEUS_INPUT_SIZE];
 
     if (!readLine(STDIN_FILENO, input, ODYSSEUS_INPUT_SIZE)) {
         if (errno == EINTR) {
@@ -37,16 +37,14 @@ int odysseusShowMenu(Odysseus odysseus) {
     }
 
     if (!parseOdysseusCommand(input, &command)) {
-        return 0;
+        return 1;
     }
 
     if (COMMAND_VALID != validateOdysseusCommand(&command, &errorMessage)) {
         printErr(errorMessage);
         printErr(""); // Print an empty line for better readability
-        memset(input, 0, sizeof(input));
         return 1; // Return 1 to continue the menu even after an invalid command
     }
-    memset(input, 0, sizeof(input)); // Clear the input buffer after processing
     executeOdysseusCommand(odysseus, &command);
     println("Command OK");
     println(""); // Print an empty line for better readability
