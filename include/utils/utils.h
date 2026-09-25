@@ -18,6 +18,9 @@ void writeToFileAndStdOut(int fd, const char *message);
 void println(const char *message);
 void printErr(const char *message);
 void *readUntilEmpty(int fd, size_t elementSize, size_t *outCount);
+int readLine(int fd, char *buff, size_t bufferSize);
 char **readLines(int fd, size_t *outCount);
+int isAllDigits(const char *str);
+int isPositiveInteger(const char *str);
 
 #endif // __UTILS_H__
