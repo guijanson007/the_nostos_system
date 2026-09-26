@@ -20,6 +20,7 @@ void printErr(const char *message);
 void *readUntilEmpty(int fd, size_t elementSize, size_t *outCount);
 int readLine(int fd, char *buff, size_t bufferSize);
 char **readLines(int fd, size_t *outCount);
+void *readBinary(int fd, size_t elementSize, size_t *outCount);
 int isAllDigits(const char *str);
 int isPositiveInteger(const char *str);
 

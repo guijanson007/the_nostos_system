@@ -34,9 +34,8 @@ int loadIthacaData(int fd, Ithaca *ithaca) {
     ithaca->name = lines[0];
     ithaca->mision = lines[1];
 
-    char *save = NULL;
-    char *ip = strtok_r(lines[2], " ", &save);
-    char *portStr = strtok_r(NULL, " ", &save);
+    char *ip = strtok(lines[2], " ");
+    char *portStr = strtok(NULL, " ");
     if (ip == NULL || portStr == NULL) {
         freeLines(lines, size);
         return -1;
@@ -78,15 +77,14 @@ int loadVoyageData(int fd, Voyage **voyage, size_t *numVoyage) {
     }
 
     for (size_t i = 0; i < count; i++) {
-        char *save = NULL;
-        char *object = strtok_r(lines[i], " ", &save);
+        char *object = strtok(lines[i], " ");
 
         if (object == NULL)
             continue;
 
-        char *file = strtok_r(NULL, " ", &save);
-        char *destination = strtok_r(NULL, " ", &save);
-        char *reward = strtok_r(NULL, " ", &save);
+        char *file = strtok(NULL, " ");
+        char *destination = strtok(NULL, " ");
+        char *reward = strtok(NULL, " ");
         if (file == NULL || destination == NULL || reward == NULL) {
             freeLines(lines, count);
             return -1;
