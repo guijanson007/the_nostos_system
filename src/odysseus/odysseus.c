@@ -1,3 +1,5 @@
+#define _GNU_SOURCE 1
+
 // header
 #include "odysseus/odysseus.h"
 
@@ -11,81 +13,110 @@
 // own
 #include "utils/utils.h"
 
-Odysseus odysseusParseFile(int fd) {
-    Odysseus odysseus;
-    memset(&odysseus, 0, sizeof(Odysseus));
+static int buildSupplies(Odysseus *odysseus, char **lines, size_t outCount) {
+    if (odysseus->initialNumSupplies > 0) {
+        odysseus->supplies =
+            calloc(odysseus->initialNumSupplies, sizeof(Supply));
+        if (!odysseus->supplies) {
 
-    if (fd == -1) {
-        printErr("Failed to open odysseus.dat");
-        return odysseus;
-    }
-
-    size_t outCount = 0;
-    char **lines = readLines(fd, &outCount);
-
-    close(fd);
-
-    // Verify readLines didn't fail and we have the minimum required lines
-    if (!lines || outCount < 6) {
-        printErr("Invalid or incomplete odysseus.dat file");
-        if (lines) {
-            for (size_t j = 0; j < outCount; j++)
-                free(lines[j]);
-            free(lines);
-        }
-        return odysseus;
-    }
-
-    // Copy data using strncpy to prevent buffer overflows
-    strncpy(odysseus.name, lines[0], sizeof(odysseus.name) - 1);
-    strncpy(odysseus.path, lines[1], sizeof(odysseus.path) - 1);
-    strncpy(odysseus.ipPort, lines[2], sizeof(odysseus.ipPort) - 1);
-    strncpy(odysseus.initialInfo, lines[3], sizeof(odysseus.initialInfo) - 1);
-
-    odysseus.initialMoney = atof(lines[4]);
-    odysseus.initialNumSupplies = atoi(lines[5]);
-
-    if (odysseus.initialNumSupplies > 0) {
-        odysseus.supplies =
-            malloc(odysseus.initialNumSupplies * sizeof(Supply));
-        if (!odysseus.supplies) {
-            printErr("Failed to allocate memory for supplies");
-            // Fallthrough to cleanup
+            return 0;
         } else {
             size_t i = 6;
-            // Ensure we don't read beyond outCount or initialNumSupplies
             while (i < outCount &&
-                   (i - 6) < (size_t)odysseus.initialNumSupplies) {
-                char *token = strtok(lines[i], " ");
-                if (token) {
-                    strncpy(odysseus.supplies[i - 6].name, token,
-                            sizeof(odysseus.supplies[i - 6].name) - 1);
-                    token = strtok(NULL, " ");
-                    if (token) {
-                        odysseus.supplies[i - 6].amount = atoi(token);
+                   (i - 6) < (size_t)odysseus->initialNumSupplies) {
+                char *arg1 = strtok(lines[i], " ");
+                if (arg1) {
+                    odysseus->supplies[i - 6].name = strdup(arg1);
+                    arg1 = strtok(NULL, " ");
+                    if (arg1) {
+                        odysseus->supplies[i - 6].amount = atoi(arg1);
                     }
                 }
                 ++i;
             }
         }
     }
-
-    // Free the dynamically allocated memory from readLines
-    for (size_t j = 0; j < outCount; j++) {
-        free(lines[j]);
-    }
-    free(lines);
-
-    return odysseus;
+    return 1;
 }
 
-void odysseusDestroy(Odysseus *odysseus) {
+Odysseus odysseusParseFile(int fd) {
+    Odysseus odysseus;
+    memset(&odysseus, 0, sizeof(Odysseus));
+
+    size_t outCount = 0;
+    char **lines = readLines(fd, &outCount);
+
+    // Verify readLines didn't fail and we have the minimum required lines
+    if (!lines || outCount < 6) {
+        printErr("Invalid or incomplete odysseus.dat file");
+        freeLines(lines, outCount);
+        return odysseus;
+    }
+
+    odysseus.name = strdup(lines[0]);
+    odysseus.path = strdup(lines[1]);
+
+    char *ipPort = strdup(lines[2]);
+    char *token = ipPort ? strtok(ipPort, " ") : NULL;
+    odysseus.ip = token ? strdup(token) : NULL;
+    token = token ? strtok(NULL, " ") : NULL;
+    odysseus.port = token ? strdup(token) : NULL;
+    free(ipPort);
+
+    odysseus.initialInfo = strdup(lines[3]);
+
+    if (!odysseus.name || !odysseus.path || !odysseus.ip || !odysseus.port ||
+        !odysseus.initialInfo) {
+        printErr("Failed to allocate/parse odysseus fields");
+        freeLines(lines, outCount);
+        return odysseus;
+    }
+
+    odysseus.initialMoney = atof(lines[4]);
+    odysseus.initialNumSupplies = atoi(lines[5]);
+
+    if (buildSupplies(&odysseus, lines, outCount) == 0) {
+        printErr("Failed to allocate memory for supplies");
+        freeLines(lines, outCount);
+        return odysseus;
+    };
+
+    // we can free the lines now since we have copied the data we need
+    freeLines(lines, outCount);
+
+    return odysseus;
+    // odysseus is freed in main.c in case of error, or after the menu loop
+    // ends, so we don't free it here
+}
+
+void freeOdysseus(Odysseus *odysseus) {
+    if (odysseus == NULL) {
+        return;
+    }
+
+    free(odysseus->name);
+    odysseus->name = NULL;
+    free(odysseus->path);
+    odysseus->path = NULL;
+    free(odysseus->ip);
+    odysseus->ip = NULL;
+    free(odysseus->port);
+    odysseus->port = NULL;
+    free(odysseus->initialInfo);
+    odysseus->initialInfo = NULL;
+
     if (odysseus->supplies) {
+        for (int i = 0; i < odysseus->initialNumSupplies; ++i) {
+            free(odysseus->supplies[i].name);
+            odysseus->supplies[i].name = NULL;
+        }
         free(odysseus->supplies);
         odysseus->supplies = NULL;
     }
+    odysseus->initialNumSupplies = 0;
 }
 
+// Useful for debugging purposes, prints the contents of the Odysseus struct
 void odysseusPrintInfo(Odysseus *odysseus) {
     println("Odysseus Info:");
     char nameStr[200];
@@ -95,7 +126,7 @@ void odysseusPrintInfo(Odysseus *odysseus) {
     sprintf(pathStr, "Path: %s", odysseus->path);
     println(pathStr);
     char ipPortStr[200];
-    sprintf(ipPortStr, "IP:Port: %s", odysseus->ipPort);
+    sprintf(ipPortStr, "IP:%s | Port: %s", odysseus->ip, odysseus->port);
     println(ipPortStr);
     char initialInfoStr[300];
     sprintf(initialInfoStr, "Initial Info: %s", odysseus->initialInfo);
