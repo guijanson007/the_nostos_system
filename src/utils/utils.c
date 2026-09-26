@@ -183,3 +183,56 @@ char **readLines(int fd, size_t *outCount) {
     *outCount = linesCount;
     return lines;
 }
+
+void *readBinary(int fd, size_t elementSize, size_t *outCount) {
+    if (outCount == NULL)
+        return NULL;
+    *outCount = 0;
+    if (elementSize == 0)
+        return NULL;
+
+    size_t linesCap = 16;
+    size_t count = 0;
+    char *buff = malloc(linesCap * elementSize);
+    if (buff == NULL)
+        return NULL;
+
+    int done = 0;
+    while (!done) {
+        if (count >= linesCap) {
+            linesCap *= 2;
+            char *tmp = realloc(buff, linesCap * elementSize);
+            if (!tmp) {
+                free(buff);
+                return NULL;
+            }
+            buff = tmp;
+        }
+
+        char *destination = buff + count * elementSize;
+        int n = read(fd, destination, elementSize);
+        if (n < 0) {
+            free(buff);
+            return NULL;
+        } else if (n == 0) {
+            done = 1;
+        } else if ((size_t)n != elementSize) {
+            free(buff);
+            return NULL;
+        } else {
+            count++;
+        }
+    }
+
+    if (count == 0) {
+        free(buff);
+        *outCount = 0;
+        return NULL;
+    }
+
+    char *exact = realloc(buff, count * elementSize);
+    if (exact != NULL) buff = exact;
+
+    *outCount = count;
+    return buff;
+}

@@ -19,5 +19,6 @@ void println(const char *message);
 void printErr(const char *message);
 void *readUntilEmpty(int fd, size_t elementSize, size_t *outCount);
 char **readLines(int fd, size_t *outCount);
+void *readBinary(int fd, size_t elementSize, size_t *outCount);
 
 #endif // __UTILS_H__

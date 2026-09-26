@@ -11,7 +11,9 @@
 #include "../include/ithaca/ithaca.h"
 #include "../include/utils/utils.h"
 
-#define ERROR_ARGC "Usage: ./ithaca <ithaca.dat> <voyages.db>"
+#define ITHACA_FILE "ithaca.dat"
+#define VOYAGES_FILE "voyages.dat"
+#define ERROR_ARGC "Usage: ./ithaca <ithaca.dat> <voyages.dat>"
 #define ERROR_FILE_ITHACA "ERROR ITHACA: The file couldn't been open"
 #define ERROR_FILE_VOYAGE "ERROR VOYAGE: The file couldn't been open"
 #define ERROR_LOAD_ITHACA                                                      \
@@ -29,7 +31,7 @@ void onSigint(int sig) {
 }
 
 int main(int argc, char *argv[]) {
-    if (argc != 3) {
+    if (argc != 3 || strcmp(argv[1], ITHACA_FILE) != 0 || strcmp(argv[2], VOYAGES_FILE) != 0) {
         printErr(ERROR_ARGC);
         return 1;
     }
@@ -83,7 +85,7 @@ int main(int argc, char *argv[]) {
     }
     /////////////
 
-    while(run) {
+    while (run) {
         pause();
     }
 
