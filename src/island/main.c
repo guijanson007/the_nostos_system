@@ -19,6 +19,12 @@
 #define ERROR_FILE_STOCK "ERROR: stock file couldn't be open"
 #define ERROR_LOAD_CONFIG "ERROR: data from the config file could not been open"
 
+static volatile int run = 1;
+
+void onSigint () {
+    run = 0;
+}
+
 static void closeFiles(int *fd_config, int *fd_stock) {
     close(*fd_config);
     close(*fd_stock);
@@ -35,6 +41,8 @@ int main(int argc, char *argv[]) {
         printErr(ERROR_ARGC);
         return EXIT_FAILURE;
     }
+
+    signal(SIGINT, onSigint);
 
     int fd_config = open(argv[1], O_RDONLY);
     if (fd_config == -1) {
@@ -84,11 +92,15 @@ int main(int argc, char *argv[]) {
         free(buffer);
     }
 
-    ////////////
+    ///////////
+
+    while(run) {
+        pause();
+    }
 
     closeFiles(&fd_config, &fd_stock);
     freeIsland(&island, &sphragis);
     freeStock(&stock);
-    println("Island process finished.");
+    println("\nIsland process finished.");
     return EXIT_SUCCESS;
 }

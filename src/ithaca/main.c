@@ -26,8 +26,12 @@ static volatile int run = 1;
 
 void onSigint(int sig) {
     (void)sig;
-    println(FARWEL);
     run = 0;
+}
+
+void closeFile(int *fd_ithaca, int *fd_voyage) {
+    close(*fd_ithaca);
+    close(*fd_voyage);
 }
 
 int main(int argc, char *argv[]) {
@@ -47,6 +51,7 @@ int main(int argc, char *argv[]) {
     int fd_voyage = open(argv[2], O_RDONLY);
     if (fd_voyage == -1) {
         printErr(ERROR_FILE_VOYAGE);
+        close(fd_ithaca);
         return 1;
     }
 
@@ -56,15 +61,15 @@ int main(int argc, char *argv[]) {
 
     if (loadIthacaData(fd_ithaca, &ithaca) == -1) {
         printErr(ERROR_LOAD_ITHACA);
+        closeFile(&fd_ithaca, &fd_voyage);
         return 1;
     }
 
     if (loadVoyageData(fd_voyage, &voyage, &numVoyage) == -1) {
         printErr(ERROR_LOAD_VOYAGE);
+        closeFile(&fd_ithaca, &fd_voyage);
         return 1;
     }
-
-    close(fd_ithaca);
 
     // DEBUGING //
     char *dbg = NULL;
@@ -91,5 +96,7 @@ int main(int argc, char *argv[]) {
 
     freeIthaca(&ithaca);
     freeVoyage(voyage, &numVoyage);
+    closeFile(&fd_ithaca, &fd_voyage);
+    println(FARWEL);
     return EXIT_SUCCESS;
 }
