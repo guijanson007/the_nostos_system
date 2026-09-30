@@ -11,7 +11,7 @@
  ************************************************/
 
 // Own includes
-#include "odysseus/odysseus.h"
+#include "odysseus/odysseus_parser.h"
 
 int odysseusShowMenu(Odysseus odysseus);
 void odysseusStartMenu(Odysseus odysseus);

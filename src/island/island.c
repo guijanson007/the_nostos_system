@@ -1,168 +1,241 @@
+/***********************************************
+ *
+ * @File : island.c
+ * @Purpose : manages the island process.
+ *            Arguments: argv[1] = config file
+ *                       argv[2] = stock file
+ * @Author : Axel Boleda Callizo
+ * @Date : 24/09/2026
+ *
+ ************************************************/
+
 #define _GNU_SOURCE
 
-#include <fcntl.h>
-#include <signal.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/types.h>
-#include <unistd.h>
+#include "island/island.h"
 
-#include "../include/island/island.h"
-#include "../include/utils/utils.h"
-#include "../lib/sphragis/sphragis.h"
-
-#define START_ROUTS 5
-
-static int filterRouts(SPHRAGIS_Island *island, Rout **routs,
-                       size_t *numRouts) {
-    int newCount = SPHRAGIS_filter_island_configuration(island);
-    if (newCount < 0)
-        return -1;
-
-    size_t numMatches = 0;
-    for (size_t i = 0; i < *numRouts; i++) {
-        if (numMatches < (size_t)newCount &&
-            strcmp(island->known_islands[numMatches], (*routs)[i].name) == 0) {
-            (*routs)[numMatches++] = (*routs)[i];
-        } else {
-            free((*routs)[i].name);
-            free((*routs)[i].ip);
-        }
-    }
-
-    *numRouts = newCount;
-    return 0;
+/***********************************************
+ *
+ * @Name : freeRoute
+ * @Def : Frees the strings of one route.
+ * @Arg : In/Out: ptRoute = route to free
+ * @Ret : None.
+ *
+ ************************************************/
+static void freeRoute(Route *ptRoute) {
+    free(ptRoute->psName);
+    free(ptRoute->psIp);
+    ptRoute->psName = NULL;
+    ptRoute->psIp = NULL;
 }
 
-void freeIsland(Island *island, SPHRAGIS_Island *sphragis) {
-    if (island == NULL)
-        return;
-
-    free(island->name);
-    free(island->file);
-    free(island->ip);
-    free(sphragis->name);
-    for (size_t i = 0; i < island->numRouts; i++) {
-        free(island->routs[i].name);
-        free(island->routs[i].ip);
-        free(sphragis->known_islands[i]);
-    }
-    free(island->routs);
-    free(sphragis->known_islands);
-    memset(island, 0, sizeof *island);
-}
-
-static void errorHandeler(Island *island, SPHRAGIS_Island *sphragis,
-                           Rout *routs, size_t numRouts,
-                           char **lines, size_t count) {
-    island->routs = routs;
-    island->numRouts = numRouts;
-    freeLines(lines, count);
-    freeIsland(island, sphragis);
-}
-
-int loadIsland(int fd, Island *island, SPHRAGIS_Island *sphragis) {
-    size_t count;
-    size_t numRouts = 0;
-    size_t capacity = 15;
-    char **lines = readLines(fd, &count);
-    if (lines == NULL)
-        return -1;
-
-    sphragis->name = strdup(lines[0]);
-
-    island->name = strdup(lines[0]);
-    island->file = strdup(lines[1]);
-
-    char *ip = strtok(lines[2], " ");
-    if (ip == NULL) {
-        freeLines(lines, count);
-        return -1;
-    }
-    char *port = strtok(NULL, " ");
-    island->ip = strdup(ip);
-    island->port = atoi(port);
-    island->capacity = atoi(lines[3]);
-
-    Rout *routs = malloc(sizeof(Rout) * capacity);
-    sphragis->known_islands = malloc(sizeof(char *) * capacity);
-    if (routs == NULL || island->name == NULL || island->file == NULL ||
-        island->ip == NULL || sphragis->known_islands == NULL ||  sphragis->name == NULL) {
-        freeLines(lines, count);
-        return -1;
-    }
-
-    if (count < START_ROUTS) {
-        freeLines(lines, count);
-        return -1;
-    }
-
-    for (size_t i = START_ROUTS; i < count; i++) {
-        if (numRouts >= capacity) {
-            capacity *= 2;
-            Rout *tmp_r = realloc(routs, capacity * sizeof(Rout));
-            char **tmp_c =
-                realloc(sphragis->known_islands, capacity * sizeof(char *));
-            if (tmp_r == NULL || tmp_c == NULL) {
-                errorHandeler(island, sphragis, routs, numRouts, lines, count);
-                return -1;
+/***********************************************
+ *
+ * @Name : freeIsland
+ * @Def : Frees all the dynamic memory of the island and the sphragis
+ *        island. Safe to call more than once.
+ * @Arg : In/Out: ptIsland = island to free
+ *        In/Out: ptSphragis = sphragis island to free
+ * @Ret : None.
+ *
+ ************************************************/
+void freeIsland(Island *ptIsland, SPHRAGIS_Island *ptSphragis) {
+    size_t i = 0;
+ 
+    if (NULL != ptIsland) {
+        free(ptIsland->psName);
+        free(ptIsland->psFile);
+        free(ptIsland->psIp);
+        if (NULL != ptIsland->atRoutes) {
+            for (i = 0; i < ptIsland->tNumRoutes; i++) {
+                freeRoute(&ptIsland->atRoutes[i]);
             }
-            routs = tmp_r;
-            sphragis->known_islands = tmp_c;
+            free(ptIsland->atRoutes);
         }
-
-        char *name = strtok(lines[i], " ");
-        if (name == NULL)
-            continue;
-
-        char *ip = strtok(NULL, " ");
-        char *port = strtok(NULL, " ");
-
-        if (ip == NULL || port == NULL) {
-            errorHandeler(island, sphragis, routs, numRouts, lines, count);
-            return -1;
-        }
-
-        sphragis->known_islands[numRouts] = strdup(name);
-
-        Rout current;
-        current.name = strdup(name);
-        current.ip = strdup(ip);
-        current.port = atoi(port);
-        if (current.name == NULL || current.ip == NULL ||
-            sphragis->known_islands[numRouts] == NULL) {
-            errorHandeler(island, sphragis, routs, numRouts, lines, count);
-            return -1;
-        }
-        routs[numRouts] = current;
-        numRouts++;
+        memset(ptIsland, 0, sizeof(*ptIsland));
     }
-    sphragis->known_island_count = numRouts;
-    freeLines(lines, count);
-
-    if (filterRouts(sphragis, &routs, &numRouts) < 0) {
-        freeIsland(island, sphragis);
-        return -1;
+ 
+    if (NULL != ptSphragis) {
+        free(ptSphragis->name);
+        ptSphragis->name = NULL;
+        if (NULL != ptSphragis->known_islands) {
+            for (i = 0; i < (size_t)ptSphragis->known_island_count; i++) {
+                free(ptSphragis->known_islands[i]);
+            }
+            free(ptSphragis->known_islands);
+            ptSphragis->known_islands = NULL;
+        }
+        ptSphragis->known_island_count = 0;
     }
-
-    island->routs = routs;
-    island->numRouts = numRouts;
-    return 0;
 }
 
-void freeStock(Stock **stock) {
-    if (stock == NULL || *stock == NULL)
+/***********************************************
+ *
+ * @Name : freeStock
+ * @Def : Frees the stock dynamic array.
+ * @Arg : In/Out: patStock = pointer to the stock array
+ * @Ret : None.
+ *
+ ************************************************/
+void freeStock(Stock **patStock) {
+    if (NULL == patStock || NULL == *patStock) {
         return;
-    free(*stock);
-    *stock = NULL;
+    }
+    free(*patStock);
+    *patStock = NULL;
 }
 
-int loadStock(int fd, Stock **stock, size_t *numStock) {
+/***********************************************
+ *
+ * @Name : closeFiles
+ * @Def : Closes the config and stock file descriptors and marks them
+ *        as closed (-1) so they can't be closed twice.
+ * @Arg : In/Out: pnFdConfig = pointer to the config file descriptor
+ *        In/Out: pnFdStock = pointer to the stock file descriptor
+ * @Ret : None.
+ *
+ ************************************************/
+void closeFiles(int *pnFdConfig, int *pnFdStock) {
+    if (-1 != *pnFdConfig) {
+        close(*pnFdConfig);
+        *pnFdConfig = -1;
+    }
+    if (-1 != *pnFdStock) {
+        close(*pnFdStock);
+        *pnFdStock = -1;
+    }
+}
 
-    *stock = readBinary(fd, sizeof(Stock), numStock);
-    if (*stock == NULL)
+/***********************************************
+ *
+ * @Name : errorLoadingHandler
+ * @Def : Prints a loading error and closes both files.
+ * @Arg : In: psError = error message to print
+ *        In/Out: pnFdConfig = pointer to the config file descriptor
+ *        In/Out: pnFdStock = pointer to the stock file descriptor
+ * @Ret : None.
+ *
+ ************************************************/
+void errorLoadingHandler(const char *psError, int *pnFdConfig, int *pnFdStock) {
+    printErr((char *)psError);
+    closeFiles(pnFdConfig, pnFdStock);
+}
+
+/***********************************************
+ *
+ * @Name : printData
+ * @Def : Prints the island info, its routes and its stock (debugging).
+ * @Arg : In: ptIsland = pointer to the island struct
+ *        In: atStock = dynamic array of stock items
+ *        In: tNumStock = number of elements in atStock
+ * @Ret : None.
+ *
+ ************************************************/
+void printData(const Island *ptIsland, const Stock *atStock, size_t tNumStock) {
+    char *psBuffer = NULL;
+    size_t i = 0;
+
+    if (-1 != asprintf(&psBuffer, "%s - %s - %s %d - %d", ptIsland->psName,
+                       ptIsland->psFile, ptIsland->psIp, ptIsland->nPort,
+                       ptIsland->nCapacity)) {
+        println(psBuffer);
+        free(psBuffer);
+    }
+
+    for (i = 0; i < ptIsland->tNumRoutes; i++) {
+        if (-1 != asprintf(&psBuffer, "\t%s - %s - %d", ptIsland->atRoutes[i].psName,
+                           ptIsland->atRoutes[i].psIp, ptIsland->atRoutes[i].nPort)) {
+            println(psBuffer);
+            free(psBuffer);
+        }
+    }
+
+    for (i = 0; i < tNumStock; i++) {
+        if (-1 != asprintf(&psBuffer, "%s - %d - %d", atStock[i].sName,
+                           atStock[i].nQuantity, atStock[i].nPrice)) {
+            println(psBuffer);
+            free(psBuffer);
+        }
+    }
+}
+
+/***********************************************
+ *
+ * @Name : loadData
+ * @Def : Loads the island (config file) and the stock (stock file).  On error it prints the message, closes both files and frees.
+ * @Arg : In/Out: pnFdConfig = pointer to the config file descriptor
+ *        In/Out: pnFdStock = pointer to the stock file descriptor
+ *        Out: ptIsland = island to fill
+ *        Out: ptSphragis = sphragis island to fill
+ *        Out: patStock = dynamic array of stock to fill
+ *        Out: ptNumStock = number of elements in the stock array
+ * @Ret : 0 if everything went well, -1 otherwise.
+ *
+ ************************************************/
+int loadData(int *pnFdConfig, int *pnFdStock, Island *ptIsland,
+             SPHRAGIS_Island *ptSphragis, Stock **patStock, size_t *ptNumStock) {
+    if (-1 == loadIsland(*pnFdConfig, ptIsland, ptSphragis)) {
+        errorLoadingHandler(ERROR_LOAD_CONFIG, pnFdConfig, pnFdStock);
+        freeIsland(ptIsland, ptSphragis);
         return -1;
-
+    }
+ 
+    if (-1 == loadStock(*pnFdStock, patStock, ptNumStock)) {
+        errorLoadingHandler(ERROR_LOAD_STOCK, pnFdConfig, pnFdStock);
+        freeIsland(ptIsland, ptSphragis);
+        freeStock(patStock);
+        return -1;
+    }
+ 
     return 0;
+}
+ 
+/***********************************************
+ *
+ * @Name : main
+ * @Def : Manages the general flow of the island process.
+ * @Arg : In: argc = number of arguments
+ *        In: argv = arguments (config file and stock file)
+ * @Ret : EXIT_SUCCESS if everything went well, EXIT_FAILURE otherwise.
+ *
+ ************************************************/
+int main(int argc, char *argv[]) {
+    int nFdConfig = -1;
+    int nFdStock = -1;
+    Island tIsland = {0};
+    Stock *atStock = NULL;
+    size_t tNumStock = 0;
+    SPHRAGIS_Island tSphragis = {0};
+ 
+    if (EXPECTED_ARGC != argc || 0 != strcmp(argv[1], CONFIG_FILE) ||
+        0 != strcmp(argv[2], STOCK_FILE)) {
+        printErr(ERROR_ARGC);
+        return EXIT_FAILURE;
+    }
+ 
+    nFdConfig = open(argv[1], O_RDONLY);
+    if (-1 == nFdConfig) {
+        printErr(ERROR_FILE_CONFIG);
+        return EXIT_FAILURE;
+    }
+ 
+    nFdStock = open(argv[2], O_RDONLY);
+    if (-1 == nFdStock) {
+        printErr(ERROR_FILE_STOCK);
+        close(nFdConfig);
+        return EXIT_FAILURE;
+    }
+ 
+    if (-1 == loadData(&nFdConfig, &nFdStock, &tIsland, &tSphragis,
+                       &atStock, &tNumStock)) {
+        return EXIT_FAILURE;
+    }
+ 
+    // DEBUGGING
+    printData(&tIsland, atStock, tNumStock);
+ 
+    closeFiles(&nFdConfig, &nFdStock);
+    freeIsland(&tIsland, &tSphragis);
+    freeStock(&atStock);
+    println("Island process finished.");
+    return EXIT_SUCCESS;
 }

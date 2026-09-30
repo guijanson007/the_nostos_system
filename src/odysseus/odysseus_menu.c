@@ -1,5 +1,5 @@
 // header
-#include "odysseus/menu.h"
+#include "odysseus/odysseus_menu.h"
 
 // system
 #include <errno.h>
@@ -8,7 +8,7 @@
 #include <unistd.h>
 
 // own
-#include "odysseus/command.h"
+#include "odysseus/odysseus_command.h"
 #include "utils/utils.h"
 
 #define ODYSSEUS_INPUT_SIZE 1028

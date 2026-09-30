@@ -1,11 +1,11 @@
 // header
-#include "odysseus/command.h"
+#include "odysseus/odysseus_command.h"
 
 // system
 #include <string.h>
 
 // own
-#include "odysseus/handler.h"
+#include "odysseus/odysseus_handler.h"
 #include "utils/utils.h"
 
 static CommandType commandTypeFromName(const char *name) {

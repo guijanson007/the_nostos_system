@@ -348,7 +348,7 @@ void *readBinary (int nFd, size_t tElementSize, size_t *ptOutCount) {
  * @Arg : In: psString = string to check
  * @Ret : Returns 1 if every character is a digit, 0 otherwise.
  *
- ************************************************/ç
+ ************************************************/
 
 int isAllDigits(const char *psString) {
     const char *pcCurrent = NULL;

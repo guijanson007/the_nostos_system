@@ -24,7 +24,7 @@
 #define INITIAL_LINES_CAPACITY 16
 #define INITIAL_BINARY_CAPACITY 16
 
-
+//Functions
 void freeLines(char **apsLines, size_t tCount);
 void writeToFileAndStdOut(int nFd, const char *psMessage);
 void println(const char *psMessage);
