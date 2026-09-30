@@ -1,5 +1,5 @@
-#ifndef __ITHACA_H_
-#define __ITHACA_H_
+#ifndef __ITHACA_PARSER_H_
+#define __ITHACA_PARSER_H_
 
 /***********************************************
  *
@@ -10,24 +10,9 @@
  *
  ************************************************/
 
-typedef struct {
-    char *name;
-    char *mision;
-    char *ipAddress;
-    int port;
-} Ithaca;
+#include "ithaca.h"
 
-typedef struct {
-    int id;
-    char *object;
-    char *file;
-    char *destination;
-    int reward;
-} Voyage;
-
-int loadIthacaData(int fd, Ithaca *ithaca);
-void freeIthaca(Ithaca *ithaca);
-int loadVoyageData(int fd, Voyage **voyage, size_t *numVoyage);
-void freeVoyage(Voyage *voyages, size_t *numVoyage);
+int loadIthacaData(int nFd, Ithaca *ptIthaca);
+int loadVoyageData(int nFd, Voyage **patVoyages, size_t *ptNumVoyages);
 
 #endif

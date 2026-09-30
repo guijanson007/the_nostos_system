@@ -14,9 +14,10 @@
 #include "island/island.h"
 #include "sphragis.h"
 
-#Constants
+//Constants
 #define START_ROUTS 5
 #define INITIAL_ROUTES_CAPACITY 15
+
 
 //Functions
 int loadIsland(int fd, Island *island, SPHRAGIS_Island *sphragis);

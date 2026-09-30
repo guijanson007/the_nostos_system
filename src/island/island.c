@@ -13,6 +13,13 @@
 
 #include "island/island.h"
 
+int nEv_quit = 0;
+
+static void onSigint(int nSignum) {
+    (void)nSignum;
+    nEv_quit = 1;
+}
+
 /***********************************************
  *
  * @Name : freeRoute
@@ -21,7 +28,7 @@
  * @Ret : None.
  *
  ************************************************/
-static void freeRoute(Route *ptRoute) {
+void freeRoute(Route *ptRoute) {
     free(ptRoute->psName);
     free(ptRoute->psIp);
     ptRoute->psName = NULL;
@@ -87,22 +94,31 @@ void freeStock(Stock **patStock) {
 /***********************************************
  *
  * @Name : closeFiles
- * @Def : Closes the config and stock file descriptors and marks them
- *        as closed (-1) so they can't be closed twice.
+ * @Def : Closes the config and stock file descriptors.
  * @Arg : In/Out: pnFdConfig = pointer to the config file descriptor
  *        In/Out: pnFdStock = pointer to the stock file descriptor
  * @Ret : None.
  *
  ************************************************/
 void closeFiles(int *pnFdConfig, int *pnFdStock) {
-    if (-1 != *pnFdConfig) {
-        close(*pnFdConfig);
-        *pnFdConfig = -1;
+    close(*pnFdConfig);
+    close(*pnFdStock);
+}
+
+/***********************************************
+ *
+ * @Name : waitForQuit
+ * @Def : Installs the SIGINT handler and waits until the user presses Ctrl+C, then prints the farewell message.
+ * @Arg : None.
+ * @Ret : None.
+ *
+ ************************************************/
+void waitForQuit(void) {
+    signal(SIGINT, onSigint);
+    while (!nEv_quit) {
+        pause();
     }
-    if (-1 != *pnFdStock) {
-        close(*pnFdStock);
-        *pnFdStock = -1;
-    }
+    println(FAREWELL);
 }
 
 /***********************************************
@@ -124,26 +140,26 @@ void errorLoadingHandler(const char *psError, int *pnFdConfig, int *pnFdStock) {
  *
  * @Name : printData
  * @Def : Prints the island info, its routes and its stock (debugging).
- * @Arg : In: ptIsland = pointer to the island struct
+ * @Arg : In: ptIsland = copy of the island struct
  *        In: atStock = dynamic array of stock items
  *        In: tNumStock = number of elements in atStock
  * @Ret : None.
  *
  ************************************************/
-void printData(const Island *ptIsland, const Stock *atStock, size_t tNumStock) {
+void printData(Island ptIsland, Stock *atStock, size_t tNumStock) {
     char *psBuffer = NULL;
     size_t i = 0;
 
-    if (-1 != asprintf(&psBuffer, "%s - %s - %s %d - %d", ptIsland->psName,
-                       ptIsland->psFile, ptIsland->psIp, ptIsland->nPort,
-                       ptIsland->nCapacity)) {
+    if (-1 != asprintf(&psBuffer, "%s - %s - %s %d - %d", ptIsland.psName,
+                       ptIsland.psFile, ptIsland.psIp, ptIsland.nPort,
+                       ptIsland.nCapacity)) {
         println(psBuffer);
         free(psBuffer);
     }
 
-    for (i = 0; i < ptIsland->tNumRoutes; i++) {
-        if (-1 != asprintf(&psBuffer, "\t%s - %s - %d", ptIsland->atRoutes[i].psName,
-                           ptIsland->atRoutes[i].psIp, ptIsland->atRoutes[i].nPort)) {
+    for (i = 0; i < ptIsland.tNumRoutes; i++) {
+        if (-1 != asprintf(&psBuffer, "\t%s - %s - %d", ptIsland.atRoutes[i].psName,
+                           ptIsland.atRoutes[i].psIp, ptIsland.atRoutes[i].nPort)) {
             println(psBuffer);
             free(psBuffer);
         }
@@ -171,8 +187,7 @@ void printData(const Island *ptIsland, const Stock *atStock, size_t tNumStock) {
  * @Ret : 0 if everything went well, -1 otherwise.
  *
  ************************************************/
-int loadData(int *pnFdConfig, int *pnFdStock, Island *ptIsland,
-             SPHRAGIS_Island *ptSphragis, Stock **patStock, size_t *ptNumStock) {
+int loadData(int *pnFdConfig, int *pnFdStock, Island *ptIsland, SPHRAGIS_Island *ptSphragis, Stock **patStock, size_t *ptNumStock) {
     if (-1 == loadIsland(*pnFdConfig, ptIsland, ptSphragis)) {
         errorLoadingHandler(ERROR_LOAD_CONFIG, pnFdConfig, pnFdStock);
         freeIsland(ptIsland, ptSphragis);
@@ -180,7 +195,7 @@ int loadData(int *pnFdConfig, int *pnFdStock, Island *ptIsland,
     }
  
     if (-1 == loadStock(*pnFdStock, patStock, ptNumStock)) {
-        errorLoadingHandler(ERROR_LOAD_STOCK, pnFdConfig, pnFdStock);
+        errorLoadingHandler(ERROR_FILE_STOCK, pnFdConfig, pnFdStock);
         freeIsland(ptIsland, ptSphragis);
         freeStock(patStock);
         return -1;
@@ -231,7 +246,9 @@ int main(int argc, char *argv[]) {
     }
  
     // DEBUGGING
-    printData(&tIsland, atStock, tNumStock);
+    printData(tIsland, atStock, tNumStock);
+
+    waitForQuit();
  
     closeFiles(&nFdConfig, &nFdStock);
     freeIsland(&tIsland, &tSphragis);

@@ -225,7 +225,7 @@ int loadIsland(int nFd, Island *ptIsland, SPHRAGIS_Island *ptSphragis) {
         return -1;
     }
     // Check BEFORE touching lines[0..4]
-    if (tCount < FIRST_ROUTE_LINE) {
+    if (tCount < START_ROUTS) {
         freeLines(apsLines, tCount);
         return -1;
     }
@@ -235,7 +235,7 @@ int loadIsland(int nFd, Island *ptIsland, SPHRAGIS_Island *ptSphragis) {
         return loadError(ptIsland, ptSphragis, apsLines, tCount);
     }
  
-    for (i = FIRST_ROUTE_LINE; i < tCount; i++) {
+    for (i = START_ROUTS; i < tCount; i++) {
         if (-1 == addRoute(apsLines[i], ptIsland, ptSphragis, &tCapacity)) {
             return loadError(ptIsland, ptSphragis, apsLines, tCount);
         }

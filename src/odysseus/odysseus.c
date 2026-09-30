@@ -10,11 +10,11 @@
 #include "utils/utils.h"
 
 // event flag to indicate when to quit the program
-int gEv_quit = 0;
+int nEv_quit = 0;
 
 void quitProgram(int signum) {
-    (void)signum; // Unused parameter
-    gEv_quit = 1;
+    (void)signum;
+    nEv_quit = 1;
 }
 
 int main(int argc, char *argv[]) {
@@ -51,7 +51,7 @@ int main(int argc, char *argv[]) {
     // Print the initial message
     odysseusStartMenu(odysseus);
 
-    while (!gEv_quit && odysseusShowMenu(odysseus) == 1) {
+    while (!nEv_quit && odysseusShowMenu(odysseus) == 1) {
     }
 
     freeOdysseus(&odysseus);

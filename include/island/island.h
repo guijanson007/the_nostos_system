@@ -1,5 +1,5 @@
-#ifndef __ISLAND_H__
-#define __ISLAND_H__
+#ifndef __ISLAND_H_
+#define __ISLAND_H_
  
 /***********************************************
  *
@@ -19,11 +19,6 @@
 #include <sys/types.h>
 #include <unistd.h>
  
-// Local Includes
-#include "island_parser.h"
-#include "../utils/utils.h"
-#include "../../lib/sphragis/sphragis.h"
- 
 // Constants
 #define EXPECTED_ARGC 3
 #define CONFIG_FILE "aeaea.dat"
@@ -32,6 +27,7 @@
 #define ERROR_FILE_CONFIG "ERROR: config file couldn't be open"
 #define ERROR_FILE_STOCK "ERROR: stock file couldn't be open"
 #define ERROR_LOAD_CONFIG "ERROR: data from the config file could not been open"
+#define FAREWELL "\nFinishing the Island process"
 
 //Structs
 typedef struct {
@@ -55,14 +51,20 @@ typedef struct {
     int nQuantity;
     int nPrice;
 } Stock;
+
+// Local Includes
+#include "island_parser.h"
+#include "../utils/utils.h"
+#include "../../lib/sphragis/sphragis.h"
  
 // Functions
 void freeIsland(Island *island, SPHRAGIS_Island *sphragis);
 void freeStock(Stock **stock);
+void freeRoute(Route *ptRoute);
 void closeFiles(int *pnFdConfig, int *pnFdStock);
 void errorLoadingHandeler(int *pnFdConfig, int *pnFdStock);
-void printData (Island tIsland, Stock *atStock, int nNumStock)
-int main(int argc, char *argv[]);
+void printData (Island tIsland, Stock *atStock, size_t nNumStock);
+void waitForQuit(void);
  
-#endif  __ISLAND_H__
+#endif
  

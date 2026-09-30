@@ -12,94 +12,134 @@
 #include "../include/utils/utils.h"
 
 
-
-void freeIthaca(Ithaca *ithaca) {
-    free(ithaca->name);
-    free(ithaca->mision);
-    free(ithaca->ipAddress);
-    memset(ithaca, 0, sizeof *ithaca);
-}
-
-int loadIthacaData(int fd, Ithaca *ithaca) {
-    size_t size;
-    char **lines = readLines(fd, &size);
-
-    if (lines == NULL)
-        return -1;
-    if (size != 3) {
-        freeLines(lines, size);
-        return -1;
-    }
-
-    ithaca->name = lines[0];
-    ithaca->mision = lines[1];
-
-    char *ip = strtok(lines[2], " ");
-    char *portStr = strtok(NULL, " ");
-    if (ip == NULL || portStr == NULL) {
-        freeLines(lines, size);
+/***********************************************
+ *
+ * @Name : loadIthacaData
+ * @Def : Reads the ithaca file (name, mission, "ip port") and fills the
+ *        ithaca struct. On error everything allocated is freed.
+ * @Arg : In: nFd = ithaca file descriptor
+ *        Out: ptIthaca = ithaca to fill
+ * @Ret : 0 if everything went well, -1 otherwise.
+ *
+ ************************************************/
+int loadIthacaData(int nFd, Ithaca *ptIthaca) {
+    size_t tCount = 0;
+    char **apsLines = NULL;
+    char *psIp = NULL;
+    char *psPort = NULL;
+ 
+    apsLines = readLines(nFd, &tCount);
+    if (NULL == apsLines) {
         return -1;
     }
-    ithaca->ipAddress = strdup(ip);
-    ithaca->port = atoi(portStr);
-
-    free(lines[2]);
-    free(lines);
+    if (ITHACA_NUM_LINES != tCount) {
+        freeLines(apsLines, tCount);
+        return -1;
+    }
+ 
+    psIp = strtok(apsLines[2], " ");
+    psPort = strtok(NULL, " ");
+    if (NULL == psIp || NULL == psPort) {
+        freeLines(apsLines, tCount);
+        return -1;
+    }
+ 
+    ptIthaca->psName = strdup(apsLines[0]);
+    ptIthaca->psMission = strdup(apsLines[1]);
+    ptIthaca->psIp = strdup(psIp);
+    ptIthaca->nPort = atoi(psPort);
+    freeLines(apsLines, tCount);
+ 
+    if (NULL == ptIthaca->psName || NULL == ptIthaca->psMission ||
+        NULL == ptIthaca->psIp) {
+        freeIthaca(ptIthaca);
+        return -1;
+    }
     return 0;
 }
 
-void freeVoyage(Voyage *voyages, size_t *numVoyage) {
-    if (voyages == NULL)
-        return;
-    for (size_t i = 0; i < *numVoyage; i++) {
-        free(voyages[i].object);
-        free(voyages[i].file);
-        free(voyages[i].destination);
+
+/***********************************************
+ *
+ * @Name : parseVoyage
+ * @Def : Parses one voyage line
+ * @Arg : In: psLine = line to parse
+ *        Out: ptVoyage = voyage to fill
+ *        In: nId = id given to the voyage
+ * @Ret : 1 if a voyage was read, 0 if the line was empty, -1 on error.
+ *
+ ************************************************/
+static int parseVoyage(char *psLine, Voyage *ptVoyage, int nId) {
+    char *psObject = strtok(psLine, " ");
+    char *psFile = NULL;
+    char *psDestination = NULL;
+    char *psReward = NULL;
+ 
+    if (NULL == psObject) {
+        return 0;   // empty line
     }
-    *numVoyage = 0;
-    free(voyages);
+    psFile = strtok(NULL, " ");
+    psDestination = strtok(NULL, " ");
+    psReward = strtok(NULL, " ");
+    if (NULL == psFile || NULL == psDestination || NULL == psReward) {
+        return -1;
+    }
+ 
+    ptVoyage->nId = nId;
+    ptVoyage->psObject = strdup(psObject);
+    ptVoyage->psFile = strdup(psFile);
+    ptVoyage->psDestination = strdup(psDestination);
+    ptVoyage->nReward = atoi(psReward);
+    if (NULL == ptVoyage->psObject || NULL == ptVoyage->psFile ||
+        NULL == ptVoyage->psDestination) {
+        free(ptVoyage->psObject);
+        free(ptVoyage->psFile);
+        free(ptVoyage->psDestination);
+        return -1;
+    }
+    return 1;
 }
 
-int loadVoyageData(int fd, Voyage **voyage, size_t *numVoyage) {
-    *voyage = NULL;
-    *numVoyage = 0;
-
-    size_t count = 0;
-
-    char **lines = readLines(fd, &count);
-    if (lines == NULL)
-        return -1;
-
-    Voyage *list = malloc((count + 1) * sizeof(Voyage));
-    if (list == NULL) {
-        freeLines(lines, count);
+/***********************************************
+ *
+ * @Name : loadVoyageData
+ * @Def : Reads the voyages file into a dynamic array of Voyage. Empty lines are skipped. On error everything allocated is freed.
+ * @Arg : In: nFd = voyages file descriptor
+ *        Out: patVoyages = pointer to the voyages array to fill
+ *        Out: ptNumVoyages = number of voyages read
+ * @Ret : 0 if everything went well, -1 otherwise.
+ *
+ ************************************************/
+int loadVoyageData(int nFd, Voyage **patVoyages, size_t *ptNumVoyages) {
+    size_t tCount = 0;
+    size_t i = 0;
+    char **apsLines = NULL;
+    int nResult = 0;
+ 
+    *patVoyages = NULL;
+    *ptNumVoyages = 0;
+ 
+    apsLines = readLines(nFd, &tCount);
+    if (NULL == apsLines) {
         return -1;
     }
-
-    for (size_t i = 0; i < count; i++) {
-        char *object = strtok(lines[i], " ");
-
-        if (object == NULL)
-            continue;
-
-        char *file = strtok(NULL, " ");
-        char *destination = strtok(NULL, " ");
-        char *reward = strtok(NULL, " ");
-        if (file == NULL || destination == NULL || reward == NULL) {
-            freeLines(lines, count);
+    
+    *patVoyages = malloc(sizeof(Voyage) * (tCount + 1));
+    if (NULL == *patVoyages) {
+        freeLines(apsLines, tCount);
+        return -1;
+    }
+ 
+    for (i = 0; i < tCount; i++) {
+        nResult = parseVoyage(apsLines[i], &(*patVoyages)[*ptNumVoyages], (int)*ptNumVoyages + 1);
+        if (-1 == nResult) {
+            freeLines(apsLines, tCount);
+            freeVoyage(patVoyages, ptNumVoyages);
             return -1;
         }
-
-        list[i].id = (int)i + 1;
-        list[i].object = strdup(object);
-        list[i].file = strdup(file);
-        list[i].destination = strdup(destination);
-        list[i].reward = atoi(reward);
+        *ptNumVoyages += (size_t)nResult;
     }
-
-    *voyage = list;
-    *numVoyage = count;
-    freeLines(lines, count);
-
+ 
+    freeLines(apsLines, tCount);
     return 0;
 }
