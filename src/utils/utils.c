@@ -78,6 +78,15 @@ void printErr(const char *psMessage) {
     write(STDERR_FILENO, "\n", strlen("\n"));
 }
 
+/***********************************************
+ *
+ * @Name : strToUpper
+ * @Def : Converts a string to uppercase in place.
+ * @Arg : In: psString = string to convert
+ * @Ret : None.
+ *
+ ***********************************************/
+
 void strToUpper(char *psString) {
     if (NULL == psString) {
         return;

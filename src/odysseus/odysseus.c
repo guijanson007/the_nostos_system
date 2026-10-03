@@ -15,6 +15,13 @@
 // event flag to indicate when to quit the program
 int nEv_quit = 0;
 
+/*******************************
+ * @Name : quitProgram
+ * @Def : Signal handler to set the quit event flag when SIGINT is received.
+ * @Arg : In: signum = signal number (unused)
+ * @Ret : None.
+ *
+ ********************************/
 void quitProgram(int signum) {
     (void)signum;
     nEv_quit = 1;

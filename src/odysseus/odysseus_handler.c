@@ -1,6 +1,11 @@
 // header
 #include "odysseus/odysseus_handler.h"
 
+/*
+ * This file is not yet implemented, and will be used starting form phase 2 of
+ * the project
+ */
+
 void odysseusConnect(Odysseus odysseus, const char *destination) {
     (void)odysseus;
     (void)destination;

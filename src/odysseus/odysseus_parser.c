@@ -13,6 +13,16 @@
 // own
 #include "utils/utils.h"
 
+/*************************************************
+ *
+ * @Name : buildSupplies
+ * @Def : Allocates and populates the supplies array in the Odysseus struct.
+ * @Arg : In: odysseus = pointer to Odysseus struct to populate
+ *        In: lines = array of strings read from the odysseus.dat file
+ *        In: outCount = number of lines read
+ * @Ret : Returns 1 on success, 0 on failure (e.g., memory allocation failure).
+ *
+ **************************************************/
 static int buildSupplies(Odysseus *odysseus, char **lines, size_t outCount) {
     if (odysseus->initialNumSupplies > 0) {
         odysseus->supplies =
@@ -39,6 +49,15 @@ static int buildSupplies(Odysseus *odysseus, char **lines, size_t outCount) {
     return 1;
 }
 
+/**************************************************
+ *
+ * @Name : odysseusParseFile
+ * @Def : Parses the odysseus.dat file and populates an Odysseus struct.
+ * @Arg : In: fd = file descriptor of the odysseus.dat file
+ * @Ret : Returns a populated Odysseus struct. If parsing fails, returns an
+ * empty Odysseus struct with all fields set to NULL or 0.
+ *
+ **************************************************/
 Odysseus odysseusParseFile(int fd) {
     Odysseus odysseus;
     memset(&odysseus, 0, sizeof(Odysseus));
@@ -89,6 +108,14 @@ Odysseus odysseusParseFile(int fd) {
     // ends, so we don't free it here
 }
 
+/**************************************************
+ *
+ * @Name : freeOdysseus
+ * @Def : Frees all dynamically allocated memory in the Odysseus struct.
+ * @Arg : In: odysseus = pointer to Odysseus struct to free
+ * @Ret : None.
+ *
+ **************************************************/
 void freeOdysseus(Odysseus *odysseus) {
     if (odysseus == NULL) {
         return;
@@ -116,36 +143,56 @@ void freeOdysseus(Odysseus *odysseus) {
     odysseus->initialNumSupplies = 0;
 }
 
-// Useful for debugging purposes, prints the contents of the Odysseus struct
+/*************************************************
+ *
+ * @Name : odysseusPrintInfo
+ * @Def : Prints the information of the Odysseus struct to standard output.
+ * (Solely used for debugging purposes)
+ * @Arg : In: odysseus = pointer to Odysseus struct to print
+ * @Ret : None.
+ *
+ **************************************************/
 void odysseusPrintInfo(Odysseus *odysseus) {
+    char *str;
+
     println("Odysseus Info:");
-    char nameStr[200];
-    sprintf(nameStr, "Name: %s", odysseus->name);
-    println(nameStr);
-    char pathStr[200];
-    sprintf(pathStr, "Path: %s", odysseus->path);
-    println(pathStr);
-    char ipPortStr[200];
-    sprintf(ipPortStr, "IP:%s | Port: %s", odysseus->ip, odysseus->port);
-    println(ipPortStr);
-    char initialInfoStr[300];
-    sprintf(initialInfoStr, "Initial Info: %s", odysseus->initialInfo);
-    println(initialInfoStr);
-    char moneyStr[100];
-    sprintf(moneyStr, "Initial money: %f", odysseus->initialMoney);
-    println(moneyStr);
-    char numSuppliesStr[100];
-    sprintf(numSuppliesStr, "Initial number of supplies: %d",
-            odysseus->initialNumSupplies);
-    println(numSuppliesStr);
+
+    asprintf(&str, "Name: %s", odysseus->name);
+    println(str);
+    free(str);
+
+    asprintf(&str, "Path: %s", odysseus->path);
+    println(str);
+    free(str);
+
+    asprintf(&str, "IP:%s | Port: %s", odysseus->ip, odysseus->port);
+    println(str);
+    free(str);
+
+    asprintf(&str, "Initial Info: %s", odysseus->initialInfo);
+    println(str);
+    free(str);
+
+    asprintf(&str, "Initial money: %f", odysseus->initialMoney);
+    println(str);
+    free(str);
+
+    asprintf(&str, "Initial number of supplies: %d",
+             odysseus->initialNumSupplies);
+    println(str);
+    free(str);
 
     for (int i = 0; i < odysseus->initialNumSupplies; ++i) {
-        char supplyHeader[200];
-        sprintf(supplyHeader, "Supply %d:", i + 1);
-        println(supplyHeader);
-        sprintf(supplyHeader, "\tName: %s", odysseus->supplies[i].name);
-        println(supplyHeader);
-        sprintf(supplyHeader, "\tAmount: %d", odysseus->supplies[i].amount);
-        println(supplyHeader);
+        asprintf(&str, "Supply %d:", i + 1);
+        println(str);
+        free(str);
+
+        asprintf(&str, "\tName: %s", odysseus->supplies[i].name);
+        println(str);
+        free(str);
+
+        asprintf(&str, "\tAmount: %d", odysseus->supplies[i].amount);
+        println(str);
+        free(str);
     }
 }
