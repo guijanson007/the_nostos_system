@@ -172,6 +172,23 @@ void waitForQuit() {
     }
     println(FAREWELL);
 }
+
+/***********************************************
+ *
+ * @Name : checkArgcIthaca
+ * @Def : Checks the number and validity of command-line arguments.
+ * @Arg : In: argc = number of arguments
+ *        In: argv = arguments (ithaca file and voyages file)
+ * @Ret : 0 if arguments are valid return 0, -1 otherwise.
+ *
+ ************************************************/
+int checkArgcIthaca(int argc, char *argv[]) {
+    if (EXPECTED_ARGC != argc || 0 != strcmp(argv[1], ITHACA_FILE) || 0 != strcmp(argv[2], VOYAGES_FILE)) {
+        printErr(ERROR_ARGC);
+        return -1;
+    }
+    return 0;
+}
  
 /***********************************************
  *
@@ -189,9 +206,7 @@ int main(int argc, char *argv[]) {
     Voyage *atVoyages = NULL;
     size_t tNumVoyages = 0;
  
-    if (EXPECTED_ARGC != argc || 0 != strcmp(argv[1], ITHACA_FILE) ||
-        0 != strcmp(argv[2], VOYAGES_FILE)) {
-        printErr(ERROR_ARGC);
+    if (0 != checkArgcIthaca(argc, argv)) {
         return EXIT_FAILURE;
     }
  

@@ -107,22 +107,6 @@ void closeFiles(int *pnFdConfig, int *pnFdStock) {
 
 /***********************************************
  *
- * @Name : waitForQuit
- * @Def : Installs the SIGINT handler and waits until the user presses Ctrl+C, then prints the farewell message.
- * @Arg : None.
- * @Ret : None.
- *
- ************************************************/
-void waitForQuit(void) {
-    signal(SIGINT, onSigint);
-    while (!nEv_quit) {
-        pause();
-    }
-    println(FAREWELL);
-}
-
-/***********************************************
- *
  * @Name : errorLoadingHandler
  * @Def : Prints a loading error and closes both files.
  * @Arg : In: psError = error message to print
@@ -204,6 +188,58 @@ int loadData(int *pnFdConfig, int *pnFdStock, Island *ptIsland, SPHRAGIS_Island 
     return 0;
 }
  
+
+/***********************************************
+ *
+ * @Name : checkArgcIsland
+ * @Def : Checks the number and validity of command-line arguments.
+ * @Arg : In: argc = number of arguments
+ *        In: argv = arguments (island config file and stock file)
+ * @Ret : 0 if arguments are valid return 0, -1 otherwise.
+ *
+ ************************************************/
+int checkArgcIsland(int argc, char *argv[]) {
+    if (EXPECTED_ARGC != argc) {
+        return -1;
+    }
+
+    char *configAux = strdup(argv[1]);
+    char *stockAux = strdup(argv[2]);
+
+    if(configAux == NULL || stockAux == NULL) {
+        free(configAux);
+        free(stockAux);
+        return -1;
+    }
+
+    char *islandConfigFile = strtok(configAux, ".");
+    char *stockFoler = strtok(stockAux, "/");
+    char *aux = strtok(NULL, "/");
+    if (NULL == islandConfigFile || NULL == stockFoler || NULL == aux) {
+        free(configAux);
+        free(stockAux);
+        return -1;
+    }
+    char *islandStockFile = strtok(aux, ".");
+    if (NULL == islandStockFile) {
+        free(configAux);
+        free(stockAux);
+        return -1;
+    }
+
+    if (0 != strcasecmp(islandConfigFile, islandStockFile) || 0 != strcmp(stockFoler, "stocks")){
+        free(configAux);
+        free(stockAux);
+        return -1;
+    }
+
+    free(configAux);
+    free(stockAux);
+    
+    return 0;
+}
+
+
 /***********************************************
  *
  * @Name : main
@@ -221,8 +257,7 @@ int main(int argc, char *argv[]) {
     size_t tNumStock = 0;
     SPHRAGIS_Island tSphragis = {0};
  
-    if (EXPECTED_ARGC != argc || 0 != strcmp(argv[1], CONFIG_FILE) ||
-        0 != strcmp(argv[2], STOCK_FILE)) {
+    if (0 != checkArgcIsland(argc, argv)) {
         printErr(ERROR_ARGC);
         return EXIT_FAILURE;
     }
@@ -248,11 +283,14 @@ int main(int argc, char *argv[]) {
     // DEBUGGING
     printData(tIsland, atStock, tNumStock);
 
-    waitForQuit();
+    signal(SIGINT, onSigint);
+    while (!nEv_quit) {
+        pause();
+    }
  
     closeFiles(&nFdConfig, &nFdStock);
     freeIsland(&tIsland, &tSphragis);
     freeStock(&atStock);
-    println("Island process finished.");
+    println("\nIsland process finished.");
     return EXIT_SUCCESS;
 }

@@ -21,8 +21,6 @@
  
 // Constants
 #define EXPECTED_ARGC 3
-#define CONFIG_FILE "aeaea.dat"
-#define STOCK_FILE "stocks/Aeaea.db"
 #define ERROR_ARGC "Usage: ./island <config.dat> <stocks/stock.db>"
 #define ERROR_FILE_CONFIG "ERROR: config file couldn't be open"
 #define ERROR_FILE_STOCK "ERROR: stock file couldn't be open"
