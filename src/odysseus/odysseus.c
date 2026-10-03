@@ -1,6 +1,9 @@
+#define _GNU_SOURCE
+
 // System headers
 #include <fcntl.h>
 #include <signal.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 
@@ -25,15 +28,16 @@ int main(int argc, char *argv[]) {
     int fd = open(argv[1], O_RDONLY);
 
     if (fd == -1) {
-        char errorMsg[256];
-        snprintf(errorMsg, sizeof(errorMsg), "Failed to open file: %s",
-                 argv[1]);
+        char *errorMsg;
+        asprintf(&errorMsg, "Failed to open file: %s", argv[1]);
         printErr(errorMsg);
+        free(errorMsg);
         return EXIT_FAILURE;
     }
     signal(SIGINT, quitProgram);
 
     Odysseus odysseus = odysseusParseFile(fd);
+    close(fd);
 
     // something went wrong while parsing the file, we should exit
     if (!odysseus.name || !odysseus.path || !odysseus.ip || !odysseus.port ||
@@ -42,7 +46,6 @@ int main(int argc, char *argv[]) {
          (!odysseus.supplies || !odysseus.supplies->name ||
           !odysseus.supplies->amount))) {
         freeOdysseus(&odysseus);
-        close(fd);
         return EXIT_FAILURE;
     }
 

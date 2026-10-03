@@ -1,3 +1,5 @@
+#define _GNU_SOURCE
+
 // header
 #include "odysseus/odysseus_menu.h"
 
@@ -11,23 +13,20 @@
 #include "odysseus/odysseus_command.h"
 #include "utils/utils.h"
 
-#define ODYSSEUS_INPUT_SIZE 1028
-
 void odysseusStartMenu(Odysseus odysseus) {
-    char buffer[ODYSSEUS_INPUT_SIZE];
-
-    snprintf(buffer, sizeof(buffer), "Odysseus %s is ready to sail.\n",
-             odysseus.name);
+    char *buffer;
+    asprintf(&buffer, "Odysseus %s is ready to sail.\n", odysseus.name);
     println(buffer);
+    free(buffer);
 }
 
 int odysseusShowMenu(Odysseus odysseus) {
     OdysseusCommand command;
     const char *errorMessage;
 
-    char input[ODYSSEUS_INPUT_SIZE];
+    char *input = NULL;
 
-    if (!readLine(STDIN_FILENO, input, ODYSSEUS_INPUT_SIZE)) {
+    if (-1 == readLine(STDIN_FILENO, &input)) {
         if (errno == EINTR) {
             return 0; // Interrupted by signal
         } else {
@@ -36,15 +35,22 @@ int odysseusShowMenu(Odysseus odysseus) {
         }
     }
 
+    if (NULL == input) {
+        return 0;
+    }
+
     if (!parseOdysseusCommand(input, &command)) {
+        free(input);
         return 1;
     }
 
     if (COMMAND_VALID != validateOdysseusCommand(&command, &errorMessage)) {
         printErr(errorMessage);
         printErr(""); // Print an empty line for better readability
+        free(input);
         return 1; // Return 1 to continue the menu even after an invalid command
     }
+    free(input); // Free the input buffer after parsing
     executeOdysseusCommand(odysseus, &command);
     println("Command OK");
     println(""); // Print an empty line for better readability
