@@ -29,6 +29,7 @@ void freeLines(char **apsLines, size_t tCount);
 void writeToFileAndStdOut(int nFd, const char *psMessage);
 void println(const char *psMessage);
 void printErr(const char *psMessage);
+void strToUpper(char *psString);
 void *readUntilEmpty(int nFd, size_t tElementSize, size_t *ptOutCount);
 int readLine(int nFd, char **ppsBuffer);
 char **readLines(int nFd, size_t *ptOutCount);

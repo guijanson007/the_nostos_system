@@ -20,11 +20,24 @@ void odysseusStartMenu(Odysseus odysseus) {
     free(buffer);
 }
 
+void setupInputField() {
+    // make text bold
+    write(STDOUT_FILENO, "\033[1m", strlen("\033[1m"));
+    write(STDOUT_FILENO, "$ ", strlen("$ "));
+}
+
+void resetInputField() {
+    // reset text formatting
+    write(STDOUT_FILENO, "\033[0m", strlen("\033[0m"));
+}
+
 int odysseusShowMenu(Odysseus odysseus) {
     OdysseusCommand command;
     const char *errorMessage;
 
     char *input = NULL;
+
+    setupInputField();
 
     if (-1 == readLine(STDIN_FILENO, &input)) {
         if (errno == EINTR) {
@@ -34,6 +47,8 @@ int odysseusShowMenu(Odysseus odysseus) {
             return 0; // Error reading input
         }
     }
+
+    resetInputField();
 
     if (NULL == input) {
         return 0;
@@ -50,8 +65,8 @@ int odysseusShowMenu(Odysseus odysseus) {
         free(input);
         return 1; // Return 1 to continue the menu even after an invalid command
     }
-    free(input); // Free the input buffer after parsing
     executeOdysseusCommand(odysseus, &command);
+    free(input);
     println("Command OK");
     println(""); // Print an empty line for better readability
     return 1;

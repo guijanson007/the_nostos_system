@@ -78,6 +78,17 @@ void printErr(const char *psMessage) {
     write(STDERR_FILENO, "\n", strlen("\n"));
 }
 
+void strToUpper(char *psString) {
+    if (NULL == psString) {
+        return;
+    }
+    for (; *psString; ++psString) {
+        if ('a' <= *psString && *psString <= 'z') {
+            *psString -= 32; // Convert to uppercase
+        }
+    }
+}
+
 /***********************************************
  *
  * @Name : readUntilEmpty
@@ -198,6 +209,7 @@ int readLine(int nFd, char **ppsBuffer) {
         if ('\n' == cChar) {
             break;
         }
+
         if (tLength + 1 >= tBufferSize) {
             char *psTemp = realloc(psBuffer, tBufferSize + 1);
             if (NULL == psTemp) {

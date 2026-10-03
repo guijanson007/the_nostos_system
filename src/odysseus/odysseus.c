@@ -58,6 +58,5 @@ int main(int argc, char *argv[]) {
     }
 
     freeOdysseus(&odysseus);
-    close(fd);
     return EXIT_SUCCESS;
 }
