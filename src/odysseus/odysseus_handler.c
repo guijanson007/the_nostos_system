@@ -1,5 +1,5 @@
 // header
-#include "odysseus/handler.h"
+#include "odysseus/odysseus_handler.h"
 
 void odysseusConnect(Odysseus odysseus, const char *destination) {
     (void)odysseus;

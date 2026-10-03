@@ -1,14 +1,20 @@
+#define _GNU_SOURCE
+
 // header
-#include "odysseus/command.h"
+#include "odysseus/odysseus_command.h"
 
 // system
 #include <string.h>
 
 // own
-#include "odysseus/handler.h"
+#include "odysseus/odysseus_handler.h"
 #include "utils/utils.h"
 
-static CommandType commandTypeFromName(const char *name) {
+static CommandType commandTypeFromName(char *name) {
+    // ignore case when comparing command names
+    CommandType out = COMMAND_UNKNOWN;
+    strToUpper(name);
+
     if (strcmp(name, "MAP") == 0) {
         return COMMAND_MAP;
     }
@@ -39,8 +45,7 @@ static CommandType commandTypeFromName(const char *name) {
     if (strcmp(name, "SELL") == 0) {
         return COMMAND_SELL;
     }
-
-    return COMMAND_UNKNOWN;
+    return out;
 }
 
 int parseOdysseusCommand(char *line, OdysseusCommand *command) {
@@ -82,6 +87,11 @@ CommandValidationResult validateOdysseusCommand(const OdysseusCommand *command,
                                                 const char **errorMessage) {
     *errorMessage = NULL;
 
+    if (command->argc > 0) {
+        // convert argv[0] to uppercase for case-insensitive comparison
+        strToUpper(command->argv[0]);
+    }
+
     if (command->type == COMMAND_UNKNOWN) {
         *errorMessage = "Unknown command";
         return COMMAND_UNKNOWN_COMMAND;
@@ -89,11 +99,23 @@ CommandValidationResult validateOdysseusCommand(const OdysseusCommand *command,
 
     switch (command->type) {
         case COMMAND_MAP:
+            if (!hasExactlyZeroArguments(command)) {
+                *errorMessage = "Usage: MAP";
+            }
+            break;
         case COMMAND_STATUS:
+            if (!hasExactlyZeroArguments(command)) {
+                *errorMessage = "Usage: STATUS";
+            }
+            break;
         case COMMAND_DELIVER:
+            if (!hasExactlyZeroArguments(command)) {
+                *errorMessage = "Usage: DELIVER";
+            }
+            break;
         case COMMAND_CLAIM:
             if (!hasExactlyZeroArguments(command)) {
-                *errorMessage = "This command does not accept arguments";
+                *errorMessage = "Usage: CLAIM";
             }
             break;
 

@@ -11,7 +11,7 @@
  *
  ************************************************/
 
-#include "odysseus/odysseus.h"
+#include "odysseus/odysseus_parser.h"
 
 #define ODYSSEUS_MAX_ARGS 3
 

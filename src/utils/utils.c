@@ -1,258 +1,424 @@
+/***********************************************
+ *
+ * @File : utils.c
+ * @Purpose : implementation of utility functions for file and console
+ * operations
+ * @Author : Guilherme Rodrigues and Axel Boleda Callizo
+ * @Date : 20/09/2026
+ *
+ ************************************************/
+
 #define _GNU_SOURCE 1
 
 // header
 #include "../include/utils/utils.h"
 
-// System headers
-#include <errno.h>
-#include <stddef.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
+/***********************************************
+ *
+ * @Name : freeLines
+ * @Def : Frees every string of an array of strings and then the array itself.
+ * @Arg : In: apsLines = array of dynamically allocated strings
+ *        In: tCount = number of strings in the array
+ * @Ret : None.
+ *
+ ************************************************/
 
-#define READ_CHUNK_SIZE 4096
+void freeLines(char **apsLines, size_t tCount) {
+    size_t i = 0;
 
-void freeLines(char **lines, size_t count) {
-    if (!lines)
+    if (NULL == apsLines) {
         return;
-    for (size_t i = 0; i < count; i++) {
-        free(lines[i]);
     }
-    free(lines);
+    for (i = 0; i < tCount; i++) {
+        free(apsLines[i]);
+    }
+    free(apsLines);
 }
 
-void writeToFileAndStdOut(int fd, const char *message) {
-    write(fd, message, strlen(message));
-    write(STDOUT_FILENO, message, strlen(message));
+/***********************************************
+ *
+ * @Name : writeToFileAndStdOut
+ * @Def : Writes a message to a file descriptor and to the standard output.
+ * @Arg : In: nFd = file descriptor to write to
+ *        In: psMessage = message to write
+ * @Ret : None.
+ *
+ ************************************************/
+
+void writeToFileAndStdOut(int nFd, const char *psMessage) {
+    write(nFd, psMessage, strlen(psMessage));
+    write(STDOUT_FILENO, psMessage, strlen(psMessage));
 }
 
-void println(const char *message) {
-    write(STDOUT_FILENO, message, strlen(message));
+/***********************************************
+ *
+ * @Name : println
+ * @Def : Writes a message followed by a newline to the standard output.
+ * @Arg : In: psMessage is the message to write
+ * @Ret : None.
+ *
+ ************************************************/
+
+void println(const char *psMessage) {
+    write(STDOUT_FILENO, psMessage, strlen(psMessage));
     write(STDOUT_FILENO, "\n", strlen("\n"));
 }
 
-void printErr(const char *message) {
-    write(STDERR_FILENO, message, strlen(message));
+/***********************************************
+ *
+ * @Name : printErr
+ * @Def : Writes a message followed by a newline to the standard error.
+ * @Arg : In: psMessage = message to write
+ * @Ret : None.
+ *
+ ************************************************/
+
+void printErr(const char *psMessage) {
+    write(STDERR_FILENO, psMessage, strlen(psMessage));
     write(STDERR_FILENO, "\n", strlen("\n"));
 }
 
-// This function works similarly to malloc
-// fd = file descriptor to be read (can be a pipe)
-// elementSize = size of the element to be read (use 1 byte for reading byte by
-// byte)
-// outCount = Output parameter containing the amount of elements read
-// return: dynamically allocated array
-void *readUntilEmpty(int fd, size_t elementSize, size_t *outCount) {
-    if (elementSize == 0 || outCount == NULL) {
+void strToUpper(char *psString) {
+    if (NULL == psString) {
+        return;
+    }
+    for (; *psString; ++psString) {
+        if ('a' <= *psString && *psString <= 'z') {
+            *psString -= 32; // Convert to uppercase
+        }
+    }
+}
+
+/***********************************************
+ *
+ * @Name : readUntilEmpty
+ * @Def : Reads elements from a file descriptor (can be a pipe) until it is
+ * empty. Works similarly to malloc.
+ * @Arg : In: nFd = file descriptor to be read
+ *        In: tElementSize = size of the element to be read (use 1 byte for
+ * reading byte by byte) Out: ptOutCount = amount of elements read
+ * @Ret : Dynamically allocated array with the elements read, or NULL if nothing
+ * was read or an error occurred.
+ *
+ ************************************************/
+void *readUntilEmpty(int nFd, size_t tElementSize, size_t *ptOutCount) {
+    int nCapacity = INITIAL_ELEMENT_CAPACITY;
+    int nCount = 0;
+    void *pvBuffer = NULL;
+    char *pcTemp = NULL;
+    ssize_t lBytesRead = 0;
+    size_t tTotalRead = 0;
+
+    if (0 == tElementSize || NULL == ptOutCount) {
         return NULL;
     }
-    int cap = 100;
-    void *buff = malloc(elementSize * cap);
 
-    if (buff == NULL) {
+    pvBuffer = malloc(tElementSize * nCapacity);
+    if (NULL == pvBuffer) {
         printErr("Malloc error");
         return NULL;
     }
 
-    int i = 0;
-    ssize_t bytesRead = 0;
-    while ((bytesRead = read(fd, buff + (i * elementSize), elementSize)) > 0) {
+    while (0 < (lBytesRead = read(nFd, pvBuffer + (nCount * tElementSize),
+                                  tElementSize))) {
         // Handle partial reads (for pipes)
-        size_t totalRead = bytesRead;
-        while (totalRead < elementSize) {
-            bytesRead = read(fd, buff + (i * elementSize) + totalRead,
-                             elementSize - totalRead);
-            if (bytesRead <= 0)
+        tTotalRead = lBytesRead;
+        while (tTotalRead < tElementSize) {
+            lBytesRead =
+                read(nFd, pvBuffer + (nCount * tElementSize) + tTotalRead,
+                     tElementSize - tTotalRead);
+            if (0 >= lBytesRead) {
                 break;
-            totalRead += bytesRead;
+            }
+            tTotalRead += lBytesRead;
         }
 
-        if (totalRead < elementSize) {
-            // EOF or read error
+        // EOF or read error
+        if (tTotalRead < tElementSize) {
             break;
         }
 
-        i++;
+        nCount++;
 
         // Resize check before next read
-        if (i == cap) {
-            cap *= 2;
-            char *temp = realloc(buff, cap * elementSize);
+        if (nCount == nCapacity) {
+            nCapacity *= 2;
+            pcTemp = realloc(pvBuffer, nCapacity * tElementSize);
 
-            if (temp == NULL) {
+            if (NULL == pcTemp) {
                 printErr("Realloc error");
-                free(buff);
+                free(pvBuffer);
                 return NULL;
             }
-            buff = temp;
+            pvBuffer = pcTemp;
         }
     }
 
-    // check if its a true error and not just an interruption
-    if (bytesRead < 0 && errno != EINTR) {
+    // Check if it's a true error and not just an interruption
+    if (0 > lBytesRead && EINTR != errno) {
         printErr("Read error");
-        free(buff);
+        free(pvBuffer);
         return NULL;
     }
 
-    if (0 == i) {
-        free(buff);
-        *outCount = 0;
+    if (0 == nCount) {
+        free(pvBuffer);
+        *ptOutCount = 0;
         return NULL;
     }
 
-    if (i < cap) {
-        char *temp = realloc(buff, i * elementSize);
-        if (temp != NULL)
-            buff = temp;
+    if (nCount < nCapacity) {
+        pcTemp = realloc(pvBuffer, nCount * tElementSize);
+        if (NULL != pcTemp) {
+            pvBuffer = pcTemp;
+        }
     }
 
-    *outCount = i;
-    return buff;
+    *ptOutCount = nCount;
+    return pvBuffer;
 }
 
-// returns 1 if a line was read, 0 if error
-int readLine(int fd, char *buff, size_t bufferSize) {
-    char c;
-    ssize_t n;
-    size_t len = 0;
-    if (buff == NULL)
-        return 0;
+/***********************************************
+ *
+ * @Name : readLine
+ * @Def : Reads one line from a file descriptor, removing the trailing '\n' (and
+ * '\r' if present).
+ * @Arg : In: nFd = file descriptor to be read
+ *        Out: ppsBuffer = allocated string where the line is stored
+ * @Ret : Returns 1 if a line was read, 0 on EOF with nothing read, -1 on a
+ * read or allocation error.
+ *
+ ************************************************/
+int readLine(int nFd, char **ppsBuffer) {
+    char cChar = '\0';
+    ssize_t tBytesRead = 0;
+    size_t tLength = 0;
+    char *psBuffer = NULL;
+    size_t tBufferSize = INITIAL_LINES_CAPACITY;
 
-    while ((n = read(fd, &c, 1)) > 0) {
-        if (c == '\n')
+    if (NULL == ppsBuffer) {
+        return -1;
+    }
+
+    psBuffer = malloc(tBufferSize);
+    if (NULL == psBuffer) {
+        return -1;
+    }
+
+    while (0 < (tBytesRead = read(nFd, &cChar, 1))) {
+        if ('\n' == cChar) {
             break;
-        if (len + 1 >= bufferSize) {
-            return 0;
         }
-        buff[len++] = c;
+
+        if (tLength + 1 >= tBufferSize) {
+            char *psTemp = realloc(psBuffer, tBufferSize + 1);
+            if (NULL == psTemp) {
+                free(psBuffer);
+                return -1;
+            }
+            psBuffer = psTemp;
+            tBufferSize++;
+        }
+        psBuffer[tLength++] = cChar;
     }
 
-    if (n <= 0 && len == 0) {
+    if (-1 == tBytesRead) {
+        free(psBuffer);
+        return -1;
+    }
+
+    if (0 == tBytesRead && 0 == tLength) {
+        free(psBuffer);
         return 0;
     }
 
-    if (len > 0 && buff[len - 1] == '\r')
-        len--;
-    buff[len] = '\0';
+    if (0 < tLength && '\r' == psBuffer[tLength - 1]) {
+        tLength--;
+    }
+    psBuffer[tLength] = '\0';
+    *ppsBuffer = psBuffer;
     return 1;
 }
 
-// returns an array of strings, each string is a line read from the file
-// descriptor
-char **readLines(int fd, size_t *outCount) {
-    if (!outCount)
+/***********************************************
+ *
+ * @Name : readLines
+ * @Def : Reads every line from a file descriptor.
+ * @Arg : In: nFd = file descriptor to be read
+ *        Out: ptOutCount = number of lines read
+ * @Ret : Dynamically allocated array of strings, one per line read, or NULL if
+ * an error occurred.
+ *
+ ************************************************/
+
+char **readLines(int nFd, size_t *ptOutCount) {
+    size_t tLinesCapacity = INITIAL_LINES_CAPACITY;
+    size_t tLinesCount = 0;
+    size_t tNewCapacity = 0;
+    size_t i = 0;
+    char **apsLines = NULL;
+    char **apsTemp = NULL;
+    char *psLine = NULL;
+    int nReadResult = 0;
+
+    if (NULL == ptOutCount) {
         return NULL;
-    *outCount = 0;
+    }
+    *ptOutCount = 0;
 
-    size_t linesCap = 16;
-    size_t linesCount = 0;
-    char **lines = malloc(linesCap * sizeof(char *));
-    if (!lines)
+    apsLines = malloc(tLinesCapacity * sizeof(char *));
+    if (NULL == apsLines) {
         return NULL;
-
-    char scratch[READ_CHUNK_SIZE];
-
-    while (readLine(fd, scratch, sizeof(scratch)) == 1) {
-        if (linesCount >= linesCap) {
-            size_t newCap = linesCap * 2;
-            char **tmp = realloc(lines, newCap * sizeof(char *));
-            if (!tmp) {
-                for (size_t i = 0; i < linesCount; i++)
-                    free(lines[i]);
-                free(lines);
-                return NULL;
-            }
-            lines = tmp;
-            linesCap = newCap;
-        }
-
-        lines[linesCount] = strdup(scratch);
-        if (!lines[linesCount]) {
-            for (size_t i = 0; i < linesCount; i++)
-                free(lines[i]);
-            free(lines);
-            return NULL;
-        }
-        linesCount++;
     }
 
-    *outCount = linesCount;
-    return lines;
-}
-
-void *readBinary(int fd, size_t elementSize, size_t *outCount) {
-    if (outCount == NULL)
-        return NULL;
-    *outCount = 0;
-    if (elementSize == 0)
-        return NULL;
-
-    size_t linesCap = 16;
-    size_t count = 0;
-    char *buff = malloc(linesCap * elementSize);
-    if (buff == NULL)
-        return NULL;
-
-    int done = 0;
-    while (!done) {
-        if (count >= linesCap) {
-            linesCap *= 2;
-            char *tmp = realloc(buff, linesCap * elementSize);
-            if (!tmp) {
-                free(buff);
+    while (1 == (nReadResult = readLine(nFd, &psLine))) {
+        if (tLinesCount >= tLinesCapacity) {
+            tNewCapacity = tLinesCapacity * 2;
+            apsTemp = realloc(apsLines, tNewCapacity * sizeof(char *));
+            if (NULL == apsTemp) {
+                free(psLine);
+                for (i = 0; i < tLinesCount; i++) {
+                    free(apsLines[i]);
+                }
+                free(apsLines);
                 return NULL;
             }
-            buff = tmp;
+            apsLines = apsTemp;
+            tLinesCapacity = tNewCapacity;
         }
 
-        char *destination = buff + count * elementSize;
-        int n = read(fd, destination, elementSize);
-        if (n < 0) {
-            free(buff);
+        apsLines[tLinesCount] = psLine;
+        psLine = NULL;
+        tLinesCount++;
+    }
+
+    if (-1 == nReadResult) {
+        for (i = 0; i < tLinesCount; i++) {
+            free(apsLines[i]);
+        }
+        free(apsLines);
+        return NULL;
+    }
+
+    *ptOutCount = tLinesCount;
+    return apsLines;
+}
+
+/***********************************************
+ *
+ * @Name : readBinary
+ * @Def : Reads fixed-size binary elements from a file descriptor until EOF.
+ * @Arg : In: nFd = file descriptor to be read
+ *        In: tElementSize = size in bytes of each element
+ *        Out: ptOutCount = number of elements read
+ * @Ret : Dynamically allocated array with the elements read, or NULL if nothing
+ * was read, a partial element was found, or an error occurred.
+ *
+ ************************************************/
+void *readBinary(int nFd, size_t tElementSize, size_t *ptOutCount) {
+    size_t tCapacity = INITIAL_BINARY_CAPACITY;
+    size_t tCount = 0;
+    char *pcBuffer = NULL;
+    char *pcTemp = NULL;
+    char *pcDestination = NULL;
+    char *pcExact = NULL;
+    int nDone = 0;
+    int nBytesRead = 0;
+
+    if (NULL == ptOutCount) {
+        return NULL;
+    }
+    *ptOutCount = 0;
+    if (0 == tElementSize) {
+        return NULL;
+    }
+
+    pcBuffer = malloc(tCapacity * tElementSize);
+    if (NULL == pcBuffer) {
+        return NULL;
+    }
+
+    while (0 == nDone) {
+        if (tCount >= tCapacity) {
+            tCapacity *= 2;
+            pcTemp = realloc(pcBuffer, tCapacity * tElementSize);
+            if (NULL == pcTemp) {
+                free(pcBuffer);
+                return NULL;
+            }
+            pcBuffer = pcTemp;
+        }
+
+        pcDestination = pcBuffer + tCount * tElementSize;
+        nBytesRead = read(nFd, pcDestination, tElementSize);
+        if (0 > nBytesRead) {
+            free(pcBuffer);
             return NULL;
-        } else if (n == 0) {
-            done = 1;
-        } else if ((size_t)n != elementSize) {
-            free(buff);
+        } else if (0 == nBytesRead) {
+            nDone = 1;
+        } else if ((size_t)nBytesRead != tElementSize) {
+            free(pcBuffer);
             return NULL;
         } else {
-            count++;
+            tCount++;
         }
     }
 
-    if (count == 0) {
-        free(buff);
-        *outCount = 0;
+    if (0 == tCount) {
+        free(pcBuffer);
+        *ptOutCount = 0;
         return NULL;
     }
 
-    char *exact = realloc(buff, count * elementSize);
-    if (exact != NULL) buff = exact;
+    pcExact = realloc(pcBuffer, tCount * tElementSize);
+    if (NULL != pcExact) {
+        pcBuffer = pcExact;
+    }
 
-    *outCount = count;
-    return buff;
+    *ptOutCount = tCount;
+    return pcBuffer;
 }
-int isAllDigits(const char *str) {
-    if (!str || *str == '\0') {
+
+/***********************************************
+ *
+ * @Name : isAllDigits
+ * @Def : Checks whether a string is non-empty and contains only digits.
+ * @Arg : In: psString = string to check
+ * @Ret : Returns 1 if every character is a digit, 0 otherwise.
+ *
+ ************************************************/
+
+int isAllDigits(const char *psString) {
+    const char *pcCurrent = NULL;
+
+    if (NULL == psString || '\0' == *psString) {
         return 0;
     }
-    for (const char *p = str; *p != '\0'; p++) {
-        if (*p < '0' || *p > '9') {
+    for (pcCurrent = psString; '\0' != *pcCurrent; pcCurrent++) {
+        if ('0' > *pcCurrent || '9' < *pcCurrent) {
             return 0;
         }
     }
     return 1;
 }
 
-int isPositiveInteger(const char *str) {
-    if (!str || *str == '\0') {
+/***********************************************
+ *
+ * @Name : isPositiveInteger
+ * @Def : Checks whether a string represents an integer greater than 0.
+ * @Arg : In: psString = string to check
+ * @Ret : Returns 1 if the string is a positive integer, 0 otherwise.
+ *
+ ************************************************/
+
+int isPositiveInteger(const char *psString) {
+    if (NULL == psString || '\0' == *psString) {
         return 0;
     }
 
-    if (!isAllDigits(str))
+    if (0 == isAllDigits(psString)) {
         return 0;
+    }
 
-    return (atoi(str) > 0);
+    return (0 < atoi(psString));
 }

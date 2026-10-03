@@ -5,23 +5,36 @@
  *
  * @File : utils.h
  * @Purpose : collection of utility functions for file and console operations
- * @Author : Guilherme Rodrigues
+ * @Author : Guilherme Rodrigues and Axel Boleda Callizo
  * @Date : 20/09/2026
  *
  ************************************************/
 
 // System includes
+#include <errno.h>
+#include <stddef.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 
-void freeLines(char **lines, size_t count);
-void writeToFileAndStdOut(int fd, const char *message);
-void println(const char *message);
-void printErr(const char *message);
-void *readUntilEmpty(int fd, size_t elementSize, size_t *outCount);
-int readLine(int fd, char *buff, size_t bufferSize);
-char **readLines(int fd, size_t *outCount);
-void *readBinary(int fd, size_t elementSize, size_t *outCount);
-int isAllDigits(const char *str);
-int isPositiveInteger(const char *str);
+// Constants
+#define READ_CHUNK_SIZE 4096
+#define INITIAL_ELEMENT_CAPACITY 100
+#define INITIAL_LINES_CAPACITY 16
+#define INITIAL_BINARY_CAPACITY 16
+
+// Functions
+void freeLines(char **apsLines, size_t tCount);
+void writeToFileAndStdOut(int nFd, const char *psMessage);
+void println(const char *psMessage);
+void printErr(const char *psMessage);
+void strToUpper(char *psString);
+void *readUntilEmpty(int nFd, size_t tElementSize, size_t *ptOutCount);
+int readLine(int nFd, char **ppsBuffer);
+char **readLines(int nFd, size_t *ptOutCount);
+void *readBinary(int nFd, size_t tElementSize, size_t *ptOutCount);
+int isAllDigits(const char *psString);
+int isPositiveInteger(const char *psString);
 
 #endif // __UTILS_H__

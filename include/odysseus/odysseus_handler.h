@@ -11,7 +11,7 @@
  ************************************************/
 
 // own headers
-#include "odysseus/odysseus.h"
+#include "odysseus/odysseus_parser.h"
 
 void odysseusConnect(Odysseus odysseus, const char *destination);
 void odysseusMap(Odysseus odysseus);
