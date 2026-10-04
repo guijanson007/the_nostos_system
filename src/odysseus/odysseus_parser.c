@@ -12,26 +12,32 @@
 // header
 #include "odysseus/odysseus_parser.h"
 
-/***********************************************
+// system
+#include <fcntl.h>
+#include <stddef.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+
+// own
+#include "utils/utils.h"
+
+/*************************************************
  *
  * @Name : buildSupplies
- * @Def : Allocates the supplies array and fills it with the supply lines of
- *        the config file (name and amount separated by a space).
- * @Arg : In/Out: ptOdysseus = struct whose supplies are filled
- *        In: apsLines = lines read from the config file
- *        In: tOutCount = number of lines read
- * @Ret : Returns 1 if successful, 0 if the allocation failed.
+ * @Def : Allocates and populates the supplies array in the Odysseus struct.
+ * @Arg : In: odysseus = pointer to Odysseus struct to populate
+ *        In: lines = array of strings read from the odysseus.dat file
+ *        In: outCount = number of lines read
+ * @Ret : Returns 1 on success, 0 on failure (e.g., memory allocation failure).
  *
- ************************************************/
-static int buildSupplies(Odysseus *ptOdysseus, char **apsLines, size_t tOutCount) {
-    size_t tLine = SUPPLIES_FIRST_LINE;
-    char *psToken = NULL;
- 
-    if (0 < ptOdysseus->initialNumSupplies) {
-        ptOdysseus->supplies =
-            calloc(ptOdysseus->initialNumSupplies, sizeof(Supply));
-        if (NULL == ptOdysseus->supplies) {
- 
+ **************************************************/
+static int buildSupplies(Odysseus *odysseus, char **lines, size_t outCount) {
+    if (odysseus->initialNumSupplies > 0) {
+        odysseus->supplies =
+            calloc(odysseus->initialNumSupplies, sizeof(Supply));
+        if (!odysseus->supplies) {
+
             return 0;
         } else {
             while (tLine < tOutCount &&
@@ -54,24 +60,17 @@ static int buildSupplies(Odysseus *ptOdysseus, char **apsLines, size_t tOutCount
     return 1;
 }
 
-
-
-/***********************************************
+/**************************************************
  *
  * @Name : odysseusParseFile
- * @Def : Reads the config file and builds the Odysseus struct from it.
- * @Arg : In: nFd = file descriptor of the config file
- * @Ret : The Odysseus struct. If something fails, the fields that could not
- *        be filled are NULL/0. The caller must free it with freeOdysseus.
+ * @Def : Parses the odysseus.dat file and populates an Odysseus struct.
+ * @Arg : In: fd = file descriptor of the odysseus.dat file
+ * @Ret : Returns a populated Odysseus struct. If parsing fails, returns an
+ * empty Odysseus struct with all fields set to NULL or 0.
  *
- ************************************************/
-Odysseus odysseusParseFile(int nFd) {
-    Odysseus tOdysseus;
-    size_t tOutCount = 0;
-    char **apsLines = NULL;
-    char *psIpPort = NULL;
-    char *psToken = NULL;
-
+ **************************************************/
+Odysseus odysseusParseFile(int fd) {
+    Odysseus odysseus;
     memset(&odysseus, 0, sizeof(Odysseus));
  
     apsLines = readLines(nFd, &tOutCount);
@@ -120,19 +119,16 @@ Odysseus odysseusParseFile(int nFd) {
     return tOdysseus;
 }
 
-/***********************************************
+/**************************************************
  *
  * @Name : freeOdysseus
- * @Def : Frees every dynamically allocated field of an Odysseus struct and
- *        sets them to NULL.
- * @Arg : In/Out: ptOdysseus = struct to free
+ * @Def : Frees all dynamically allocated memory in the Odysseus struct.
+ * @Arg : In: odysseus = pointer to Odysseus struct to free
  * @Ret : None.
  *
- ************************************************/
-void freeOdysseus(Odysseus *ptOdysseus) {
-    int i = 0;
- 
-    if (NULL == ptOdysseus) {
+ **************************************************/
+void freeOdysseus(Odysseus *odysseus) {
+    if (odysseus == NULL) {
         return;
     }
  
@@ -158,45 +154,56 @@ void freeOdysseus(Odysseus *ptOdysseus) {
     ptOdysseus->initialNumSupplies = 0;
 }
 
-/***********************************************
+/*************************************************
  *
  * @Name : odysseusPrintInfo
- * @Def : Prints the contents of the Odysseus struct. Useful for debugging.
- * @Arg : In: ptOdysseus = struct to print
+ * @Def : Prints the information of the Odysseus struct to standard output.
+ * (Solely used for debugging purposes)
+ * @Arg : In: odysseus = pointer to Odysseus struct to print
  * @Ret : None.
  *
- ************************************************/
-void odysseusPrintInfo(Odysseus *ptOdysseus) {
-    char sName[PRINT_BUFFER_SIZE] = {'\0'};
-    char sPath[PRINT_BUFFER_SIZE] = {'\0'};
-    char sIpPort[PRINT_BUFFER_SIZE] = {'\0'};
-    char sInitialInfo[PRINT_LONG_BUFFER_SIZE] = {'\0'};
-    char sMoney[PRINT_SHORT_BUFFER_SIZE] = {'\0'};
-    char sNumSupplies[PRINT_SHORT_BUFFER_SIZE] = {'\0'};
-    char sSupplyHeader[PRINT_BUFFER_SIZE] = {'\0'};
-    int i = 0;
- 
+ **************************************************/
+void odysseusPrintInfo(Odysseus *odysseus) {
+    char *str;
+
     println("Odysseus Info:");
-    sprintf(sName, "Name: %s", ptOdysseus->name);
-    println(sName);
-    sprintf(sPath, "Path: %s", ptOdysseus->path);
-    println(sPath);
-    sprintf(sIpPort, "IP:%s | Port: %s", ptOdysseus->ip, ptOdysseus->port);
-    println(sIpPort);
-    sprintf(sInitialInfo, "Initial Info: %s", ptOdysseus->initialInfo);
-    println(sInitialInfo);
-    sprintf(sMoney, "Initial money: %f", ptOdysseus->initialMoney);
-    println(sMoney);
-    sprintf(sNumSupplies, "Initial number of supplies: %d",
-            ptOdysseus->initialNumSupplies);
-    println(sNumSupplies);
- 
-    for (i = 0; i < ptOdysseus->initialNumSupplies; ++i) {
-        sprintf(sSupplyHeader, "Supply %d:", i + 1);
-        println(sSupplyHeader);
-        sprintf(sSupplyHeader, "\tName: %s", ptOdysseus->supplies[i].name);
-        println(sSupplyHeader);
-        sprintf(sSupplyHeader, "\tAmount: %d", ptOdysseus->supplies[i].amount);
-        println(sSupplyHeader);
+
+    asprintf(&str, "Name: %s", odysseus->name);
+    println(str);
+    free(str);
+
+    asprintf(&str, "Path: %s", odysseus->path);
+    println(str);
+    free(str);
+
+    asprintf(&str, "IP:%s | Port: %s", odysseus->ip, odysseus->port);
+    println(str);
+    free(str);
+
+    asprintf(&str, "Initial Info: %s", odysseus->initialInfo);
+    println(str);
+    free(str);
+
+    asprintf(&str, "Initial money: %f", odysseus->initialMoney);
+    println(str);
+    free(str);
+
+    asprintf(&str, "Initial number of supplies: %d",
+             odysseus->initialNumSupplies);
+    println(str);
+    free(str);
+
+    for (int i = 0; i < odysseus->initialNumSupplies; ++i) {
+        asprintf(&str, "Supply %d:", i + 1);
+        println(str);
+        free(str);
+
+        asprintf(&str, "\tName: %s", odysseus->supplies[i].name);
+        println(str);
+        free(str);
+
+        asprintf(&str, "\tAmount: %d", odysseus->supplies[i].amount);
+        println(str);
+        free(str);
     }
 }

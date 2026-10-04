@@ -1,21 +1,26 @@
+#define _GNU_SOURCE
+
 // System headers
 #include <fcntl.h>
 #include <signal.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 
 
-/***********************************************
- *
+// event flag to indicate when to quit the program
+int nEv_quit = 0;
+
+/*******************************
  * @Name : quitProgram
- * @Def : SIGINT handler. Sets the quit flag so the main loop ends.
- * @Arg : In: nSignum = number of the signal received (unused)
+ * @Def : Signal handler to set the quit event flag when SIGINT is received.
+ * @Arg : In: signum = signal number (unused)
  * @Ret : None.
  *
- ************************************************/
-void quitProgram(int nSignum) {
-    (void)nSignum;
-    gnEvQuit = 1;
+ ********************************/
+void quitProgram(int signum) {
+    (void)signum;
+    nEv_quit = 1;
 }
 
 
@@ -37,26 +42,27 @@ int main(int argc, char *argv[]) {
         printErr(ERROR_ARGC);
         return EXIT_FAILURE;
     }
-    nFd = open(argv[1], O_RDONLY);
- 
-    if (-1 == nFd) {
-        snprintf(sErrorMsg, sizeof(sErrorMsg), ERROR_OPEN_FILE, argv[1]);
-        printErr(sErrorMsg);
+    int fd = open(argv[1], O_RDONLY);
+
+    if (fd == -1) {
+        char *errorMsg;
+        asprintf(&errorMsg, "Failed to open file: %s", argv[1]);
+        printErr(errorMsg);
+        free(errorMsg);
         return EXIT_FAILURE;
     }
     signal(SIGINT, quitProgram);
- 
-    tOdysseus = odysseusParseFile(nFd);
- 
-    // Something went wrong while parsing the file, we should exit
-    if (NULL == tOdysseus.name || NULL == tOdysseus.path ||
-        NULL == tOdysseus.ip || NULL == tOdysseus.port ||
-        NULL == tOdysseus.initialInfo ||
-        (0 < tOdysseus.initialNumSupplies &&
-         (NULL == tOdysseus.supplies || NULL == tOdysseus.supplies->name ||
-          0 == tOdysseus.supplies->amount))) {
-        freeOdysseus(&tOdysseus);
-        close(nFd);
+
+    Odysseus odysseus = odysseusParseFile(fd);
+    close(fd);
+
+    // something went wrong while parsing the file, we should exit
+    if (!odysseus.name || !odysseus.path || !odysseus.ip || !odysseus.port ||
+        !odysseus.initialInfo ||
+        (odysseus.initialNumSupplies > 0 &&
+         (!odysseus.supplies || !odysseus.supplies->name ||
+          !odysseus.supplies->amount))) {
+        freeOdysseus(&odysseus);
         return EXIT_FAILURE;
     }
  
@@ -67,8 +73,7 @@ int main(int argc, char *argv[]) {
  
     while (0 == gnEvQuit && 1 == odysseusShowMenu(tOdysseus)) {
     }
- 
-    freeOdysseus(&tOdysseus);
-    close(nFd);
+
+    freeOdysseus(&odysseus);
     return EXIT_SUCCESS;
 }

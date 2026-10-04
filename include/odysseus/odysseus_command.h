@@ -3,11 +3,11 @@
 
 /***********************************************
  *
- * @File : menu.h
+ * @File : odysseus_command.h
  * @Purpose : responsible for parsing and executing commands for the odysseus
  * process
  * @Author : Guilherme Rodrigues
- * @Date : 25/09/2026
+ * @Date : 26/09/2026
  *
  ************************************************/
 
@@ -46,4 +46,4 @@ CommandValidationResult validateOdysseusCommand(const OdysseusCommand *command,
                                                 const char **errorMessage);
 void executeOdysseusCommand(Odysseus odysseus, const OdysseusCommand *command);
 
-#endif
+#endif // ODYSSEUS_COMMAND_H

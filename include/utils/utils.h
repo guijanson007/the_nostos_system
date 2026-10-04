@@ -18,19 +18,20 @@
 #include <string.h>
 #include <unistd.h>
 
-//Constants
+// Constants
 #define READ_CHUNK_SIZE 4096
 #define INITIAL_ELEMENT_CAPACITY 100
 #define INITIAL_LINES_CAPACITY 16
 #define INITIAL_BINARY_CAPACITY 16
 
-//Functions
+// Functions
 void freeLines(char **apsLines, size_t tCount);
 void writeToFileAndStdOut(int nFd, const char *psMessage);
 void println(const char *psMessage);
 void printErr(const char *psMessage);
+void strToUpper(char *psString);
 void *readUntilEmpty(int nFd, size_t tElementSize, size_t *ptOutCount);
-int readLine(int nFd, char *psBuffer, size_t tBufferSize);
+int readLine(int nFd, char **ppsBuffer);
 char **readLines(int nFd, size_t *ptOutCount);
 void *readBinary(int nFd, size_t tElementSize, size_t *ptOutCount);
 int isAllDigits(const char *psString);

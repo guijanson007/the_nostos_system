@@ -1,12 +1,12 @@
-#ifndef __MENU_H__
-#define __MENU_H__
+#ifndef __ODYSSEUS_MENU_H__
+#define __ODYSSEUS_MENU_H__
 
 /***********************************************
  *
- * @File : menu.h
+ * @File : odysseus_menu.h
  * @Purpose : console menu for odysseus process
  * @Author : Guilherme Rodrigues
- * @Date : 22/09/2026
+ * @Date : 25/09/2026
  *
  ************************************************/
 
@@ -16,4 +16,4 @@
 int odysseusShowMenu(Odysseus odysseus);
 void odysseusStartMenu(Odysseus odysseus);
 
-#endif // !#ifndef __MENU_H__
+#endif // !#ifndef __ODYSSEUS_MENU_H__

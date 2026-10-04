@@ -1,3 +1,5 @@
+#define _GNU_SOURCE
+
 // header
 #include "odysseus/odysseus_command.h"
 
@@ -8,7 +10,19 @@
 #include "odysseus/odysseus_handler.h"
 #include "utils/utils.h"
 
-static CommandType commandTypeFromName(const char *name) {
+/*************************************************
+ *
+ * @Name : commandTypeFromName
+ * @Def : Converts a command name to its corresponding CommandType enum value.
+ * @Arg : In: name = command name (case-insensitive)
+ * @Ret : Corresponding CommandType enum value, or COMMAND_UNKNOWN if not found.
+ *
+ **************************************************/
+static CommandType commandTypeFromName(char *name) {
+    // ignore case when comparing command names
+    CommandType out = COMMAND_UNKNOWN;
+    strToUpper(name);
+
     if (strcmp(name, "MAP") == 0) {
         return COMMAND_MAP;
     }
@@ -39,10 +53,19 @@ static CommandType commandTypeFromName(const char *name) {
     if (strcmp(name, "SELL") == 0) {
         return COMMAND_SELL;
     }
-
-    return COMMAND_UNKNOWN;
+    return out;
 }
 
+/*/*************************************************
+ *
+ * @Name : parseOdysseusCommand
+ * @Def : Parses a command line into an OdysseusCommand structure.
+ * @Arg : In: line = command line string
+ *        Out: command = pointer to OdysseusCommand structure to fill
+ * @Ret : Returns 1 if the command was parsed successfully, 0 if the line is
+ * empty.
+ *
+ **************************************************/
 int parseOdysseusCommand(char *line, OdysseusCommand *command) {
     char *token;
 
@@ -66,21 +89,59 @@ int parseOdysseusCommand(char *line, OdysseusCommand *command) {
     return 1;
 }
 
+/*****************************************************************
+ *
+ * @Name : hasExactlyZeroArguments
+ * @Def : Checks if the command has exactly zero arguments.
+ * @Arg : In: command = pointer to OdysseusCommand structure
+ * @Ret : Returns 1 if the command has exactly zero arguments, 0 otherwise.
+ *
+ ****************************************************************/
 static int hasExactlyZeroArguments(const OdysseusCommand *command) {
     return command->argc == 0;
 }
 
+/*****************************************************************
+ *
+ * @Name : hasExactlyOneArgument
+ * @Def : Checks if the command has exactly one argument.
+ * @Arg : In: command = pointer to OdysseusCommand structure
+ * @Ret : Returns 1 if the command has exactly one argument, 0 otherwise.
+ *
+ ****************************************************************/
 static int hasExactlyOneArgument(const OdysseusCommand *command) {
     return command->argc == 1;
 }
 
+/*****************************************************************
+ *
+ * @Name : hasExactlyTwoArguments
+ * @Def : Checks if the command has exactly two arguments.
+ * @Arg : In: command = pointer to OdysseusCommand structure
+ * @Ret : Returns 1 if the command has exactly two arguments, 0 otherwise.
+ *
+ ****************************************************************/
 static int hasExactlyTwoArguments(const OdysseusCommand *command) {
     return command->argc == 2;
 }
-
+/*************************************************
+ *
+ * @Name : validateOdysseusCommand
+ * @Def : Validates the arguments of an OdysseusCommand.
+ * @Arg : In: command = pointer to OdysseusCommand structure to validate
+ *        Out: errorMessage = pointer to a string describing the error, if any
+ * @Ret : Returns COMMAND_VALID if the command is valid, or an appropriate
+ * CommandValidationResult value if invalid.
+ *
+ **************************************************/
 CommandValidationResult validateOdysseusCommand(const OdysseusCommand *command,
                                                 const char **errorMessage) {
     *errorMessage = NULL;
+
+    if (command->argc > 0) {
+        // convert argv[0] to uppercase for case-insensitive comparison
+        strToUpper(command->argv[0]);
+    }
 
     if (command->type == COMMAND_UNKNOWN) {
         *errorMessage = "Unknown command";
@@ -89,11 +150,23 @@ CommandValidationResult validateOdysseusCommand(const OdysseusCommand *command,
 
     switch (command->type) {
         case COMMAND_MAP:
+            if (!hasExactlyZeroArguments(command)) {
+                *errorMessage = "Usage: MAP";
+            }
+            break;
         case COMMAND_STATUS:
+            if (!hasExactlyZeroArguments(command)) {
+                *errorMessage = "Usage: STATUS";
+            }
+            break;
         case COMMAND_DELIVER:
+            if (!hasExactlyZeroArguments(command)) {
+                *errorMessage = "Usage: DELIVER";
+            }
+            break;
         case COMMAND_CLAIM:
             if (!hasExactlyZeroArguments(command)) {
-                *errorMessage = "This command does not accept arguments";
+                *errorMessage = "Usage: CLAIM";
             }
             break;
 
@@ -144,6 +217,16 @@ CommandValidationResult validateOdysseusCommand(const OdysseusCommand *command,
     return *errorMessage == NULL ? COMMAND_VALID : COMMAND_INVALID_ARGUMENTS;
 }
 
+/*************************************************
+ *
+ * @Name : executeOdysseusCommand
+ * @Def : Executes the given OdysseusCommand using the provided Odysseus
+ * instance.
+ * @Arg : In: odysseus = Odysseus instance to use for command execution
+ *        In: command = pointer to OdysseusCommand structure to execute
+ * @Ret : None.
+ *
+ **************************************************/
 void executeOdysseusCommand(Odysseus odysseus, const OdysseusCommand *command) {
     switch (command->type) {
         case COMMAND_MAP:

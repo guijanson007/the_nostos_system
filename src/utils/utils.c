@@ -23,7 +23,7 @@
  *
  ************************************************/
 
-void freeLines (char **apsLines, size_t tCount) {
+void freeLines(char **apsLines, size_t tCount) {
     size_t i = 0;
 
     if (NULL == apsLines) {
@@ -45,7 +45,7 @@ void freeLines (char **apsLines, size_t tCount) {
  *
  ************************************************/
 
-void writeToFileAndStdOut (int nFd, const char *psMessage) {
+void writeToFileAndStdOut(int nFd, const char *psMessage) {
     write(nFd, psMessage, strlen(psMessage));
     write(STDOUT_FILENO, psMessage, strlen(psMessage));
 }
@@ -59,7 +59,7 @@ void writeToFileAndStdOut (int nFd, const char *psMessage) {
  *
  ************************************************/
 
-void println (const char *psMessage) {
+void println(const char *psMessage) {
     write(STDOUT_FILENO, psMessage, strlen(psMessage));
     write(STDOUT_FILENO, "\n", strlen("\n"));
 }
@@ -73,9 +73,29 @@ void println (const char *psMessage) {
  *
  ************************************************/
 
-void printErr (const char *psMessage) {
+void printErr(const char *psMessage) {
     write(STDERR_FILENO, psMessage, strlen(psMessage));
     write(STDERR_FILENO, "\n", strlen("\n"));
+}
+
+/***********************************************
+ *
+ * @Name : strToUpper
+ * @Def : Converts a string to uppercase in place.
+ * @Arg : In: psString = string to convert
+ * @Ret : None.
+ *
+ ***********************************************/
+
+void strToUpper(char *psString) {
+    if (NULL == psString) {
+        return;
+    }
+    for (; *psString; ++psString) {
+        if ('a' <= *psString && *psString <= 'z') {
+            *psString -= 32; // Convert to uppercase
+        }
+    }
 }
 
 /***********************************************
@@ -90,7 +110,7 @@ void printErr (const char *psMessage) {
  * was read or an error occurred.
  *
  ************************************************/
-void *readUntilEmpty (int nFd, size_t tElementSize, size_t *ptOutCount) {
+void *readUntilEmpty(int nFd, size_t tElementSize, size_t *ptOutCount) {
     int nCapacity = INITIAL_ELEMENT_CAPACITY;
     int nCount = 0;
     void *pvBuffer = NULL;
@@ -170,33 +190,54 @@ void *readUntilEmpty (int nFd, size_t tElementSize, size_t *ptOutCount) {
 /***********************************************
  *
  * @Name : readLine
- * @Def : Reads one line from a file descriptor, removing the trailing '\n' (and '\r' if present).
+ * @Def : Reads one line from a file descriptor, removing the trailing '\n' (and
+ * '\r' if present).
  * @Arg : In: nFd = file descriptor to be read
- *        Out: psBuffer = string where the line is stored
- *        In: tBufferSize = size of psBuffer
- * @Ret : Returns 1 if a line was read, 0 on error, on EOF with nothing read, or if the line does not fit in the buffer.
+ *        Out: ppsBuffer = allocated string where the line is stored
+ * @Ret : Returns 1 if a line was read, 0 on EOF with nothing read, -1 on a
+ * read or allocation error.
  *
  ************************************************/
-int readLine (int nFd, char *psBuffer, size_t tBufferSize) {
+int readLine(int nFd, char **ppsBuffer) {
     char cChar = '\0';
-    ssize_t lBytesRead = 0;
+    ssize_t tBytesRead = 0;
     size_t tLength = 0;
+    char *psBuffer = NULL;
+    size_t tBufferSize = INITIAL_LINES_CAPACITY;
 
-    if (NULL == psBuffer) {
-        return 0;
+    if (NULL == ppsBuffer) {
+        return -1;
     }
 
-    while (0 < (lBytesRead = read(nFd, &cChar, 1))) {
+    psBuffer = malloc(tBufferSize);
+    if (NULL == psBuffer) {
+        return -1;
+    }
+
+    while (0 < (tBytesRead = read(nFd, &cChar, 1))) {
         if ('\n' == cChar) {
             break;
         }
+
         if (tLength + 1 >= tBufferSize) {
-            return 0;
+            char *psTemp = realloc(psBuffer, tBufferSize + 1);
+            if (NULL == psTemp) {
+                free(psBuffer);
+                return -1;
+            }
+            psBuffer = psTemp;
+            tBufferSize++;
         }
         psBuffer[tLength++] = cChar;
     }
 
-    if (0 >= lBytesRead && 0 == tLength) {
+    if (-1 == tBytesRead) {
+        free(psBuffer);
+        return -1;
+    }
+
+    if (0 == tBytesRead && 0 == tLength) {
+        free(psBuffer);
         return 0;
     }
 
@@ -204,6 +245,7 @@ int readLine (int nFd, char *psBuffer, size_t tBufferSize) {
         tLength--;
     }
     psBuffer[tLength] = '\0';
+    *ppsBuffer = psBuffer;
     return 1;
 }
 
@@ -213,34 +255,37 @@ int readLine (int nFd, char *psBuffer, size_t tBufferSize) {
  * @Def : Reads every line from a file descriptor.
  * @Arg : In: nFd = file descriptor to be read
  *        Out: ptOutCount = number of lines read
- * @Ret : Dynamically allocated array of strings, one per line read, or NULL if an error occurred.
+ * @Ret : Dynamically allocated array of strings, one per line read, or NULL if
+ * an error occurred.
  *
  ************************************************/
 
-char **readLines (int nFd, size_t *ptOutCount) {
+char **readLines(int nFd, size_t *ptOutCount) {
     size_t tLinesCapacity = INITIAL_LINES_CAPACITY;
     size_t tLinesCount = 0;
     size_t tNewCapacity = 0;
     size_t i = 0;
     char **apsLines = NULL;
     char **apsTemp = NULL;
-    char sScratch[READ_CHUNK_SIZE] = {'\0'};
- 
+    char *psLine = NULL;
+    int nReadResult = 0;
+
     if (NULL == ptOutCount) {
         return NULL;
     }
     *ptOutCount = 0;
- 
+
     apsLines = malloc(tLinesCapacity * sizeof(char *));
     if (NULL == apsLines) {
         return NULL;
     }
- 
-    while (1 == readLine(nFd, sScratch, sizeof(sScratch))) {
+
+    while (1 == (nReadResult = readLine(nFd, &psLine))) {
         if (tLinesCount >= tLinesCapacity) {
             tNewCapacity = tLinesCapacity * 2;
             apsTemp = realloc(apsLines, tNewCapacity * sizeof(char *));
             if (NULL == apsTemp) {
+                free(psLine);
                 for (i = 0; i < tLinesCount; i++) {
                     free(apsLines[i]);
                 }
@@ -250,18 +295,20 @@ char **readLines (int nFd, size_t *ptOutCount) {
             apsLines = apsTemp;
             tLinesCapacity = tNewCapacity;
         }
- 
-        apsLines[tLinesCount] = strdup(sScratch);
-        if (NULL == apsLines[tLinesCount]) {
-            for (i = 0; i < tLinesCount; i++) {
-                free(apsLines[i]);
-            }
-            free(apsLines);
-            return NULL;
-        }
+
+        apsLines[tLinesCount] = psLine;
+        psLine = NULL;
         tLinesCount++;
     }
- 
+
+    if (-1 == nReadResult) {
+        for (i = 0; i < tLinesCount; i++) {
+            free(apsLines[i]);
+        }
+        free(apsLines);
+        return NULL;
+    }
+
     *ptOutCount = tLinesCount;
     return apsLines;
 }
@@ -273,10 +320,11 @@ char **readLines (int nFd, size_t *ptOutCount) {
  * @Arg : In: nFd = file descriptor to be read
  *        In: tElementSize = size in bytes of each element
  *        Out: ptOutCount = number of elements read
- * @Ret : Dynamically allocated array with the elements read, or NULL if nothing was read, a partial element was found, or an error occurred.
+ * @Ret : Dynamically allocated array with the elements read, or NULL if nothing
+ * was read, a partial element was found, or an error occurred.
  *
  ************************************************/
-void *readBinary (int nFd, size_t tElementSize, size_t *ptOutCount) {
+void *readBinary(int nFd, size_t tElementSize, size_t *ptOutCount) {
     size_t tCapacity = INITIAL_BINARY_CAPACITY;
     size_t tCount = 0;
     char *pcBuffer = NULL;
@@ -285,7 +333,7 @@ void *readBinary (int nFd, size_t tElementSize, size_t *ptOutCount) {
     char *pcExact = NULL;
     int nDone = 0;
     int nBytesRead = 0;
- 
+
     if (NULL == ptOutCount) {
         return NULL;
     }
@@ -293,12 +341,12 @@ void *readBinary (int nFd, size_t tElementSize, size_t *ptOutCount) {
     if (0 == tElementSize) {
         return NULL;
     }
- 
+
     pcBuffer = malloc(tCapacity * tElementSize);
     if (NULL == pcBuffer) {
         return NULL;
     }
- 
+
     while (0 == nDone) {
         if (tCount >= tCapacity) {
             tCapacity *= 2;
@@ -309,7 +357,7 @@ void *readBinary (int nFd, size_t tElementSize, size_t *ptOutCount) {
             }
             pcBuffer = pcTemp;
         }
- 
+
         pcDestination = pcBuffer + tCount * tElementSize;
         nBytesRead = read(nFd, pcDestination, tElementSize);
         if (0 > nBytesRead) {
@@ -324,22 +372,21 @@ void *readBinary (int nFd, size_t tElementSize, size_t *ptOutCount) {
             tCount++;
         }
     }
- 
+
     if (0 == tCount) {
         free(pcBuffer);
         *ptOutCount = 0;
         return NULL;
     }
- 
+
     pcExact = realloc(pcBuffer, tCount * tElementSize);
     if (NULL != pcExact) {
         pcBuffer = pcExact;
     }
- 
+
     *ptOutCount = tCount;
     return pcBuffer;
 }
-
 
 /***********************************************
  *
@@ -352,7 +399,7 @@ void *readBinary (int nFd, size_t tElementSize, size_t *ptOutCount) {
 
 int isAllDigits(const char *psString) {
     const char *pcCurrent = NULL;
- 
+
     if (NULL == psString || '\0' == *psString) {
         return 0;
     }
@@ -377,10 +424,10 @@ int isPositiveInteger(const char *psString) {
     if (NULL == psString || '\0' == *psString) {
         return 0;
     }
- 
+
     if (0 == isAllDigits(psString)) {
         return 0;
     }
- 
+
     return (0 < atoi(psString));
 }
