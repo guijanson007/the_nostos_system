@@ -1,63 +1,48 @@
-CC       = gcc
-CFLAGS   = -Wall -Wextra -std=c99 -g -I$(INCLUDE_DIR) -Ilib/sphragis
-LDLIBS   = -lpthread
+all: island ithaca odysseus
 
-# Executables
-TARGETS  = odysseus ithaca island
+island: build/island.o build/island_parser.o build/utils.o lib/sphragis/sphragis.o
+	gcc build/island.o build/island_parser.o build/utils.o lib/sphragis/sphragis.o -o island -Wall -Wextra -lpthread
 
-# Directories
-SRC_DIR     = src
-BUILD_DIR   = build
-INCLUDE_DIR = include
+ithaca: build/ithaca.o build/ithaca_parser.o build/utils.o lib/sphragis/sphragis.o
+	gcc build/ithaca.o build/ithaca_parser.o build/utils.o lib/sphragis/sphragis.o -o ithaca -Wall -Wextra -lpthread
 
-# Common shared files (e.g. utils)
-COMMON_SRCS = $(wildcard $(SRC_DIR)/utils/*.c)
-COMMON_OBJS = $(patsubst $(SRC_DIR)/%.c, $(BUILD_DIR)/%.o, $(COMMON_SRCS))
+odysseus: build/odysseus.o build/odysseus_command.o build/odysseus_handler.o build/odysseus_menu.o build/odysseus_parser.o build/utils.o lib/sphragis/sphragis.o
+	gcc build/odysseus.o build/odysseus_command.o build/odysseus_handler.o build/odysseus_menu.o build/odysseus_parser.o build/utils.o lib/sphragis/sphragis.o -o odysseus -Wall -Wextra -lpthread
 
-# Process-specific source & object definitions
-ODYSSEUS_SRCS = $(wildcard $(SRC_DIR)/odysseus/*.c)
-ODYSSEUS_OBJS = $(patsubst $(SRC_DIR)/%.c, $(BUILD_DIR)/%.o, $(ODYSSEUS_SRCS))
+build:
+	mkdir -p build
 
-ITHACA_SRCS   = $(wildcard $(SRC_DIR)/ithaca/*.c)
-ITHACA_OBJS   = $(patsubst $(SRC_DIR)/%.c, $(BUILD_DIR)/%.o, $(ITHACA_SRCS))
+build/utils.o: src/utils/utils.c include/utils/utils.h | build
+	gcc -c src/utils/utils.c -o build/utils.o -Wall -Wextra -Iinclude
 
-ISLAND_SRCS   = $(wildcard $(SRC_DIR)/island/*.c)
-ISLAND_OBJS   = $(patsubst $(SRC_DIR)/%.c, $(BUILD_DIR)/%.o, $(ISLAND_SRCS))
+build/island.o: src/island/island.c include/island/island.h include/island/island_parser.h include/utils/utils.h lib/sphragis/sphragis.h | build
+	gcc -c src/island/island.c -o build/island.o -Wall -Wextra -Iinclude
 
-# All object files and generated dependency files
-ALL_OBJS = $(COMMON_OBJS) $(ODYSSEUS_OBJS) $(ITHACA_OBJS) $(ISLAND_OBJS)
-DEPS     = $(ALL_OBJS:.o=.d)
+build/island_parser.o: src/island/island_parser.c include/island/island.h include/island/island_parser.h lib/sphragis/sphragis.h | build
+	gcc -c src/island/island_parser.c -o build/island_parser.o -Wall -Wextra -Iinclude
 
-# External object files (wildcard so it only links if the file actually exists)
-EXT_OBJS = $(wildcard lib/sphragis/sphragis.o)
+build/ithaca.o: src/ithaca/ithaca.c include/ithaca/ithaca.h include/ithaca/ithaca_parser.h | build
+	gcc -c src/ithaca/ithaca.c -o build/ithaca.o -Wall -Wextra -Iinclude
 
-# Default target
-all: build
+build/ithaca_parser.o: src/ithaca/ithaca_parser.c include/ithaca/ithaca_parser.h | build
+	gcc -c src/ithaca/ithaca_parser.c -o build/ithaca_parser.o -Wall -Wextra -Iinclude
 
-build: $(TARGETS)
+build/odysseus.o: src/odysseus/odysseus.c include/odysseus/odysseus_command.h include/odysseus/odysseus_handler.h include/odysseus/odysseus_menu.h include/odysseus/odysseus_parser.h include/utils/utils.h | build
+	gcc -c src/odysseus/odysseus.c -o build/odysseus.o -Wall -Wextra -Iinclude
 
-# Link targets
-odysseus: $(COMMON_OBJS) $(ODYSSEUS_OBJS) $(EXT_OBJS)
-	$(CC) $^ -o $@ $(LDLIBS)
+build/odysseus_command.o: src/odysseus/odysseus_command.c include/odysseus/odysseus_command.h | build
+	gcc -c src/odysseus/odysseus_command.c -o build/odysseus_command.o -Wall -Wextra -Iinclude
 
-ithaca: $(COMMON_OBJS) $(ITHACA_OBJS) $(EXT_OBJS)
-	$(CC) $^ -o $@ $(LDLIBS)
+build/odysseus_handler.o: src/odysseus/odysseus_handler.c include/odysseus/odysseus_handler.h | build
+	gcc -c src/odysseus/odysseus_handler.c -o build/odysseus_handler.o -Wall -Wextra -Iinclude
 
-island: $(COMMON_OBJS) $(ISLAND_OBJS) $(EXT_OBJS)
-	$(CC) $^ -o $@ $(LDLIBS)
+build/odysseus_menu.o: src/odysseus/odysseus_menu.c include/odysseus/odysseus_menu.h | build
+	gcc -c src/odysseus/odysseus_menu.c -o build/odysseus_menu.o -Wall -Wextra -Iinclude
 
-# Generic compile rule with automatic dependency generation
-$(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
-	@mkdir -p $(dir $@)
-	$(CC) $(CFLAGS) -MMD -MP -c $< -o $@
+build/odysseus_parser.o: src/odysseus/odysseus_parser.c include/odysseus/odysseus_parser.h | build
+	gcc -c src/odysseus/odysseus_parser.c -o build/odysseus_parser.o -Wall -Wextra -Iinclude
 
-# === PHONY TARGETS ===
+.PHONY: clean
 clean:
-	rm -rf $(BUILD_DIR) $(TARGETS) program
-
-rebuild: clean build
-
-.PHONY: all build clean rebuild
-
-# Include compiler-generated dependency files
--include $(DEPS)
+	rm -f build/*.o
+	rm -f island ithaca odysseus

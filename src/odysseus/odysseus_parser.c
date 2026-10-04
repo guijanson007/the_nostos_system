@@ -1,151 +1,202 @@
+/***********************************************
+ *
+ * @File : odysseus_parser.c
+ * @Purpose : parses the odysseus config file into an Odysseus struct
+ * @Author : Guilherme Rodrigues
+ * @Date : 20/09/2026
+ *
+ ************************************************/
+
 #define _GNU_SOURCE 1
 
 // header
 #include "odysseus/odysseus_parser.h"
 
-// system
-#include <fcntl.h>
-#include <stddef.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-
-// own
-#include "utils/utils.h"
-
-static int buildSupplies(Odysseus *odysseus, char **lines, size_t outCount) {
-    if (odysseus->initialNumSupplies > 0) {
-        odysseus->supplies =
-            calloc(odysseus->initialNumSupplies, sizeof(Supply));
-        if (!odysseus->supplies) {
-
+/***********************************************
+ *
+ * @Name : buildSupplies
+ * @Def : Allocates the supplies array and fills it with the supply lines of
+ *        the config file (name and amount separated by a space).
+ * @Arg : In/Out: ptOdysseus = struct whose supplies are filled
+ *        In: apsLines = lines read from the config file
+ *        In: tOutCount = number of lines read
+ * @Ret : Returns 1 if successful, 0 if the allocation failed.
+ *
+ ************************************************/
+static int buildSupplies(Odysseus *ptOdysseus, char **apsLines, size_t tOutCount) {
+    size_t tLine = SUPPLIES_FIRST_LINE;
+    char *psToken = NULL;
+ 
+    if (0 < ptOdysseus->initialNumSupplies) {
+        ptOdysseus->supplies =
+            calloc(ptOdysseus->initialNumSupplies, sizeof(Supply));
+        if (NULL == ptOdysseus->supplies) {
+ 
             return 0;
         } else {
-            size_t i = 6;
-            while (i < outCount &&
-                   (i - 6) < (size_t)odysseus->initialNumSupplies) {
-                char *arg1 = strtok(lines[i], " ");
-                if (arg1) {
-                    odysseus->supplies[i - 6].name = strdup(arg1);
-                    arg1 = strtok(NULL, " ");
-                    if (arg1) {
-                        odysseus->supplies[i - 6].amount = atoi(arg1);
+            while (tLine < tOutCount &&
+                   (tLine - SUPPLIES_FIRST_LINE) <
+                       (size_t)ptOdysseus->initialNumSupplies) {
+                psToken = strtok(apsLines[tLine], " ");
+                if (NULL != psToken) {
+                    ptOdysseus->supplies[tLine - SUPPLIES_FIRST_LINE].name =
+                        strdup(psToken);
+                    psToken = strtok(NULL, " ");
+                    if (NULL != psToken) {
+                        ptOdysseus->supplies[tLine - SUPPLIES_FIRST_LINE].amount =
+                            atoi(psToken);
                     }
                 }
-                ++i;
+                ++tLine;
             }
         }
     }
     return 1;
 }
 
-Odysseus odysseusParseFile(int fd) {
-    Odysseus odysseus;
+
+
+/***********************************************
+ *
+ * @Name : odysseusParseFile
+ * @Def : Reads the config file and builds the Odysseus struct from it.
+ * @Arg : In: nFd = file descriptor of the config file
+ * @Ret : The Odysseus struct. If something fails, the fields that could not
+ *        be filled are NULL/0. The caller must free it with freeOdysseus.
+ *
+ ************************************************/
+Odysseus odysseusParseFile(int nFd) {
+    Odysseus tOdysseus;
+    size_t tOutCount = 0;
+    char **apsLines = NULL;
+    char *psIpPort = NULL;
+    char *psToken = NULL;
+
     memset(&odysseus, 0, sizeof(Odysseus));
-
-    size_t outCount = 0;
-    char **lines = readLines(fd, &outCount);
-
+ 
+    apsLines = readLines(nFd, &tOutCount);
+ 
     // Verify readLines didn't fail and we have the minimum required lines
-    if (!lines || outCount < 6) {
-        printErr("Invalid or incomplete odysseus.dat file");
-        freeLines(lines, outCount);
-        return odysseus;
+    if (NULL == apsLines || MIN_CONFIG_LINES > tOutCount) {
+        printErr(ERROR_INVALID_FILE);
+        freeLines(apsLines, tOutCount);
+        return tOdysseus;
     }
-
-    odysseus.name = strdup(lines[0]);
-    odysseus.path = strdup(lines[1]);
-
-    char *ipPort = strdup(lines[2]);
-    char *token = ipPort ? strtok(ipPort, " ") : NULL;
-    odysseus.ip = token ? strdup(token) : NULL;
-    token = token ? strtok(NULL, " ") : NULL;
-    odysseus.port = token ? strdup(token) : NULL;
-    free(ipPort);
-
-    odysseus.initialInfo = strdup(lines[3]);
-
-    if (!odysseus.name || !odysseus.path || !odysseus.ip || !odysseus.port ||
-        !odysseus.initialInfo) {
-        printErr("Failed to allocate/parse odysseus fields");
-        freeLines(lines, outCount);
-        return odysseus;
+ 
+    tOdysseus.name = strdup(apsLines[0]);
+    tOdysseus.path = strdup(apsLines[1]);
+ 
+    psIpPort = strdup(apsLines[2]);
+    psToken = psIpPort ? strtok(psIpPort, " ") : NULL;
+    tOdysseus.ip = psToken ? strdup(psToken) : NULL;
+    psToken = psToken ? strtok(NULL, " ") : NULL;
+    tOdysseus.port = psToken ? strdup(psToken) : NULL;
+    free(psIpPort);
+ 
+    tOdysseus.initialInfo = strdup(apsLines[3]);
+ 
+    if (NULL == tOdysseus.name || NULL == tOdysseus.path ||
+        NULL == tOdysseus.ip || NULL == tOdysseus.port ||
+        NULL == tOdysseus.initialInfo) {
+        printErr(ERROR_PARSE_FIELDS);
+        freeLines(apsLines, tOutCount);
+        return tOdysseus;
     }
-
-    odysseus.initialMoney = atof(lines[4]);
-    odysseus.initialNumSupplies = atoi(lines[5]);
-
-    if (buildSupplies(&odysseus, lines, outCount) == 0) {
-        printErr("Failed to allocate memory for supplies");
-        freeLines(lines, outCount);
-        return odysseus;
-    };
-
-    // we can free the lines now since we have copied the data we need
-    freeLines(lines, outCount);
-
-    return odysseus;
-    // odysseus is freed in main.c in case of error, or after the menu loop
+ 
+    tOdysseus.initialMoney = atof(apsLines[4]);
+    tOdysseus.initialNumSupplies = atoi(apsLines[5]);
+ 
+    if (0 == buildSupplies(&tOdysseus, apsLines, tOutCount)) {
+        printErr(ERROR_ALLOC_SUPPLIES);
+        freeLines(apsLines, tOutCount);
+        return tOdysseus;
+    }
+ 
+    // We can free the lines now since we have copied the data we need
+    freeLines(apsLines, tOutCount);
+ 
+    // tOdysseus is freed in main in case of error, or after the menu loop
     // ends, so we don't free it here
+    return tOdysseus;
 }
 
-void freeOdysseus(Odysseus *odysseus) {
-    if (odysseus == NULL) {
+/***********************************************
+ *
+ * @Name : freeOdysseus
+ * @Def : Frees every dynamically allocated field of an Odysseus struct and
+ *        sets them to NULL.
+ * @Arg : In/Out: ptOdysseus = struct to free
+ * @Ret : None.
+ *
+ ************************************************/
+void freeOdysseus(Odysseus *ptOdysseus) {
+    int i = 0;
+ 
+    if (NULL == ptOdysseus) {
         return;
     }
-
-    free(odysseus->name);
-    odysseus->name = NULL;
-    free(odysseus->path);
-    odysseus->path = NULL;
-    free(odysseus->ip);
-    odysseus->ip = NULL;
-    free(odysseus->port);
-    odysseus->port = NULL;
-    free(odysseus->initialInfo);
-    odysseus->initialInfo = NULL;
-
-    if (odysseus->supplies) {
-        for (int i = 0; i < odysseus->initialNumSupplies; ++i) {
-            free(odysseus->supplies[i].name);
-            odysseus->supplies[i].name = NULL;
+ 
+    free(ptOdysseus->name);
+    ptOdysseus->name = NULL;
+    free(ptOdysseus->path);
+    ptOdysseus->path = NULL;
+    free(ptOdysseus->ip);
+    ptOdysseus->ip = NULL;
+    free(ptOdysseus->port);
+    ptOdysseus->port = NULL;
+    free(ptOdysseus->initialInfo);
+    ptOdysseus->initialInfo = NULL;
+ 
+    if (NULL != ptOdysseus->supplies) {
+        for (i = 0; i < ptOdysseus->initialNumSupplies; ++i) {
+            free(ptOdysseus->supplies[i].name);
+            ptOdysseus->supplies[i].name = NULL;
         }
-        free(odysseus->supplies);
-        odysseus->supplies = NULL;
+        free(ptOdysseus->supplies);
+        ptOdysseus->supplies = NULL;
     }
-    odysseus->initialNumSupplies = 0;
+    ptOdysseus->initialNumSupplies = 0;
 }
 
-// Useful for debugging purposes, prints the contents of the Odysseus struct
-void odysseusPrintInfo(Odysseus *odysseus) {
+/***********************************************
+ *
+ * @Name : odysseusPrintInfo
+ * @Def : Prints the contents of the Odysseus struct. Useful for debugging.
+ * @Arg : In: ptOdysseus = struct to print
+ * @Ret : None.
+ *
+ ************************************************/
+void odysseusPrintInfo(Odysseus *ptOdysseus) {
+    char sName[PRINT_BUFFER_SIZE] = {'\0'};
+    char sPath[PRINT_BUFFER_SIZE] = {'\0'};
+    char sIpPort[PRINT_BUFFER_SIZE] = {'\0'};
+    char sInitialInfo[PRINT_LONG_BUFFER_SIZE] = {'\0'};
+    char sMoney[PRINT_SHORT_BUFFER_SIZE] = {'\0'};
+    char sNumSupplies[PRINT_SHORT_BUFFER_SIZE] = {'\0'};
+    char sSupplyHeader[PRINT_BUFFER_SIZE] = {'\0'};
+    int i = 0;
+ 
     println("Odysseus Info:");
-    char nameStr[200];
-    sprintf(nameStr, "Name: %s", odysseus->name);
-    println(nameStr);
-    char pathStr[200];
-    sprintf(pathStr, "Path: %s", odysseus->path);
-    println(pathStr);
-    char ipPortStr[200];
-    sprintf(ipPortStr, "IP:%s | Port: %s", odysseus->ip, odysseus->port);
-    println(ipPortStr);
-    char initialInfoStr[300];
-    sprintf(initialInfoStr, "Initial Info: %s", odysseus->initialInfo);
-    println(initialInfoStr);
-    char moneyStr[100];
-    sprintf(moneyStr, "Initial money: %f", odysseus->initialMoney);
-    println(moneyStr);
-    char numSuppliesStr[100];
-    sprintf(numSuppliesStr, "Initial number of supplies: %d",
-            odysseus->initialNumSupplies);
-    println(numSuppliesStr);
-
-    for (int i = 0; i < odysseus->initialNumSupplies; ++i) {
-        char supplyHeader[200];
-        sprintf(supplyHeader, "Supply %d:", i + 1);
-        println(supplyHeader);
-        sprintf(supplyHeader, "\tName: %s", odysseus->supplies[i].name);
-        println(supplyHeader);
-        sprintf(supplyHeader, "\tAmount: %d", odysseus->supplies[i].amount);
-        println(supplyHeader);
+    sprintf(sName, "Name: %s", ptOdysseus->name);
+    println(sName);
+    sprintf(sPath, "Path: %s", ptOdysseus->path);
+    println(sPath);
+    sprintf(sIpPort, "IP:%s | Port: %s", ptOdysseus->ip, ptOdysseus->port);
+    println(sIpPort);
+    sprintf(sInitialInfo, "Initial Info: %s", ptOdysseus->initialInfo);
+    println(sInitialInfo);
+    sprintf(sMoney, "Initial money: %f", ptOdysseus->initialMoney);
+    println(sMoney);
+    sprintf(sNumSupplies, "Initial number of supplies: %d",
+            ptOdysseus->initialNumSupplies);
+    println(sNumSupplies);
+ 
+    for (i = 0; i < ptOdysseus->initialNumSupplies; ++i) {
+        sprintf(sSupplyHeader, "Supply %d:", i + 1);
+        println(sSupplyHeader);
+        sprintf(sSupplyHeader, "\tName: %s", ptOdysseus->supplies[i].name);
+        println(sSupplyHeader);
+        sprintf(sSupplyHeader, "\tAmount: %d", ptOdysseus->supplies[i].amount);
+        println(sSupplyHeader);
     }
 }
