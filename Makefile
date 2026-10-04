@@ -27,19 +27,19 @@ build/ithaca.o: src/ithaca/ithaca.c include/ithaca/ithaca.h include/ithaca/ithac
 build/ithaca_parser.o: src/ithaca/ithaca_parser.c include/ithaca/ithaca_parser.h | build
 	gcc -c src/ithaca/ithaca_parser.c -o build/ithaca_parser.o -Wall -Wextra -Iinclude
 
-build/odysseus.o: src/odysseus/odysseus.c include/odysseus/odysseus_command.h include/odysseus/odysseus_handler.h include/odysseus/odysseus_menu.h include/odysseus/odysseus_parser.h include/utils/utils.h | build
+build/odysseus.o: src/odysseus/odysseus.c include/odysseus/odysseus.h include/odysseus/odysseus_parser.h include/odysseus/odysseus_menu.h include/odysseus/odysseus_command.h include/odysseus/odysseus_handler.h include/utils/utils.h | build
 	gcc -c src/odysseus/odysseus.c -o build/odysseus.o -Wall -Wextra -Iinclude
 
-build/odysseus_command.o: src/odysseus/odysseus_command.c include/odysseus/odysseus_command.h | build
+build/odysseus_command.o: src/odysseus/odysseus_command.c include/odysseus/odysseus_command.h include/odysseus/odysseus.h include/odysseus/odysseus_handler.h | build
 	gcc -c src/odysseus/odysseus_command.c -o build/odysseus_command.o -Wall -Wextra -Iinclude
 
-build/odysseus_handler.o: src/odysseus/odysseus_handler.c include/odysseus/odysseus_handler.h | build
+build/odysseus_handler.o: src/odysseus/odysseus_handler.c include/odysseus/odysseus_handler.h include/odysseus/odysseus.h | build
 	gcc -c src/odysseus/odysseus_handler.c -o build/odysseus_handler.o -Wall -Wextra -Iinclude
 
-build/odysseus_menu.o: src/odysseus/odysseus_menu.c include/odysseus/odysseus_menu.h | build
+build/odysseus_menu.o: src/odysseus/odysseus_menu.c include/odysseus/odysseus_menu.h include/odysseus/odysseus.h | build
 	gcc -c src/odysseus/odysseus_menu.c -o build/odysseus_menu.o -Wall -Wextra -Iinclude
 
-build/odysseus_parser.o: src/odysseus/odysseus_parser.c include/odysseus/odysseus_parser.h | build
+build/odysseus_parser.o: src/odysseus/odysseus_parser.c include/odysseus/odysseus_parser.h include/odysseus/odysseus.h | build
 	gcc -c src/odysseus/odysseus_parser.c -o build/odysseus_parser.o -Wall -Wextra -Iinclude
 
 .PHONY: clean

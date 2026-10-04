@@ -1,33 +1,33 @@
+/***********************************************
+ *
+ * @File : odysseus_menu.c
+ * @Purpose : console menu for odysseus process. Shows the prompt, reads the user commands and executes them.
+ * @Author : Guilherme Rodrigues
+ * @Date : 25/09/2026
+ *
+ ************************************************/
+
 #define _GNU_SOURCE
 
 // header
 #include "odysseus/odysseus_menu.h"
 
-// system
-#include <errno.h>
-#include <stdio.h>
-#include <string.h>
-#include <unistd.h>
-
-// own
-#include "odysseus/odysseus_command.h"
-#include "utils/utils.h"
 
 /*************************************************
  *
  * @Name : odysseusStartMenu
  * @Def : Displays the start menu for the Odysseus application.
- * @Arg : In: odysseus = Odysseus instance containing the name to display
+ * @Arg : In: tOdysseus = Odysseus instance containing the name to display
  * @Ret : None.
  *
  **************************************************/
-void odysseusStartMenu(Odysseus odysseus) {
-    char *buffer;
-    asprintf(&buffer, "Odysseus %s is ready to sail.\n", odysseus.name);
-    println(buffer);
-    free(buffer);
+void odysseusStartMenu(Odysseus tOdysseus) {
+    char *psBuffer = NULL;
+ 
+    asprintf(&psBuffer, MSG_START_MENU, tOdysseus.name);
+    println(psBuffer);
+    free(psBuffer);
 }
-
 /*************************************************
  *
  * @Name : setupInputField
@@ -37,9 +37,9 @@ void odysseusStartMenu(Odysseus odysseus) {
  *
  **************************************************/
 void setupInputField() {
-    // make text bold
-    write(STDOUT_FILENO, "\033[1m", strlen("\033[1m"));
-    write(STDOUT_FILENO, "$ ", strlen("$ "));
+    // Make text bold
+    write(STDOUT_FILENO, TEXT_BOLD, strlen(TEXT_BOLD));
+    write(STDOUT_FILENO, PROMPT, strlen(PROMPT));
 }
 
 /*************************************************
@@ -51,8 +51,8 @@ void setupInputField() {
  *
  **************************************************/
 void resetInputField() {
-    // reset text formatting
-    write(STDOUT_FILENO, "\033[0m", strlen("\033[0m"));
+    // Reset text formatting
+    write(STDOUT_FILENO, TEXT_RESET, strlen(TEXT_RESET));
 }
 
 /*************************************************
@@ -60,47 +60,51 @@ void resetInputField() {
  * @Name : odysseusShowMenu
  * @Def : Displays the command prompt, reads user input, parses and validates
  * the command, and executes it if valid.
- * @Arg : In: odysseus = Odysseus instance to use for command execution
+ * @Arg : In: tOdysseus = Odysseus instance to use for command execution
  * @Ret : Returns 1 to continue the menu, 0 to exit.
  *
  **************************************************/
-int odysseusShowMenu(Odysseus odysseus) {
-    OdysseusCommand command;
-    const char *errorMessage;
-
-    char *input = NULL;
-
+int odysseusShowMenu(Odysseus tOdysseus) {
+    OdysseusCommand tCommand = {0};
+    const char *psErrorMessage = NULL;
+    char *psInput = NULL;
+ 
     setupInputField();
-
-    if (-1 == readLine(STDIN_FILENO, &input)) {
-        if (errno == EINTR) {
-            return 0; // Interrupted by signal
+ 
+    if (-1 == readLine(STDIN_FILENO, &psInput)) {
+        if (EINTR == errno) {
+            // Interrupted by signal
+            return 0;
         } else {
-            printErr("Failed to read command");
-            return 0; // Error reading input
+            // Error reading input
+            printErr(ERROR_READ_COMMAND);
+            return 0;
         }
     }
-
+ 
     resetInputField();
-
-    if (NULL == input) {
+ 
+    if (NULL == psInput) {
         return 0;
     }
-
-    if (!parseOdysseusCommand(input, &command)) {
-        free(input);
+ 
+    if (0 == parseOdysseusCommand(psInput, &tCommand)) {
+        free(psInput);
         return 1;
     }
-
-    if (COMMAND_VALID != validateOdysseusCommand(&command, &errorMessage)) {
-        printErr(errorMessage);
-        printErr(""); // Print an empty line for better readability
-        free(input);
-        return 1; // Return 1 to continue the menu even after an invalid command
+ 
+    if (COMMAND_VALID != validateOdysseusCommand(&tCommand, &psErrorMessage)) {
+        printErr(psErrorMessage);
+        // Print an empty line for better readability
+        printErr("");
+        free(psInput);
+        // Return 1 to continue the menu even after an invalid command
+        return 1;
     }
-    executeOdysseusCommand(odysseus, &command);
-    free(input);
-    println("Command OK");
-    println(""); // Print an empty line for better readability
+    executeOdysseusCommand(tOdysseus, &tCommand);
+    free(psInput);
+    println(MSG_COMMAND_OK);
+    // Print an empty line for better readability
+    println("");
     return 1;
 }

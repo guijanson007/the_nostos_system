@@ -23,7 +23,6 @@
 
 // Constant declarations
 #define EXPECTED_ARGC 2
-#define MAX_ERROR_MSG_SIZE 256
 #define ERROR_ARGC "Usage: odysseus <config_file>.dat"
 #define ERROR_OPEN_FILE "Failed to open file: %s"
 

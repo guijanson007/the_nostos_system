@@ -12,9 +12,16 @@
 
 #include "odysseus.h"
 
-void freeOdysseus(Odysseus *odysseus);
-Odysseus odysseusParseFile(int fd);
-void odysseusPrintInfo(Odysseus *odysseus);
-
+// Constantº
+#define MIN_CONFIG_LINES 6
+#define SUPPLIES_FIRST_LINE 6
+#define ERROR_INVALID_FILE "Invalid or incomplete odysseus.dat file"
+#define ERROR_PARSE_FIELDS "Failed to allocate/parse odysseus fields"
+#define ERROR_ALLOC_SUPPLIES "Failed to allocate memory for supplies"
+ 
+// Projects
+void freeOdysseus(Odysseus *ptOdysseus);
+Odysseus odysseusParseFile(int nFd);
+void odysseusPrintInfo(Odysseus *ptOdysseus);
 
 #endif 
