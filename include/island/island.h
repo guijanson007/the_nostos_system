@@ -53,16 +53,12 @@ typedef struct {
 // Local Includes
 #include "island_parser.h"
 #include "../utils/utils.h"
-#include "../../lib/sphragis/sphragis.h"
+#include "../lib/sphragis/sphragis.h"
  
 // Functions
 void freeIsland(Island *island, SPHRAGIS_Island *sphragis);
 void freeStock(Stock **stock);
 void freeRoute(Route *ptRoute);
-void closeFiles(int *pnFdConfig, int *pnFdStock);
-void errorLoadingHandeler(int *pnFdConfig, int *pnFdStock);
-void printData (Island tIsland, Stock *atStock, size_t nNumStock);
-void waitForQuit(void);
- 
+void closeFiles(int *pnFdConfig, int *pnFdStock); 
 #endif
  

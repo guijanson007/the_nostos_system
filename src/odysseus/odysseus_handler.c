@@ -1,46 +1,52 @@
+/***********************************************
+ *
+ * @File : odysseus_handler.c
+ * @Purpose : handlers for the odysseus commands. Not yet implemented, will
+ *            be used starting from phase 2 of the project.
+ * @Author : Guilherme Rodrigues
+ * @Date : 04/10/2026
+ *
+ ************************************************/
+ 
+
 // header
 #include "odysseus/odysseus_handler.h"
 
-/*
- * This file is not yet implemented, and will be used starting form phase 2 of
- * the project
- */
-
-void odysseusConnect(Odysseus odysseus, const char *destination) {
-    (void)odysseus;
-    (void)destination;
+void odysseusConnect(Odysseus tOdysseus, const char *psDestination) {
+    (void)tOdysseus;
+    (void)psDestination;
 }
 
-void odysseusMap(Odysseus odysseus) { (void)odysseus; }
+void odysseusMap(Odysseus tOdysseus) { (void)tOdysseus; }
 
-void odysseusStatus(Odysseus odysseus) { (void)odysseus; }
+void odysseusStatus(Odysseus tOdysseus) { (void)tOdysseus; }
 
-void odysseusDeliver(Odysseus odysseus) { (void)odysseus; }
+void odysseusDeliver(Odysseus tOdysseus) { (void)tOdysseus; }
 
-void odysseusClaim(Odysseus odysseus) { (void)odysseus; }
+void odysseusClaim(Odysseus tOdysseus) { (void)tOdysseus; }
 
-void odysseusListVoyages(Odysseus odysseus) { (void)odysseus; }
+void odysseusListVoyages(Odysseus tOdysseus) { (void)tOdysseus; }
 
-void odysseusListMarket(Odysseus odysseus) { (void)odysseus; }
+void odysseusListMarket(Odysseus tOdysseus) { (void)tOdysseus; }
 
-void odysseusAcceptVoyage(Odysseus odysseus, const char *voyageId) {
-    (void)odysseus;
-    (void)voyageId;
+void odysseusAcceptVoyage(Odysseus tOdysseus, const char *psVoyageId) {
+    (void)tOdysseus;
+    (void)psVoyageId;
 }
 
-void odysseusSail(Odysseus odysseus, const char *voyageId) {
-    (void)odysseus;
-    (void)voyageId;
+void odysseusSail(Odysseus tOdysseus, const char *psVoyageId) {
+    (void)tOdysseus;
+    (void)psVoyageId;
 }
 
-void odysseusBuy(Odysseus odysseus, const char *product, const char *amount) {
-    (void)odysseus;
-    (void)product;
-    (void)amount;
+void odysseusBuy(Odysseus tOdysseus, const char *psProduct, const char *psAmount) {
+    (void)tOdysseus;
+    (void)psProduct;
+    (void)psAmount;
 }
 
-void odysseusSell(Odysseus odysseus, const char *product, const char *amount) {
-    (void)odysseus;
-    (void)product;
-    (void)amount;
+void odysseusSell(Odysseus tOdysseus, const char *psProduct, const char *psAmount) {
+    (void)tOdysseus;
+    (void)psProduct;
+    (void)psAmount;
 }

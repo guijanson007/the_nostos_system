@@ -1,91 +1,94 @@
+/***********************************************
+ *
+ * @File : odysseus_command.c
+ * @Purpose : parses, validates and executes the commands typed in the odysseus menu
+ * @Author : Guilherme Rodrigues
+ * @Date : 25/10/2026
+ *
+ ************************************************/
+
 #define _GNU_SOURCE
 
-// header
+// own
 #include "odysseus/odysseus_command.h"
 
-// system
-#include <string.h>
-
-// own
-#include "odysseus/odysseus_handler.h"
-#include "utils/utils.h"
-
-/*************************************************
+/***********************************************
  *
  * @Name : commandTypeFromName
  * @Def : Converts a command name to its corresponding CommandType enum value.
- * @Arg : In: name = command name (case-insensitive)
+ * @Arg : In: psName = command name (case-insensitive)
  * @Ret : Corresponding CommandType enum value, or COMMAND_UNKNOWN if not found.
  *
- **************************************************/
-static CommandType commandTypeFromName(char *name) {
-    // ignore case when comparing command names
-    CommandType out = COMMAND_UNKNOWN;
-    strToUpper(name);
-
-    if (strcmp(name, "MAP") == 0) {
+ ************************************************/
+static CommandType commandTypeFromName(char *psName) {
+    CommandType eOut = COMMAND_UNKNOWN;
+ 
+    // Ignore case when comparing command names
+    strToUpper(psName);
+ 
+    if (0 == strcmp(psName, CMD_MAP)) {
         return COMMAND_MAP;
     }
-    if (strcmp(name, "STATUS") == 0) {
+    if (0 == strcmp(psName, CMD_STATUS)) {
         return COMMAND_STATUS;
     }
-    if (strcmp(name, "DELIVER") == 0) {
+    if (0 == strcmp(psName, CMD_DELIVER)) {
         return COMMAND_DELIVER;
     }
-    if (strcmp(name, "CLAIM") == 0) {
+    if (0 == strcmp(psName, CMD_CLAIM)) {
         return COMMAND_CLAIM;
     }
-    if (strcmp(name, "CONNECT") == 0) {
+    if (0 == strcmp(psName, CMD_CONNECT)) {
         return COMMAND_CONNECT;
     }
-    if (strcmp(name, "LIST") == 0) {
+    if (0 == strcmp(psName, CMD_LIST)) {
         return COMMAND_LIST;
     }
-    if (strcmp(name, "ACCEPT") == 0) {
+    if (0 == strcmp(psName, CMD_ACCEPT)) {
         return COMMAND_ACCEPT;
     }
-    if (strcmp(name, "SAIL") == 0) {
+    if (0 == strcmp(psName, CMD_SAIL)) {
         return COMMAND_SAIL;
     }
-    if (strcmp(name, "BUY") == 0) {
+    if (0 == strcmp(psName, CMD_BUY)) {
         return COMMAND_BUY;
     }
-    if (strcmp(name, "SELL") == 0) {
+    if (0 == strcmp(psName, CMD_SELL)) {
         return COMMAND_SELL;
     }
-    return out;
+    return eOut;
 }
 
 /*/*************************************************
  *
  * @Name : parseOdysseusCommand
  * @Def : Parses a command line into an OdysseusCommand structure.
- * @Arg : In: line = command line string
- *        Out: command = pointer to OdysseusCommand structure to fill
+ * @Arg : In: psLine = command line string
+ *        Out: ptCommand = pointer to OdysseusCommand structure to fill
  * @Ret : Returns 1 if the command was parsed successfully, 0 if the line is
  * empty.
  *
  **************************************************/
-int parseOdysseusCommand(char *line, OdysseusCommand *command) {
-    char *token;
-
-    command->type = COMMAND_UNKNOWN;
-    command->argc = 0;
-
-    token = strtok(line, " \t");
-    if (token == NULL) {
+int parseOdysseusCommand(char *psLine, OdysseusCommand *ptCommand) {
+    char *psToken = NULL;
+ 
+    ptCommand->type = COMMAND_UNKNOWN;
+    ptCommand->argc = 0;
+ 
+    psToken = strtok(psLine, COMMAND_DELIMITERS);
+    if (NULL == psToken) {
         return 0;
     }
-
-    command->type = commandTypeFromName(token);
-
-    while ((token = strtok(NULL, " \t")) != NULL) {
-        if (command->argc < ODYSSEUS_MAX_ARGS) {
-            command->argv[command->argc] = token;
+ 
+    ptCommand->type = commandTypeFromName(psToken);
+ 
+    while (NULL != (psToken = strtok(NULL, COMMAND_DELIMITERS))) {
+        if (ptCommand->argc < ODYSSEUS_MAX_ARGS) {
+            ptCommand->argv[ptCommand->argc] = psToken;
         }
-        command->argc++;
+        ptCommand->argc++;
     }
-
+ 
     return 1;
 }
 
@@ -93,128 +96,138 @@ int parseOdysseusCommand(char *line, OdysseusCommand *command) {
  *
  * @Name : hasExactlyZeroArguments
  * @Def : Checks if the command has exactly zero arguments.
- * @Arg : In: command = pointer to OdysseusCommand structure
+ * @Arg : In: ptCommand = pointer to OdysseusCommand structure
  * @Ret : Returns 1 if the command has exactly zero arguments, 0 otherwise.
  *
  ****************************************************************/
-static int hasExactlyZeroArguments(const OdysseusCommand *command) {
-    return command->argc == 0;
+static int hasExactlyZeroArguments(const OdysseusCommand *ptCommand) {
+    return 0 == ptCommand->argc;
 }
-
 /*****************************************************************
  *
  * @Name : hasExactlyOneArgument
  * @Def : Checks if the command has exactly one argument.
- * @Arg : In: command = pointer to OdysseusCommand structure
+ * @Arg : In: ptCommand = pointer to OdysseusCommand structure
  * @Ret : Returns 1 if the command has exactly one argument, 0 otherwise.
  *
  ****************************************************************/
-static int hasExactlyOneArgument(const OdysseusCommand *command) {
-    return command->argc == 1;
+static int hasExactlyOneArgument(const OdysseusCommand *ptCommand) {
+    return 1 == ptCommand->argc;
 }
 
 /*****************************************************************
  *
  * @Name : hasExactlyTwoArguments
  * @Def : Checks if the command has exactly two arguments.
- * @Arg : In: command = pointer to OdysseusCommand structure
+ * @Arg : In: ptCommand = pointer to OdysseusCommand structure
  * @Ret : Returns 1 if the command has exactly two arguments, 0 otherwise.
  *
  ****************************************************************/
-static int hasExactlyTwoArguments(const OdysseusCommand *command) {
-    return command->argc == 2;
+static int hasExactlyTwoArguments(const OdysseusCommand *ptCommand) {
+    return 2 == ptCommand->argc;
 }
 /*************************************************
  *
  * @Name : validateOdysseusCommand
  * @Def : Validates the arguments of an OdysseusCommand.
- * @Arg : In: command = pointer to OdysseusCommand structure to validate
- *        Out: errorMessage = pointer to a string describing the error, if any
+ * @Arg : In: ptCommand = pointer to OdysseusCommand structure to validate
+ *        Out: ppsErrorMessage = pointer to a string describing the error, if any
  * @Ret : Returns COMMAND_VALID if the command is valid, or an appropriate
  * CommandValidationResult value if invalid.
  *
  **************************************************/
-CommandValidationResult validateOdysseusCommand(const OdysseusCommand *command,
-                                                const char **errorMessage) {
-    *errorMessage = NULL;
-
-    if (command->argc > 0) {
-        // convert argv[0] to uppercase for case-insensitive comparison
-        strToUpper(command->argv[0]);
+CommandValidationResult validateOdysseusCommand(const OdysseusCommand *ptCommand,
+                                                const char **ppsErrorMessage) {
+    *ppsErrorMessage = NULL;
+ 
+    if (0 < ptCommand->argc) {
+        // Convert argv[0] to uppercase for case-insensitive comparison
+        strToUpper(ptCommand->argv[0]);
     }
-
-    if (command->type == COMMAND_UNKNOWN) {
-        *errorMessage = "Unknown command";
+ 
+    if (COMMAND_UNKNOWN == ptCommand->type) {
+        *ppsErrorMessage = ERROR_UNKNOWN_COMMAND;
         return COMMAND_UNKNOWN_COMMAND;
     }
-
-    switch (command->type) {
+ 
+    switch (ptCommand->type) {
         case COMMAND_MAP:
-            if (!hasExactlyZeroArguments(command)) {
-                *errorMessage = "Usage: MAP";
+            if (0 == hasExactlyZeroArguments(ptCommand)) {
+                *ppsErrorMessage = USAGE_MAP;
             }
             break;
+ 
         case COMMAND_STATUS:
-            if (!hasExactlyZeroArguments(command)) {
-                *errorMessage = "Usage: STATUS";
+            if (0 == hasExactlyZeroArguments(ptCommand)) {
+                *ppsErrorMessage = USAGE_STATUS;
             }
             break;
+ 
         case COMMAND_DELIVER:
-            if (!hasExactlyZeroArguments(command)) {
-                *errorMessage = "Usage: DELIVER";
+            if (0 == hasExactlyZeroArguments(ptCommand)) {
+                *ppsErrorMessage = USAGE_DELIVER;
             }
             break;
+ 
         case COMMAND_CLAIM:
-            if (!hasExactlyZeroArguments(command)) {
-                *errorMessage = "Usage: CLAIM";
+            if (0 == hasExactlyZeroArguments(ptCommand)) {
+                *ppsErrorMessage = USAGE_CLAIM;
             }
             break;
-
+ 
         case COMMAND_CONNECT:
-            if (!hasExactlyOneArgument(command) ||
-                strcmp(command->argv[0], "ITHACA") != 0) {
-                *errorMessage = "Usage: CONNECT ITHACA";
+            if (0 == hasExactlyOneArgument(ptCommand) ||
+                0 != strcmp(ptCommand->argv[0], ARG_ITHACA)) {
+                *ppsErrorMessage = USAGE_CONNECT;
             }
             break;
-
+ 
         case COMMAND_LIST:
-            if (!hasExactlyOneArgument(command) ||
-                (strcmp(command->argv[0], "VOYAGES") != 0 &&
-                 strcmp(command->argv[0], "MARKET") != 0)) {
-                *errorMessage = "Usage: LIST VOYAGES | LIST MARKET";
+            if (0 == hasExactlyOneArgument(ptCommand) ||
+                (0 != strcmp(ptCommand->argv[0], ARG_VOYAGES) &&
+                 0 != strcmp(ptCommand->argv[0], ARG_MARKET))) {
+                *ppsErrorMessage = USAGE_LIST;
             }
             break;
-
+ 
         case COMMAND_ACCEPT:
-            if (!hasExactlyOneArgument(command)) {
-                *errorMessage = "Usage: ACCEPT <voyage_id>";
-            } else if (!isPositiveInteger(command->argv[0])) {
-                *errorMessage = "Voyage ID must be a positive integer";
+            if (0 == hasExactlyOneArgument(ptCommand)) {
+                *ppsErrorMessage = USAGE_ACCEPT;
+            } else if (0 == isPositiveInteger(ptCommand->argv[0])) {
+                *ppsErrorMessage = ERROR_VOYAGE_ID;
             }
             break;
-
+ 
         case COMMAND_SAIL:
-            if (!hasExactlyOneArgument(command)) {
-                *errorMessage = "Usage: SAIL <ISLAND>";
+            if (0 == hasExactlyOneArgument(ptCommand)) {
+                *ppsErrorMessage = USAGE_SAIL;
             }
             break;
-
+ 
         case COMMAND_BUY:
-        case COMMAND_SELL:
-            if (!hasExactlyTwoArguments(command)) {
-                *errorMessage = command->type == COMMAND_BUY
-                                    ? "Usage: BUY <PRODUCT> <AMOUNT>"
-                                    : "Usage: SELL <PRODUCT> <AMOUNT>";
-            } else if (!isPositiveInteger(command->argv[1])) {
-                *errorMessage = "Amount must be a positive integer";
+            if (0 == hasExactlyTwoArguments(ptCommand)) {
+                *ppsErrorMessage = USAGE_BUY;
+            } else if (0 == isPositiveInteger(ptCommand->argv[1])) {
+                *ppsErrorMessage = ERROR_AMOUNT;
             }
             break;
-
+ 
+        case COMMAND_SELL:
+            if (0 == hasExactlyTwoArguments(ptCommand)) {
+                *ppsErrorMessage = USAGE_SELL;
+            } else if (0 == isPositiveInteger(ptCommand->argv[1])) {
+                *ppsErrorMessage = ERROR_AMOUNT;
+            }
+            break;
+ 
         case COMMAND_UNKNOWN:
             break;
+ 
+        default:
+            break;
     }
-
-    return *errorMessage == NULL ? COMMAND_VALID : COMMAND_INVALID_ARGUMENTS;
+ 
+    return NULL == *ppsErrorMessage ? COMMAND_VALID : COMMAND_INVALID_ARGUMENTS;
 }
 
 /*************************************************
@@ -222,48 +235,50 @@ CommandValidationResult validateOdysseusCommand(const OdysseusCommand *command,
  * @Name : executeOdysseusCommand
  * @Def : Executes the given OdysseusCommand using the provided Odysseus
  * instance.
- * @Arg : In: odysseus = Odysseus instance to use for command execution
- *        In: command = pointer to OdysseusCommand structure to execute
+ * @Arg : In: tOdysseus = Odysseus instance to use for command execution
+ *        In: ptCommand = pointer to OdysseusCommand structure to execute
  * @Ret : None.
  *
  **************************************************/
-void executeOdysseusCommand(Odysseus odysseus, const OdysseusCommand *command) {
-    switch (command->type) {
+void executeOdysseusCommand(Odysseus tOdysseus, const OdysseusCommand *ptCommand) {
+    switch (ptCommand->type) {
         case COMMAND_MAP:
-            odysseusMap(odysseus);
+            odysseusMap(tOdysseus);
             break;
         case COMMAND_STATUS:
-            odysseusStatus(odysseus);
+            odysseusStatus(tOdysseus);
             break;
         case COMMAND_DELIVER:
-            odysseusDeliver(odysseus);
+            odysseusDeliver(tOdysseus);
             break;
         case COMMAND_CLAIM:
-            odysseusClaim(odysseus);
+            odysseusClaim(tOdysseus);
             break;
         case COMMAND_CONNECT:
-            odysseusConnect(odysseus, command->argv[0]);
+            odysseusConnect(tOdysseus, ptCommand->argv[0]);
             break;
         case COMMAND_LIST:
-            if (strcmp(command->argv[0], "VOYAGES") == 0) {
-                odysseusListVoyages(odysseus);
+            if (0 == strcmp(ptCommand->argv[0], ARG_VOYAGES)) {
+                odysseusListVoyages(tOdysseus);
             } else {
-                odysseusListMarket(odysseus);
+                odysseusListMarket(tOdysseus);
             }
             break;
         case COMMAND_ACCEPT:
-            odysseusAcceptVoyage(odysseus, command->argv[0]);
+            odysseusAcceptVoyage(tOdysseus, ptCommand->argv[0]);
             break;
         case COMMAND_SAIL:
-            odysseusSail(odysseus, command->argv[0]);
+            odysseusSail(tOdysseus, ptCommand->argv[0]);
             break;
         case COMMAND_BUY:
-            odysseusBuy(odysseus, command->argv[0], command->argv[1]);
+            odysseusBuy(tOdysseus, ptCommand->argv[0], ptCommand->argv[1]);
             break;
         case COMMAND_SELL:
-            odysseusSell(odysseus, command->argv[0], command->argv[1]);
+            odysseusSell(tOdysseus, ptCommand->argv[0], ptCommand->argv[1]);
             break;
         case COMMAND_UNKNOWN:
+            break;
+        default:
             break;
     }
 }

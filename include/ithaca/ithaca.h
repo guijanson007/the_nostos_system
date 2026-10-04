@@ -54,11 +54,6 @@ typedef struct {
 // Functions
 void freeVoyage(Voyage **voyages, size_t *numVoyage);
 void freeIthaca(Ithaca *ithaca);
-void waitForQuit(void);
 void closeFiles(int *pnFdIthaca, int *pnFdVoyage);
-void errorLoadingHandler(const char *psError, int *pnFdIthaca, int *pnFdVoyage);
-int loadData(int *pnFdIthaca, int *pnFdVoyage, Ithaca *ptIthaca, Voyage **patVoyages, size_t *ptNumVoyages);
-void printData(Ithaca *ptIthaca, Voyage *atVoyages, size_t tNumVoyages);
- 
 
 #endif

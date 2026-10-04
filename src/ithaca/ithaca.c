@@ -156,22 +156,6 @@ void printData(Ithaca *ptIthaca, Voyage *atVoyages, size_t tNumVoyages) {
         }
     }
 }
- 
-/***********************************************
- *
- * @Name : waitForQuit
- * @Def : Installs the SIGINT handler and waits until the user presses Ctrl+C, then prints the farewell message.
- * @Arg : None.
- * @Ret : None.
- *
- ************************************************/
-void waitForQuit() {
-    signal(SIGINT, onSigint);
-    while (!nEv_quit) {
-        pause();
-    }
-    println(FAREWELL);
-}
 
 /***********************************************
  *
@@ -232,8 +216,14 @@ int main(int argc, char *argv[]) {
     // DEBUGGING
     printData(&tIthaca, atVoyages, tNumVoyages);
  
-    waitForQuit();
+    signal(SIGINT, onSigint);
+    while (!nEv_quit) {
+        pause();
+    }
+
     freeIthaca(&tIthaca);
     freeVoyage(&atVoyages, &tNumVoyages);
+    println(FAREWELL);
+
     return EXIT_SUCCESS;
 }

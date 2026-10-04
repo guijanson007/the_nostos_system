@@ -12,7 +12,7 @@
 
 //Local includes
 #include "island/island.h"
-#include "sphragis.h"
+#include "../lib/sphragis/sphragis.h"
 
 //Constants
 #define START_ROUTS 5

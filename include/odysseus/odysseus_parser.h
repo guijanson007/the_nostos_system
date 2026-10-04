@@ -1,5 +1,5 @@
-#ifndef __ODYSSEUS_H
-#define __ODYSSEUS_H
+#ifndef __ODYSSEUS_PARSER_H
+#define __ODYSSEUS_PARSER_H
 
 /***********************************************
  *
@@ -10,24 +10,18 @@
  *
  ************************************************/
 
-typedef struct {
-    char *name;
-    int amount;
-} Supply;
+#include "odysseus.h"
 
-typedef struct {
-    char *name;
-    char *path;
-    char *ip;
-    char *port;
-    char *initialInfo;
-    float initialMoney;
-    int initialNumSupplies;
-    Supply *supplies;
-} Odysseus;
+// Constantº
+#define MIN_CONFIG_LINES 6
+#define SUPPLIES_FIRST_LINE 6
+#define ERROR_INVALID_FILE "Invalid or incomplete odysseus.dat file"
+#define ERROR_PARSE_FIELDS "Failed to allocate/parse odysseus fields"
+#define ERROR_ALLOC_SUPPLIES "Failed to allocate memory for supplies"
+ 
+// Projects
+void freeOdysseus(Odysseus *ptOdysseus);
+Odysseus odysseusParseFile(int nFd);
+void odysseusPrintInfo(Odysseus *ptOdysseus);
 
-void freeOdysseus(Odysseus *odysseus);
-Odysseus odysseusParseFile(int fd);
-void odysseusPrintInfo(Odysseus *odysseus);
-
-#endif // !__ODYSSEUS_H
+#endif 
