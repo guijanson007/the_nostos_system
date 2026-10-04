@@ -3,8 +3,8 @@
 
 /***********************************************
  *
- * @File : oduysseus.h
- * @Purpose : entrypoint of odysseus process
+ * @File : oduysseus_parser.h
+ * @Purpose : parser for the odysseus configuration file
  * @Author : Guilherme Rodrigues
  * @Date : 20/09/2026
  *
