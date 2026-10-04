@@ -21,8 +21,8 @@
 // Constants
 #define READ_CHUNK_SIZE 4096
 #define INITIAL_ELEMENT_CAPACITY 100
-#define INITIAL_LINES_CAPACITY 16
-#define INITIAL_BINARY_CAPACITY 16
+#define INITIAL_LINES_CAPACITY 1
+#define INITIAL_BINARY_CAPACITY 1
 
 // Functions
 void freeLines(char **apsLines, size_t tCount);
