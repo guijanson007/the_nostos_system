@@ -47,7 +47,7 @@ void freeRoute(Route *ptRoute) {
  ************************************************/
 void freeIsland(Island *ptIsland, SPHRAGIS_Island *ptSphragis) {
     size_t i = 0;
- 
+
     if (NULL != ptIsland) {
         free(ptIsland->psName);
         free(ptIsland->psFile);
@@ -60,7 +60,7 @@ void freeIsland(Island *ptIsland, SPHRAGIS_Island *ptSphragis) {
         }
         memset(ptIsland, 0, sizeof(*ptIsland));
     }
- 
+
     if (NULL != ptSphragis) {
         free(ptSphragis->name);
         ptSphragis->name = NULL;
@@ -142,8 +142,9 @@ void printData(Island ptIsland, Stock *atStock, size_t tNumStock) {
     }
 
     for (i = 0; i < ptIsland.tNumRoutes; i++) {
-        if (-1 != asprintf(&psBuffer, "\t%s - %s - %d", ptIsland.atRoutes[i].psName,
-                           ptIsland.atRoutes[i].psIp, ptIsland.atRoutes[i].nPort)) {
+        if (-1 !=
+            asprintf(&psBuffer, "\t%s - %s - %d", ptIsland.atRoutes[i].psName,
+                     ptIsland.atRoutes[i].psIp, ptIsland.atRoutes[i].nPort)) {
             println(psBuffer);
             free(psBuffer);
         }
@@ -161,7 +162,8 @@ void printData(Island ptIsland, Stock *atStock, size_t tNumStock) {
 /***********************************************
  *
  * @Name : loadData
- * @Def : Loads the island (config file) and the stock (stock file).  On error it prints the message, closes both files and frees.
+ * @Def : Loads the island (config file) and the stock (stock file).  On error
+ * it prints the message, closes both files and frees.
  * @Arg : In/Out: pnFdConfig = pointer to the config file descriptor
  *        In/Out: pnFdStock = pointer to the stock file descriptor
  *        Out: ptIsland = island to fill
@@ -171,23 +173,24 @@ void printData(Island ptIsland, Stock *atStock, size_t tNumStock) {
  * @Ret : 0 if everything went well, -1 otherwise.
  *
  ************************************************/
-int loadData(int *pnFdConfig, int *pnFdStock, Island *ptIsland, SPHRAGIS_Island *ptSphragis, Stock **patStock, size_t *ptNumStock) {
+int loadData(int *pnFdConfig, int *pnFdStock, Island *ptIsland,
+             SPHRAGIS_Island *ptSphragis, Stock **patStock,
+             size_t *ptNumStock) {
     if (-1 == loadIsland(*pnFdConfig, ptIsland, ptSphragis)) {
         errorLoadingHandler(ERROR_LOAD_CONFIG, pnFdConfig, pnFdStock);
         freeIsland(ptIsland, ptSphragis);
         return -1;
     }
- 
+
     if (-1 == loadStock(*pnFdStock, patStock, ptNumStock)) {
         errorLoadingHandler(ERROR_FILE_STOCK, pnFdConfig, pnFdStock);
         freeIsland(ptIsland, ptSphragis);
         freeStock(patStock);
         return -1;
     }
- 
+
     return 0;
 }
- 
 
 /***********************************************
  *
@@ -206,7 +209,7 @@ int checkArgcIsland(int argc, char *argv[]) {
     char *configAux = strdup(argv[1]);
     char *stockAux = strdup(argv[2]);
 
-    if(configAux == NULL || stockAux == NULL) {
+    if (configAux == NULL || stockAux == NULL) {
         free(configAux);
         free(stockAux);
         return -1;
@@ -227,7 +230,8 @@ int checkArgcIsland(int argc, char *argv[]) {
         return -1;
     }
 
-    if (0 != strcasecmp(islandConfigFile, islandStockFile) || 0 != strcmp(stockFoler, "stocks")){
+    if (0 != strcasecmp(islandConfigFile, islandStockFile) ||
+        0 != strcmp(stockFoler, "stocks")) {
         free(configAux);
         free(stockAux);
         return -1;
@@ -235,10 +239,9 @@ int checkArgcIsland(int argc, char *argv[]) {
 
     free(configAux);
     free(stockAux);
-    
+
     return 0;
 }
-
 
 /***********************************************
  *
@@ -256,38 +259,85 @@ int main(int argc, char *argv[]) {
     Stock *atStock = NULL;
     size_t tNumStock = 0;
     SPHRAGIS_Island tSphragis = {0};
- 
+
     if (0 != checkArgcIsland(argc, argv)) {
         printErr(ERROR_ARGC);
         return EXIT_FAILURE;
     }
- 
+
     nFdConfig = open(argv[1], O_RDONLY);
     if (-1 == nFdConfig) {
         printErr(ERROR_FILE_CONFIG);
         return EXIT_FAILURE;
     }
- 
+
     nFdStock = open(argv[2], O_RDONLY);
     if (-1 == nFdStock) {
         printErr(ERROR_FILE_STOCK);
         close(nFdConfig);
         return EXIT_FAILURE;
     }
- 
-    if (-1 == loadData(&nFdConfig, &nFdStock, &tIsland, &tSphragis,
-                       &atStock, &tNumStock)) {
+
+    if (-1 == loadData(&nFdConfig, &nFdStock, &tIsland, &tSphragis, &atStock,
+                       &tNumStock)) {
         return EXIT_FAILURE;
     }
- 
+
     // DEBUGGING
     printData(tIsland, atStock, tNumStock);
-
     signal(SIGINT, onSigint);
-    while (!nEv_quit) {
-        pause();
+
+    int fd_socket = openListenConn(tIsland.psIp, tIsland.nPort);
+    if (fd_socket < 0) {
+        write(STDOUT_FILENO, ERROR_SOCKET, strlen(ERROR_SOCKET));
+        closeFiles(&nFdConfig, &nFdStock);
+        freeIsland(&tIsland, &tSphragis);
+        freeStock(&atStock);
+        return EXIT_FAILURE;
     }
- 
+
+    fd_set fds_clients;
+    FD_ZERO(&fds_clients);
+    FD_SET(fd_socket, &fds_clients);
+
+    int max_fd = fd_socket;
+
+    while (!nEv_quit) {
+        fd_set read_fds = fds_clients;
+        if (select(max_fd + 1, &read_fds, NULL, NULL, NULL) == -1)
+            break;
+
+        for (int fd = 0; fd <= max_fd; fd++) {
+            if (!FD_ISSET(fd, &read_fds))
+                continue;
+
+            if (fd == fd_socket) {
+                int fd_client = accept(fd_socket, NULL, NULL);
+                if (fd_client < 0) {
+                    write(STDOUT_FILENO, ERROR_ACCEPT, strlen(ERROR_ACCEPT));
+                    continue;
+                }
+                FD_SET(fd_client, &fds_clients);
+                if (fd_client > max_fd)
+                    max_fd = fd_client;
+            } else {
+                char *buffer = readUntil(fd, '\n');
+                if (buffer == NULL) {
+                    close(fd);
+                    FD_CLR(fd, &fds_clients);
+                    continue;
+                }
+                // The function that handdels the option send
+                free(buffer);
+            }
+        }
+    }
+
+    for (int fd = 0; fd <= max_fd; fd++) {
+        if (FD_ISSET(fd, &fds_clients))
+            close(fd);
+    }
+
     closeFiles(&nFdConfig, &nFdStock);
     freeIsland(&tIsland, &tSphragis);
     freeStock(&atStock);

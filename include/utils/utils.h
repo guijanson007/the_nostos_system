@@ -17,12 +17,18 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/socket.h>
+#include <fcntl.h>
+#include <netdb.h>
 
 // Constants
 #define READ_CHUNK_SIZE 4096
 #define INITIAL_ELEMENT_CAPACITY 100
 #define INITIAL_LINES_CAPACITY 1
 #define INITIAL_BINARY_CAPACITY 1
+#define ERROR_SOCKET "ERROR: the socket could not be created\n"
+#define ERR_CONNECT "ERROR: Could not connect to the server\n"
+#define MAX_CONN 10
 
 // Functions
 void freeLines(char **apsLines, size_t tCount);
@@ -36,5 +42,8 @@ char **readLines(int nFd, size_t *ptOutCount);
 void *readBinary(int nFd, size_t tElementSize, size_t *ptOutCount);
 int isAllDigits(const char *psString);
 int isPositiveInteger(const char *psString);
+int openListenConn(char *ip, int port);
+int openClientConn(char *ip, int port);
+char *readUntil(int fd, char cEnd);
 
 #endif // __UTILS_H__
