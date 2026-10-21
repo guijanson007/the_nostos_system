@@ -217,8 +217,54 @@ int main(int argc, char *argv[]) {
     printData(&tIthaca, atVoyages, tNumVoyages);
  
     signal(SIGINT, onSigint);
+    
+    int fd_socket = openListenConn(tIthaca.psIp, tIthaca.nPort);
+    if (fd_socket < 0) {
+        write(STDOUT_FILENO, ERROR_SOCKET, strlen(ERROR_SOCKET));
+        freeIthaca(&tIthaca);
+        freeVoyage(&atVoyages, &tNumVoyages);
+        return EXIT_FAILURE;
+    }
+
+
+    fd_set fds_clients;
+    FD_ZERO(&fds_clients);
+    FD_SET(fd_socket, &fds_clients);
+
+    int max_fd = fd_socket;
+
     while (!nEv_quit) {
-        pause();
+            fd_set read_fds = fds_clients;
+        if (select(max_fd + 1, &read_fds, NULL, NULL, NULL) == -1) break;
+
+        for (int fd = 0; fd <= max_fd; fd++) {
+            if (!FD_ISSET(fd, &read_fds)) continue;
+
+            if (fd == fd_socket) {
+                int fd_client = accept(fd_socket, NULL, NULL);
+                if (fd_client < 0) {
+                    write(STDOUT_FILENO, ERROR_ACCEPT, strlen(ERROR_ACCEPT));
+                    continue;
+                }
+                FD_SET(fd_client, &fds_clients); 
+                if (fd_client > max_fd) max_fd = fd_client;
+            }
+            else {
+                char *buffer = readUntil(fd, '\n');
+                if (buffer == NULL) {
+                    close(fd);
+                    FD_CLR(fd, &fds_clients);
+                    continue;
+                }
+                //Option to handel the options
+                free(buffer);
+            }
+        }
+    }
+
+    for (int fd = 0; fd <= max_fd; fd++) {
+        if (FD_ISSET(fd, &fds_clients))
+            close(fd);
     }
 
     freeIthaca(&tIthaca);

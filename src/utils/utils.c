@@ -98,6 +98,33 @@ void strToUpper(char *psString) {
     }
 }
 
+
+char *readUntil(int fd, char cEnd) {
+    int i = 0;
+    int chars_read = 0;
+    char c = ' ';
+    char *buffer = NULL;
+
+    while (c != cEnd) {
+        chars_read = (int) read(fd, &c, sizeof(char));
+        if (chars_read <= 0) { free(buffer); return NULL; }
+        if (buffer == NULL) {
+            buffer = (char *) malloc(sizeof(char));
+        }
+        if (chars_read > 0) {
+            if (c != cEnd) {
+                buffer[i] = c;
+                buffer = (char *) realloc(buffer, (sizeof(char)) * (i + 2));
+            }
+            i++;
+        }
+    }
+
+    buffer[i - 1] = '\0';
+    return buffer;
+}
+
+
 /***********************************************
  *
  * @Name : readUntilEmpty
@@ -430,4 +457,71 @@ int isPositiveInteger(const char *psString) {
     }
 
     return (0 < atoi(psString));
+}
+
+
+int openListenConn(char *ip, int port) {
+    struct sockaddr_in s_addr;
+    int fd_socket = -1;
+
+    fd_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+
+    if (fd_socket < 0) {
+        return -1;
+    }
+
+    memset(&s_addr, 0, sizeof(s_addr));
+    s_addr.sin_family = AF_INET;
+    s_addr.sin_port = htons(port);
+    
+    struct hostent *host = gethostbyname(ip);
+    if (host == NULL) {
+        close(fd_socket);
+        return -2;
+    }
+    memcpy(&s_addr.sin_addr, host->h_addr_list[0], host->h_length);
+
+    if (bind(fd_socket, (void *) &s_addr, sizeof(s_addr)) < 0) {
+        close(fd_socket);
+        return -3;
+    }
+
+    if(listen(fd_socket, MAX_CONN) <0) {
+        close(fd_socket);
+        return -1;
+    }
+
+    return fd_socket;
+}
+
+int openClientConn(char *ip, int port)
+{
+    struct sockaddr_in s_addr;
+    int fd_socket = -1;
+
+    fd_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (fd_socket < 0)
+    {
+        printErr(ERR_SOCKET);
+        return -1;
+    }
+
+    memset(&s_addr, 0, sizeof(s_addr));
+    s_addr.sin_family = AF_INET;
+    s_addr.sin_port = htons(port);
+    if (inet_pton(AF_INET, ip, &s_addr.sin_addr) != 1)
+    {
+        printErr("ERROR: Could not convert IP address\n");
+        close(fd_socket);
+        return -1;
+    }
+
+    if (connect(fd_socket, (struct sockaddr *)&s_addr, sizeof(s_addr)) < 0)
+    {
+        printErr(ERR_CONNECT);
+        close(fd_socket);
+        return -1;
+    }
+
+    return fd_socket;
 }

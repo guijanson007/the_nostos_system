@@ -29,6 +29,8 @@
 #define ERROR_FILE_VOYAGE "ERROR VOYAGE: the file couldn't be opened"
 #define ERROR_LOAD_ITHACA "ERROR ITHACA: the data couldn't be loaded from the file"
 #define ERROR_LOAD_VOYAGE "ERROR VOYAGE: the data couldn't be loaded from the file"
+#define ERROR_SOCKET "ERROR: the socket could not be created\n"
+#define ERROR_ACCEPT "ERROR: The conection to the socket\n"
 #define FAREWELL "\nFinishing the Ithaca process"
 
 // Structs
