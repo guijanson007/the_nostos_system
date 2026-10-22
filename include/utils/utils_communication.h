@@ -21,18 +21,18 @@
 #define FLAG_BINARY 0x20
 
 typedef enum {
-    CONNECT_ITHACA = 0x01,
-    LIST_VOYAGES = 0x02,
-    ACCEPT = 0x03,
-    CLAIM = 0x04,
-    DISCONNECT_ITHACA = 0x05,
-    ARRIVAL_ISLAND = 0x10,
-    LIST_MARKET = 0x11,
-    BUY = 0x12,
-    SELL = 0x13,
-    BUY_MAP = 0x14,
-    DELIVER = 0x15,
-    DEPARTURE_ISLAND = 0x16,
+    MSG_CONNECT_ITHACA = 0x01,
+    MSG_LIST_VOYAGES = 0x02,
+    MSG_ACCEPT = 0x03,              
+    MSG_CLAIM = 0x04,
+    MSG_DISCONNECT_ITHACA = 0x05,
+    MSG_ARRIVAL_ISLAND = 0x10,
+    MSG_LIST_MARKET = 0x11,
+    MSG_BUY = 0x12,
+    MSG_SELL = 0x13,
+    MSG_BUY_MAP = 0x14,
+    MSG_DELIVER = 0x15,
+    MSG_DEPARTURE_ISLAND = 0x16,
 } MessageType;
 
 
