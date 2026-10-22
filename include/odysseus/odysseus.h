@@ -1,7 +1,6 @@
 #ifndef _ODYSSEUS_H
 #define _ODYSSEUS_H
 
-
 /***********************************************
  *
  * @File : odysseus.h
@@ -20,7 +19,10 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+// own includes
+#include "odysseus/odysseus_status.h"
 #include "sphragis.h"
+#include "utils/utils.h"
 
 // Constant declarations
 #define EXPECTED_ARGC 2
@@ -44,7 +46,7 @@ typedef struct {
     int numConnections;
 } Map;
 
-typedef struct {
+typedef struct Odysseus {
     char *name;
     char *path;
     char *ip;
@@ -55,14 +57,10 @@ typedef struct {
     int ithaca_socket;
     Supply *supplies;
     Map map;
-    int whereAmI; // index of the current island in the connections array If Ithaca -1
+    int whereAmI; // index of the current island in the connections array If
+                  // Ithaca -1
     int island_socket;
+    char *lastError; // heap detail text of the last failed command, may be NULL
 } Odysseus;
 
-
-// Local includes
-#include "odysseus/odysseus_menu.h"
-#include "odysseus/odysseus_parser.h"
-#include "utils/utils.h"
-
-#endif 
+#endif

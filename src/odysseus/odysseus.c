@@ -7,7 +7,9 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+// own headers
 #include "odysseus/odysseus.h"
+#include "odysseus/odysseus_menu.h"
 
 // event flag to indicate when to quit the program
 volatile sig_atomic_t nEv_quit = 0;

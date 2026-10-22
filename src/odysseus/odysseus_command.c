@@ -237,10 +237,11 @@ CommandValidationResult validateOdysseusCommand(const OdysseusCommand *ptCommand
  * instance.
  * @Arg : In: tOdysseus = Odysseus instance to use for command execution
  *        In: ptCommand = pointer to OdysseusCommand structure to execute
- * @Ret : None.
+ * @Ret : ODY_OK on success, otherwise the status code of the failed handler.
  *
  **************************************************/
-void executeOdysseusCommand(Odysseus *tOdysseus, const OdysseusCommand *ptCommand) {
+OdysseusStatus executeOdysseusCommand(Odysseus *tOdysseus,
+                                      const OdysseusCommand *ptCommand) {
     switch (ptCommand->type) {
         case COMMAND_MAP:
             odysseusMap(tOdysseus);
@@ -255,8 +256,7 @@ void executeOdysseusCommand(Odysseus *tOdysseus, const OdysseusCommand *ptComman
             odysseusClaim(tOdysseus);
             break;
         case COMMAND_CONNECT:
-            odysseusConnect(tOdysseus, ptCommand->argv[0]);
-            break;
+            return odysseusConnect(tOdysseus);
         case COMMAND_LIST:
             if (0 == strcmp(ptCommand->argv[0], ARG_VOYAGES)) {
                 odysseusListVoyages(tOdysseus);
@@ -281,4 +281,5 @@ void executeOdysseusCommand(Odysseus *tOdysseus, const OdysseusCommand *ptComman
         default:
             break;
     }
+    return ODY_OK;
 }

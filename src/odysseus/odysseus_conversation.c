@@ -17,32 +17,34 @@
 #define WAIT "WAIT"
 #define DOCKED "DOCKED"
 
-int connectToIthaca(Odysseus *tOdysseus) {
+OdysseusStatus connectToIthaca(Odysseus *tOdysseus) {
     struct sockaddr_in sAddr;
     int nfdSocket = -1;
 
     nfdSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (nfdSocket < 0) {
-        printErr(ERROR_CREATE_SOCKET);
-        return -1;
+        odysseusSetError(tOdysseus, "ERROR: Could not create socket: %s",
+                         strerror(errno));
+        return ODY_ERR_SOCKET;
     }
 
     memset(&sAddr, 0, sizeof(sAddr));
     sAddr.sin_family = AF_INET;
     sAddr.sin_port = htons(atoi(tOdysseus->port));
-    if (inet_pton(AF_INET, tOdysseus->ip, &sAddr.sin_addr) < 0) {
-        printErr(ERROR_IP_CONVERSION);
+    if (inet_pton(AF_INET, tOdysseus->ip, &sAddr.sin_addr) <= 0) {
         close(nfdSocket);
-        return -1;
+        return ODY_ERR_IP;
     }
 
     if (connect(nfdSocket, (struct sockaddr *)&sAddr, sizeof(sAddr)) < 0) {
-        printErr(ERROR_CONNECT_SOCKET);
+        odysseusSetError(tOdysseus,
+                         "ERROR: Could not connect to the server: %s",
+                         strerror(errno));
         close(nfdSocket);
-        return -1;
+        return ODY_ERR_CONNECT;
     }
     tOdysseus->ithaca_socket = nfdSocket;
-    return 1;
+    return ODY_OK;
 }
 
 int disconnectFromIthaca(Odysseus *tOdysseus) {
@@ -119,7 +121,7 @@ int arriveAtIsland(Odysseus *tOdysseus) {
     return -1;
 }
 
-int notifyConnection(Odysseus *tOdysseus) {
+OdysseusStatus notifyConnection(Odysseus *tOdysseus) {
     Message tMessage = {0};
 
     tMessage.type = CONNECT_ITHACA;
@@ -128,27 +130,25 @@ int notifyConnection(Odysseus *tOdysseus) {
     strcpy(tMessage.data, tOdysseus->name);
 
     if (sendMessage(&tMessage, tOdysseus->ithaca_socket) != 0) {
-        return -1;
+        return ODY_ERR_IO;
     }
 
     // Wait for the response from Ithaca
     if (receiveMessage(&tMessage, tOdysseus->ithaca_socket) != 0) {
-        return -1;
+        return ODY_ERR_IO;
     }
 
     if (tMessage.type != CONNECT_ITHACA) {
-        printErr(ERROR_ITHACA_RESPONSE);
-        return -1;
+        return ODY_ERR_PROTOCOL;
     }
 
     if (tMessage.flag & FLAG_ERROR) {
-        printErr(tMessage.data);
-        return -1;
+        odysseusSetError(tOdysseus, "%.*s", (int)tMessage.dataLength,
+                         tMessage.data);
+        return ODY_ERR_REMOTE;
     } else if (tMessage.flag & FLAG_RESPONSE) {
         println(tMessage.data);
-        return 0;
-    } else {
-        printErr(ERROR_ITHACA_RESPONSE);
-        return -1;
+        return ODY_OK;
     }
+    return ODY_ERR_PROTOCOL;
 }

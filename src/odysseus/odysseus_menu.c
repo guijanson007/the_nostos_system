@@ -67,6 +67,7 @@ void resetInputField() {
 int odysseusShowMenu(Odysseus *tOdysseus) {
     OdysseusCommand tCommand = {0};
     const char *psErrorMessage = NULL;
+    OdysseusStatus eStatus = ODY_OK;
     char *psInput = NULL;
 
     setupInputField();
@@ -103,8 +104,14 @@ int odysseusShowMenu(Odysseus *tOdysseus) {
         // Return 1 to continue the menu even after an invalid command
         return 1;
     }
-    executeOdysseusCommand(tOdysseus, &tCommand);
+    eStatus = executeOdysseusCommand(tOdysseus, &tCommand);
     free(psInput);
+    if (ODY_OK != eStatus) {
+        printErr(odysseusStatusMessage(tOdysseus, eStatus));
+        // Print an empty line for better readability
+        printErr("");
+        return 1;
+    }
     println(MSG_COMMAND_OK);
     // Print an empty line for better readability
     println("");

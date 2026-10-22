@@ -19,7 +19,7 @@
 // standard library headers
 #include <arpa/inet.h>
 
-int findDestination(Odysseus tOdysseus, const char *psDestination) {
+static int findDestination(Odysseus tOdysseus, const char *psDestination) {
     if (tOdysseus.whereAmI == -1) {
         return 0; // position of Aeaea in the array
     } else {
@@ -44,14 +44,25 @@ int findDestination(Odysseus tOdysseus, const char *psDestination) {
     return -1;
 }
 
-void odysseusConnect(Odysseus *tOdysseus, const char *psDestination) {
+OdysseusStatus odysseusConnect(Odysseus *tOdysseus) {
+    OdysseusStatus eStatus = ODY_OK;
 
-    if (!findDestination(*tOdysseus, psDestination)) {
-        printErr("ERROR: We could not find the destination in the map.");
-        return;
+    if (-1 != tOdysseus->ithaca_socket) {
+        return ODY_ERR_ALREADY_CONNECTED;
     }
-    connectToIthaca(tOdysseus);
-    notifyConnection(tOdysseus);
+
+    eStatus = connectToIthaca(tOdysseus);
+    if (ODY_OK != eStatus) {
+        return eStatus;
+    }
+
+    eStatus = notifyConnection(tOdysseus);
+    if (ODY_OK != eStatus) {
+        // Roll back so a retry starts from a clean state
+        close(tOdysseus->ithaca_socket);
+        tOdysseus->ithaca_socket = -1;
+    }
+    return eStatus;
 }
 
 void odysseusMap(Odysseus *tOdysseus) { (void)tOdysseus; }

@@ -14,7 +14,7 @@
 #include "odysseus/odysseus.h"
 
 // Functions
-void odysseusConnect(Odysseus *tOdysseus, const char *psDestination);
+OdysseusStatus odysseusConnect(Odysseus *tOdysseus);
 void odysseusMap(Odysseus *tOdysseus);
 void odysseusStatus(Odysseus *tOdysseus);
 void odysseusDeliver(Odysseus *tOdysseus);

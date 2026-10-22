@@ -69,6 +69,8 @@ Odysseus odysseusParseFile(int nFd) {
     char *psIpPort = NULL;
     char *psToken = NULL;
  
+    tOdysseus.ithaca_socket = -1;
+
     apsLines = readLines(nFd, &tOutCount);
  
     // Verify readLines didn't fail and we have the minimum required lines
@@ -140,6 +142,8 @@ void freeOdysseus(Odysseus *ptOdysseus) {
     ptOdysseus->port = NULL;
     free(ptOdysseus->initialInfo);
     ptOdysseus->initialInfo = NULL;
+    free(ptOdysseus->lastError);
+    ptOdysseus->lastError = NULL;
  
     if (NULL != ptOdysseus->supplies) {
         for (i = 0; i < ptOdysseus->initialNumSupplies; ++i) {
