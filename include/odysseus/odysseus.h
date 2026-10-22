@@ -20,6 +20,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "sphragis.h"
 
 // Constant declarations
 #define EXPECTED_ARGC 2
@@ -33,6 +34,17 @@ typedef struct {
 } Supply;
 
 typedef struct {
+    char *ip;
+    int port;
+    SPHRAGIS_Island sphragis;
+} KnownIsland;
+
+typedef struct {
+    KnownIsland *connections;
+    int numConnections;
+} Map;
+
+typedef struct {
     char *name;
     char *path;
     char *ip;
@@ -40,7 +52,11 @@ typedef struct {
     char *initialInfo;
     float initialMoney;
     int initialNumSupplies;
+    int ithaca_socket;
     Supply *supplies;
+    Map map;
+    int whereAmI; // index of the current island in the connections array If Ithaca -1
+    int island_socket;
 } Odysseus;
 
 

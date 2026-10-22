@@ -314,7 +314,7 @@ int main(int argc, char *argv[]) {
             if (fd == fd_socket) {
                 int fd_client = accept(fd_socket, NULL, NULL);
                 if (fd_client < 0) {
-                    write(STDOUT_FILENO, ERROR_ACCEPT, strlen(ERROR_ACCEPT));
+                    write(STDOUT_FILENO, ERROR_SOCKET, strlen(ERROR_SOCKET));
                     continue;
                 }
                 FD_SET(fd_client, &fds_clients);

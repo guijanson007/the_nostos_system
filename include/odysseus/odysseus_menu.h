@@ -24,6 +24,6 @@
 
 //Functions
 void odysseusStartMenu(Odysseus tOdysseus);
-int odysseusShowMenu(Odysseus tOdysseus);
+int odysseusShowMenu(Odysseus *tOdysseus);
 
 #endif // !#ifndef __ODYSSEUS_MENU_H__
