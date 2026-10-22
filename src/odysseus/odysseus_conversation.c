@@ -6,13 +6,44 @@
  * @Date : 22/10/2026
  *
  ************************************************/
-
 #define _GNU_SOURCE
 
-#include "odysseus/odysseus_conversetion.h"
+// header
+#include "odysseus/odysseus_conversation.h"
+
+// own headers
+#include "utils/utils_communication.h"
 
 #define WAIT "WAIT"
 #define DOCKED "DOCKED"
+
+int connectToIthaca(Odysseus *tOdysseus) {
+    struct sockaddr_in sAddr;
+    int nfdSocket = -1;
+
+    nfdSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (nfdSocket < 0) {
+        printErr(ERROR_CREATE_SOCKET);
+        return -1;
+    }
+
+    memset(&sAddr, 0, sizeof(sAddr));
+    sAddr.sin_family = AF_INET;
+    sAddr.sin_port = htons(atoi(tOdysseus->port));
+    if (inet_pton(AF_INET, tOdysseus->ip, &sAddr.sin_addr) < 0) {
+        printErr(ERROR_IP_CONVERSION);
+        close(nfdSocket);
+        return -1;
+    }
+
+    if (connect(nfdSocket, (struct sockaddr *)&sAddr, sizeof(sAddr)) < 0) {
+        printErr(ERROR_CONNECT_SOCKET);
+        close(nfdSocket);
+        return -1;
+    }
+    tOdysseus->ithaca_socket = nfdSocket;
+    return 1;
+}
 
 int disconnectFromIthaca(Odysseus *tOdysseus) {
     Message tMessage = {0};
@@ -25,7 +56,7 @@ int disconnectFromIthaca(Odysseus *tOdysseus) {
         return -1;
     }
 
-    //Wait for the response from Ithaca
+    // Wait for the response from Ithaca
     if (receiveMessage(&tMessage, tOdysseus->ithaca_socket) != 0) {
         return -1;
     }
@@ -38,11 +69,9 @@ int disconnectFromIthaca(Odysseus *tOdysseus) {
     if (tMessage.flag & FLAG_ERROR) {
         printErr(tMessage.data);
         return -1;
-    }
-    else if (tMessage.flag & FLAG_RESPONSE) {
+    } else if (tMessage.flag & FLAG_RESPONSE) {
         println(tMessage.data);
-    }
-    else {
+    } else {
         printErr(ERROR_ITHACA_RESPONSE);
         return -1;
     }
@@ -63,7 +92,7 @@ int arriveAtIsland(Odysseus *tOdysseus) {
         return -1;
     }
 
-    //Wait for the response from the island
+    // Wait for the response from the island
     if (receiveMessage(&tMessage, tOdysseus->island_socket) != 0) {
         return -1;
     }
@@ -76,19 +105,50 @@ int arriveAtIsland(Odysseus *tOdysseus) {
     if (tMessage.flag & FLAG_ERROR) {
         printErr(tMessage.data);
         return -1;
-    }
-    else if (tMessage.flag & FLAG_RESPONSE) {
+    } else if (tMessage.flag & FLAG_RESPONSE) {
         if (strcmp(tMessage.data, WAIT) == 0) {
             return ARRIVAL_WAIT;
-        }
-        else if (strcmp(tMessage.data, DOCKED) == 0) {
+        } else if (strcmp(tMessage.data, DOCKED) == 0) {
             return ARRIVAL_DOCKED;
-        }
-        else {
+        } else {
             printErr(ERROR_ISLAND_RESPONSE);
             return -1;
         }
     }
     printErr(ERROR_ISLAND_RESPONSE);
     return -1;
+}
+
+int notifyConnection(Odysseus *tOdysseus) {
+    Message tMessage = {0};
+
+    tMessage.type = CONNECT_ITHACA;
+    tMessage.flag = FLAG_NONE;
+    tMessage.dataLength = strlen(tOdysseus->name);
+    strcpy(tMessage.data, tOdysseus->name);
+
+    if (sendMessage(&tMessage, tOdysseus->ithaca_socket) != 0) {
+        return -1;
+    }
+
+    // Wait for the response from Ithaca
+    if (receiveMessage(&tMessage, tOdysseus->ithaca_socket) != 0) {
+        return -1;
+    }
+
+    if (tMessage.type != CONNECT_ITHACA) {
+        printErr(ERROR_ITHACA_RESPONSE);
+        return -1;
+    }
+
+    if (tMessage.flag & FLAG_ERROR) {
+        printErr(tMessage.data);
+        return -1;
+    } else if (tMessage.flag & FLAG_RESPONSE) {
+        println(tMessage.data);
+        return 0;
+    } else {
+        printErr(ERROR_ITHACA_RESPONSE);
+        return -1;
+    }
 }

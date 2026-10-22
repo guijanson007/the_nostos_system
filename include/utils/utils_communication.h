@@ -1,17 +1,16 @@
 #ifndef _UTILS_COMMUNICATION_H
 #define _UTILS_COMMUNICATION_H
 
-
 // System includes
 #include <errno.h>
+#include <fcntl.h>
+#include <netdb.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 #include <sys/socket.h>
-#include <fcntl.h>
-#include <netdb.h>
+#include <unistd.h>
 
 #define MESSAGE_SIZE 256
 
@@ -35,15 +34,14 @@ typedef enum {
     DEPARTURE_ISLAND = 0x16,
 } MessageType;
 
-
 typedef struct {
     unsigned char type;
     unsigned char flag;
     unsigned char dataLength;
     char data[254];
-}Message;
+} Message;
 
 int sendMessage(const Message *msg, int fd);
 int receiveMessage(Message *msg, int fd);
 
-#endif  
+#endif
