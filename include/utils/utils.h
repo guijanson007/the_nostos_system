@@ -20,6 +20,7 @@
 #include <sys/socket.h>
 #include <fcntl.h>
 #include <netdb.h>
+#include <arpa/inet.h>
 
 // Constants
 #define READ_CHUNK_SIZE 4096

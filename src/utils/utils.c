@@ -502,7 +502,7 @@ int openClientConn(char *ip, int port)
     fd_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (fd_socket < 0)
     {
-        printErr(ERR_SOCKET);
+        printErr(ERROR_SOCKET);
         return -1;
     }
 

@@ -240,7 +240,7 @@ CommandValidationResult validateOdysseusCommand(const OdysseusCommand *ptCommand
  * @Ret : None.
  *
  **************************************************/
-void executeOdysseusCommand(Odysseus tOdysseus, const OdysseusCommand *ptCommand) {
+void executeOdysseusCommand(Odysseus *tOdysseus, const OdysseusCommand *ptCommand) {
     switch (ptCommand->type) {
         case COMMAND_MAP:
             odysseusMap(tOdysseus);

@@ -68,19 +68,13 @@ int main(int argc, char *argv[]) {
         freeOdysseus(&tOdysseus);
         return EXIT_FAILURE;
     }
-    
-    fd_socket = openClientConn(tOdysseus.ip, tOdysseus.port);
-    if (fd_socket < 0)
-    {
-        return 1;
-    }
 
     // odysseusPrintInfo(&tOdysseus);
     
     // Print the initial message
     odysseusStartMenu(tOdysseus);
  
-    while (0 == nEv_quit && 1 == odysseusShowMenu(tOdysseus)) {
+    while (0 == nEv_quit && 1 == odysseusShowMenu(&tOdysseus)) {
     }
  
     freeOdysseus(&tOdysseus);
