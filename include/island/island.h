@@ -28,12 +28,26 @@
 #define FAREWELL "\nFinishing the Island process"
 
 //Structs
+typedef enum {
+    CLIENT_NEW = 0,
+    CLIENT_WAITING,
+    CLIENT_DOCKED
+}ClientState;
+
+
 typedef struct {
     char *psName;
     char *psIp;
     int nPort;
 } Route;
  
+typedef struct {
+    int nFd;
+    char *psName;
+    size_t nQueued;
+    ClientState state;
+} Client;
+
 typedef struct {
     char *psName;
     char *psFile;
@@ -42,6 +56,13 @@ typedef struct {
     int nCapacity;
     size_t tNumRoutes;
     Route *atRoutes;
+    fd_set fds_clients;
+    int max_fd;
+    int nServerFd;
+    Client *client;
+    int numDocked;
+    size_t numClients;
+    size_t nArrivalCounter;
 } Island;
  
 typedef struct {
@@ -51,9 +72,11 @@ typedef struct {
 } Stock;
 
 // Local Includes
-#include "island_parser.h"
-#include "../utils/utils.h"
+#include "utils/utils.h"
+#include "utils/utils_communication.h"
 #include "../lib/sphragis/sphragis.h"
+#include "island_parser.h"
+#include "island_conversetion"
  
 // Functions
 void freeIsland(Island *island, SPHRAGIS_Island *sphragis);

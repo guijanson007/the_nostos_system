@@ -34,7 +34,6 @@
 #define FAREWELL "\nFinishing the Ithaca process"
 
 // Structs
-
 typedef struct {
     int nFd;
     char *psName;

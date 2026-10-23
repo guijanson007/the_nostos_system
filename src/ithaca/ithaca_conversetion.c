@@ -1,4 +1,11 @@
-
+/***********************************************
+ *
+ * @File : ithaca_conversetion.c
+ * @Purpose : manage the logic between Ithaca and odysseus
+ * @Author : Axel Boleda i Callizo
+ * @Date : 23/10/2026
+ *
+ ************************************************/
 
 #define _GNU_SOURCE
 #include "ithaca/ithaca_conversetion.h"
