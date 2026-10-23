@@ -12,22 +12,22 @@
 // header
 #include "odysseus/odysseus_handler.h"
 
-int findDestination(const Odysseus *ptOdysseus, const char *psDestination) {
+int findDestination(Odysseus ptOdysseus, const char *psDestination) {
     const KnownIsland *ptHere = NULL;
     int nNeighbor = 0;
     int i = 0;
 
-    if (-1 == ptOdysseus->whereAmI) {
-        if (0 == strcasecmp(ptOdysseus->map.connections[0].name, psDestination)) {
+    if (-1 == ptOdysseus.whereAmI) {
+        if (0 == strcasecmp(ptOdysseus.map.connections[0].name, psDestination)) {
             return 0;
         }
         return -1;
     }
 
-    ptHere = &ptOdysseus->map.connections[ptOdysseus->whereAmI];
-    for (i = 0; i < ptHere->numNeighbors; i++) {
+    ptHere = &ptOdysseus.map.connections[ptOdysseus.whereAmI];
+    for (i = 0; i < ptHere->num_neighbors; i++) {
         nNeighbor = ptHere->neighbors[i];
-        if (0 == strcasecmp(ptOdysseus->map.connections[nNeighbor].name, psDestination)) {
+        if (0 == strcasecmp(ptOdysseus.map.connections[nNeighbor].name, psDestination)) {
             return nNeighbor;
         }
     }
@@ -73,13 +73,13 @@ void odysseusSail(Odysseus *tOdysseus, const char *psDestination) {
          if (-1 == asprintf(&buff, "Leaving Ithaca...")) return;
     }
     else {
-        if (-1 == asprintf(&buff, "Leaving %s...", tOdysseus->map.connections[tOdysseus->whereAmI].sphragis.name)) return;
+        if (-1 == asprintf(&buff, "Leaving %s...", tOdysseus->map.connections[tOdysseus->whereAmI].name)) return;
         close(tOdysseus->island_socket);
     }
     println(buff);
     free(buff);
 
-    if (-1 == asprintf(&buff, "Sailing to %s...", tOdysseus->map.connections[nDestinationIndex].sphragis.name)) return;
+    if (-1 == asprintf(&buff, "Sailing to %s...", tOdysseus->map.connections[nDestinationIndex].name)) return;
     println(buff);
     free(buff);  
 
@@ -96,7 +96,7 @@ void odysseusSail(Odysseus *tOdysseus, const char *psDestination) {
             // Waiting to be docked
             break;
         case ARRIVAL_DOCKED:
-            if (-1 == asprintf(&buff, ">>> %s has granted access to the port.", tOdysseus->map.connections[tOdysseus->whereAmI].sphragis.name)) return;
+            if (-1 == asprintf(&buff, ">>> %s has granted access to the port.", tOdysseus->map.connections[tOdysseus->whereAmI].name)) return;
             println(buff);
             free(buff);
             break;

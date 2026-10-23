@@ -34,11 +34,22 @@
 #define FAREWELL "\nFinishing the Ithaca process"
 
 // Structs
+
+typedef struct {
+    int nFd;
+    char *psName;
+} Client;
+
 typedef struct {
     char *psName;
     char *psMission;
     char *psIp;
     int nPort;
+    fd_set fds_clients;
+    int max_fd;
+    int nServerFd;
+    Client *client;
+    size_t numClients;
 } Ithaca;
  
 typedef struct {
@@ -50,8 +61,11 @@ typedef struct {
 } Voyage;
 
 // Local includes
-#include "ithaca_parser.h"
 #include "utils/utils.h"
+#include "utils/utils_communication.h"
+#include "ithaca_parser.h"
+#include "ithaca_conversetion.h"
+
 
 // Functions
 void freeVoyage(Voyage **voyages, size_t *numVoyage);

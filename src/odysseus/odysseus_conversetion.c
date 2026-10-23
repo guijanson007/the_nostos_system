@@ -16,7 +16,7 @@
 
 int disconnectFromIthaca(Odysseus *tOdysseus) {
     Message tMessage = {0};
-    tMessage.type = DISCONNECT_ITHACA;
+    tMessage.type = MSG_DISCONNECT_ITHACA;
     tMessage.flag = FLAG_NONE;
     tMessage.dataLength = 0;
     tMessage.data[0] = '\0';
@@ -30,7 +30,7 @@ int disconnectFromIthaca(Odysseus *tOdysseus) {
         return -1;
     }
 
-    if (tMessage.type != DISCONNECT_ITHACA) {
+    if (tMessage.type != MSG_DISCONNECT_ITHACA) {
         printErr(ERROR_ITHACA_RESPONSE);
         return -1;
     }
@@ -54,7 +54,7 @@ int disconnectFromIthaca(Odysseus *tOdysseus) {
 
 int arriveAtIsland(Odysseus *tOdysseus) {
     Message tMessage = {0};
-    tMessage.type = ARRIVAL_ISLAND;
+    tMessage.type = MSG_ARRIVAL_ISLAND;
     tMessage.flag = FLAG_NONE;
     tMessage.dataLength = strlen(tOdysseus->name);
     strcpy(tMessage.data, tOdysseus->name);
@@ -68,7 +68,7 @@ int arriveAtIsland(Odysseus *tOdysseus) {
         return -1;
     }
 
-    if (tMessage.type != ARRIVAL_ISLAND) {
+    if (tMessage.type != MSG_ARRIVAL_ISLAND) {
         printErr(ERROR_ISLAND_RESPONSE);
         return -1;
     }
