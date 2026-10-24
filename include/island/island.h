@@ -76,7 +76,7 @@ typedef struct {
 #include "utils/utils_communication.h"
 #include "../lib/sphragis/sphragis.h"
 #include "island_parser.h"
-#include "island_conversetion"
+#include "island_conversetion.h"
  
 // Functions
 void freeIsland(Island *island, SPHRAGIS_Island *sphragis);

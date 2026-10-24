@@ -12,26 +12,34 @@
 #include "island/island_conversetion.h"
 
 void decideState(Island *island, Message *msg, int fd) {
+    char *buffer;
+
     if (island->nCapacity > island->numDocked) {
         island->client[island->numClients].state = CLIENT_DOCKED;
         island->numDocked++;
         buildMessage(msg, FLAG_RESPONSE, DOCKED);
+        asprintf(&buffer, ">>> %s entered the port.", island->client[island->numClients].psName);
     }
     else {
         island->client[island->numClients].state = CLIENT_WAITING;
         island->client[island->numClients].nQueued = island->nArrivalCounter++;
         buildMessage(msg, FLAG_RESPONSE, WAIT);
+        asprintf(&buffer, "Port full. %s waiting offshore in the FIFO queue.", island->client[island->numClients].psName);
     }
     sendMessage(msg, fd);
+    println(buffer);
+    free(buffer);
 }
 
 void arravalIsland(Island *island, Message msg, int fd_client) {
     Client *atTmp = NULL;
     char *psName = NULL;
+    char *buffer;
 
     msg.type = MSG_ARRIVAL_ISLAND;
     if (msg.flag != FLAG_NONE || msg.dataLength == 0) {
         buildMessage(&msg, FLAG_RESPONSE | FLAG_ERROR, ERROR_MESSAGE_FORMAT);
+        sendMessage(&msg, fd_client);
         return;
     }
 
@@ -55,6 +63,10 @@ void arravalIsland(Island *island, Message msg, int fd_client) {
     island->client[island->numClients].psName = psName;
     island->client[island->numClients].state = CLIENT_NEW;
     island->client[island->numClients].nQueued = 0;
+
+    asprintf(&buffer, ">>> %s approaching %s.", psName, island->psName);
+    println(buffer);
+    free(buffer);
     decideState(island, &msg, fd_client);
 
     island->numClients++;
