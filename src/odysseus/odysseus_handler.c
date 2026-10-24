@@ -91,21 +91,27 @@ void odysseusSail(Odysseus *tOdysseus, const char *psDestination) {
     tOdysseus->whereAmI = nDestinationIndex;
     
     int status = arriveAtIsland(tOdysseus);
+
+    if (ARRIVAL_WAIT == status) {
+        println("The harbor is full. We drop anchor and wait.");
+        status = waitingInThePort(tOdysseus);
+    }
+
     switch (status) {
-        case ARRIVAL_WAIT:
-            // Waiting to be docked
-            break;
         case ARRIVAL_DOCKED:
-            if (-1 == asprintf(&buff, ">>> %s has granted access to the port.", tOdysseus->map.connections[tOdysseus->whereAmI].name)) return;
-            println(buff);
-            free(buff);
+            asprintf(&buff, ">>> %s has granted access to the port.",  tOdysseus->map.connections[nDestinationIndex].name);
+            tOdysseus->whereAmI = nDestinationIndex;
+            break;
+        case ARRIVAL_LOST_AT_SEA:
+            asprintf(&buff, "The crew has run out of provisions.\nOdysseus %s has been lost at sea.", tOdysseus->name);
             break;
         default:
-            return;
             close(tOdysseus->island_socket);
             tOdysseus->island_socket = -1;
             break;
     }
+    println(buff);
+    free(buff);
 }
 
 void odysseusBuy(Odysseus *tOdysseus, const char *psProduct,

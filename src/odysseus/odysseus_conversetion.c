@@ -59,9 +59,7 @@ int arriveAtIsland(Odysseus *tOdysseus) {
     tMessage.dataLength = strlen(tOdysseus->name);
     strcpy(tMessage.data, tOdysseus->name);
 
-    if (sendMessage(&tMessage, tOdysseus->island_socket) != 0) {
-        return -1;
-    }
+    if (sendMessage(&tMessage, tOdysseus->island_socket) != 0) return -1;
 
     //Wait for the response from the island
     if (receiveMessage(&tMessage, tOdysseus->island_socket) != 0) {
@@ -91,4 +89,52 @@ int arriveAtIsland(Odysseus *tOdysseus) {
     }
     printErr(ERROR_ISLAND_RESPONSE);
     return -1;
+}
+
+
+
+int waitingAtPort(Odysseus *ptOdysseus) {
+    fd_set tReadFds;
+    struct timeval tTimeout;
+    Message tMessage;
+    char *psBuffer = NULL;
+    int nReady = 0;
+
+    tTimeout.tv_sec = 5;
+    tTimeout.tv_usec = 0;
+
+    while (1) {
+        FD_ZERO(&tReadFds);
+        FD_SET(ptOdysseus->island_socket, &tReadFds);
+        nReady = select(ptOdysseus->island_socket + 1, &tReadFds, NULL, NULL, &tTimeout);
+
+        if (-1 == nReady) {
+            return ARRIVAL_ERROR;
+        }
+
+        if (0 == nReady) {
+            consumeFood(&ptOdysseus->cargo);
+            if (-1 != asprintf(&psBuffer, "\n>>> The crew consumes another ration.\n"
+                               "Provisions remaining: %d kg", ptOdysseus->cargo.totalAmount)) {
+                println(psBuffer);
+                free(psBuffer);
+            }
+            if (0 >= ptOdysseus->cargo.totalAmount) {
+                return ARRIVAL_LOST_AT_SEA;
+            }
+            tTimeout.tv_sec = 5;
+            tTimeout.tv_usec = 0;
+            continue;
+        }
+
+        if (0 != receiveMessage(&tMessage, ptOdysseus->island_socket)) {
+            printErr(ERROR_ISLAND_RESPONSE);
+            return ARRIVAL_ERROR;
+        }
+
+        if (MSG_ARRIVAL_ISLAND == tMessage.type && FLAG_RESPONSE == tMessage.flag &&
+            0 == strcmp(tMessage.data, DOCKED)) {
+            return ARRIVAL_DOCKED;
+        }
+    }
 }
