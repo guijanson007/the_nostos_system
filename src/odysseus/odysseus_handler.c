@@ -57,6 +57,11 @@ OdysseusStatus odysseusConnect(Odysseus *tOdysseus) {
         close(tOdysseus->ithaca_socket);
         tOdysseus->ithaca_socket = -1;
     }
+
+    if (ODY_OK == eStatus) {
+        println("Connected to Ithaca.");
+    }
+
     return eStatus;
 }
 

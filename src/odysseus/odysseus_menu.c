@@ -112,7 +112,7 @@ int odysseusShowMenu(Odysseus *tOdysseus) {
         printErr("");
         return 1;
     }
-    println(MSG_COMMAND_OK);
+    // println(MSG_COMMAND_OK);
     // Print an empty line for better readability
     println("");
     return 1;

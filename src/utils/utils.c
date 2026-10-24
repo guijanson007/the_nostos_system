@@ -470,6 +470,9 @@ int openListenConn(char *ip, int port) {
         return -1;
     }
 
+    int nReuse = 1;
+    setsockopt(fd_socket, SOL_SOCKET, SO_REUSEADDR, &nReuse, sizeof(nReuse));
+
     memset(&s_addr, 0, sizeof(s_addr));
     s_addr.sin_family = AF_INET;
     s_addr.sin_port = htons(port);

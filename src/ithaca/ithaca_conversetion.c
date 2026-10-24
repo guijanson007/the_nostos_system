@@ -22,17 +22,24 @@ static int findClientIndex(Ithaca *ptIthaca, int nFd) {
 }
 
 static void disconectIthaca(int fd_client, Ithaca *ithaca, Message msg) {
+    int nRemove = 0;
+
     msg.type = MSG_DISCONNECT_ITHACA;
 
     if (msg.flag != FLAG_NONE || msg.dataLength != 0) {
         buildMessage(&msg, FLAG_RESPONSE | FLAG_ERROR, ERROR_MESSAGE_FORMAT);
+    } else if (-1 == findClientIndex(ithaca, fd_client)) {
+        buildMessage(&msg, FLAG_RESPONSE | FLAG_ERROR, ERROR_DISCONECTING);
     } else {
         buildMessage(&msg, FLAG_RESPONSE, OK_MESSAGE);
-        if (0 != removeClient(ithaca, fd_client)) {
-            buildMessage(&msg, FLAG_RESPONSE | FLAG_ERROR, ERROR_DISCONECTING);
-        }
+        nRemove = 1;
     }
+
+    // Reply before removeClient, which closes the socket
     sendMessage(&msg, fd_client);
+    if (nRemove) {
+        removeClient(ithaca, fd_client);
+    }
 }
 
 static void connectIthaca(int fd_client, Ithaca *ithaca, Message msg) {

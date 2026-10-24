@@ -146,7 +146,6 @@ OdysseusStatus notifyConnection(Odysseus *tOdysseus) {
                          tMessage.data);
         return ODY_ERR_REMOTE;
     } else if (tMessage.flag & FLAG_RESPONSE) {
-        println(tMessage.data);
         return ODY_OK;
     }
     return ODY_ERR_PROTOCOL;

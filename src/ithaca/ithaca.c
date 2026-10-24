@@ -267,7 +267,11 @@ int main(int argc, char *argv[]) {
                 Message msg;
                 if (receiveMessage(&msg, fd) != 0) {
                     printErr(ERROR_RECEIVE_MESSAGE);
-                    removeClient(&tIthaca, fd);
+                    if (0 != removeClient(&tIthaca, fd)) {
+                        // Never registered: drop the socket anyway
+                        close(fd);
+                        FD_CLR(fd, &tIthaca.fds_clients);
+                    }
                     continue;
                 }
                 // receiveMessage(&msg, fd);
