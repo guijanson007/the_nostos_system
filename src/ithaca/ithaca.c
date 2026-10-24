@@ -16,6 +16,7 @@
 
 // own headers
 #include "ithaca/ithaca_conversetion.h"
+#include "ithaca/ithaca_parser.h"
 
 int nEv_quit = 0;
 
