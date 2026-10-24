@@ -11,11 +11,13 @@
  ************************************************/
 
 // System includes
+#include <arpa/inet.h>
 #include <fcntl.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/select.h>
 #include <sys/types.h>
 #include <unistd.h>
 
@@ -27,11 +29,15 @@
 #define ERROR_ARGC "Usage: ./ithaca <ithaca.dat> <voyages.dat>"
 #define ERROR_FILE_ITHACA "ERROR ITHACA: the file couldn't be opened"
 #define ERROR_FILE_VOYAGE "ERROR VOYAGE: the file couldn't be opened"
-#define ERROR_LOAD_ITHACA "ERROR ITHACA: the data couldn't be loaded from the file"
-#define ERROR_LOAD_VOYAGE "ERROR VOYAGE: the data couldn't be loaded from the file"
+#define ERROR_LOAD_ITHACA                                                      \
+    "ERROR ITHACA: the data couldn't be loaded from the file"
+#define ERROR_LOAD_VOYAGE                                                      \
+    "ERROR VOYAGE: the data couldn't be loaded from the file"
 #define ERROR_SOCKET "ERROR: the socket could not be created\n"
 #define ERROR_ACCEPT "ERROR: The conection to the socket\n"
 #define FAREWELL "\nFinishing the Ithaca process"
+#define ERROR_RECEIVE_MESSAGE                                                  \
+    "ERROR: There was an error receiving the message from the client\n"
 
 // Structs
 typedef struct {
@@ -47,10 +53,10 @@ typedef struct {
     fd_set fds_clients;
     int max_fd;
     int nServerFd;
-    Client *client;
+    Client *clients;
     size_t numClients;
 } Ithaca;
- 
+
 typedef struct {
     int nId;
     char *psObject;
@@ -60,11 +66,9 @@ typedef struct {
 } Voyage;
 
 // Local includes
+#include "ithaca_parser.h"
 #include "utils/utils.h"
 #include "utils/utils_communication.h"
-#include "ithaca_parser.h"
-#include "ithaca_conversetion.h"
-
 
 // Functions
 void freeVoyage(Voyage **voyages, size_t *numVoyage);
