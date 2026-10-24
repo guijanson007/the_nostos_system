@@ -68,9 +68,9 @@ int main(int argc, char *argv[]) {
     if (NULL == tOdysseus.name || NULL == tOdysseus.path ||
         NULL == tOdysseus.ip || NULL == tOdysseus.port ||
         NULL == tOdysseus.initialInfo ||
-        (0 < tOdysseus.initialNumSupplies &&
-         (NULL == tOdysseus.supplies || NULL == tOdysseus.supplies->name ||
-          0 == tOdysseus.supplies->amount))) {
+        (0 < tOdysseus.cargo.numSupplies &&
+         (NULL == tOdysseus.cargo.supplies || NULL == tOdysseus.cargo.supplies->name ||
+          0 == tOdysseus.cargo.supplies->amount))) {
         freeOdysseus(&tOdysseus);
         return EXIT_FAILURE;
     }

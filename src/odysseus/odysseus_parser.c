@@ -27,23 +27,23 @@ static int buildSupplies(Odysseus *ptOdysseus, char **apsLines, size_t tOutCount
     size_t tLine = SUPPLIES_FIRST_LINE;
     char *psToken = NULL;
  
-    if (0 < ptOdysseus->initialNumSupplies) {
-        ptOdysseus->supplies =
-            calloc(ptOdysseus->initialNumSupplies, sizeof(Supply));
-        if (NULL == ptOdysseus->supplies) {
+    if (0 < ptOdysseus->cargo.numSupplies) {
+        ptOdysseus->cargo.supplies =
+            calloc(ptOdysseus->cargo.numSupplies, sizeof(Supply));
+        if (NULL == ptOdysseus->cargo.supplies) {
  
             return 0;
         } else {
             while (tLine < tOutCount &&
                    (tLine - SUPPLIES_FIRST_LINE) <
-                       (size_t)ptOdysseus->initialNumSupplies) {
+                       (size_t)ptOdysseus->cargo.numSupplies) {
                 psToken = strtok(apsLines[tLine], " ");
                 if (NULL != psToken) {
-                    ptOdysseus->supplies[tLine - SUPPLIES_FIRST_LINE].name =
+                    ptOdysseus->cargo.supplies[tLine - SUPPLIES_FIRST_LINE].name =
                         strdup(psToken);
                     psToken = strtok(NULL, " ");
                     if (NULL != psToken) {
-                        ptOdysseus->supplies[tLine - SUPPLIES_FIRST_LINE].amount =
+                        ptOdysseus->cargo.supplies[tLine - SUPPLIES_FIRST_LINE].amount =
                             atoi(psToken);
                     }
                 }
@@ -101,7 +101,7 @@ Odysseus odysseusParseFile(int nFd) {
     }
  
     tOdysseus.initialMoney = atof(apsLines[4]);
-    tOdysseus.initialNumSupplies = atoi(apsLines[5]);
+    tOdysseus.cargo.numSupplies = atoi(apsLines[5]);
  
     if (0 == buildSupplies(&tOdysseus, apsLines, tOutCount)) {
         printErr(ERROR_ALLOC_SUPPLIES);
@@ -145,15 +145,16 @@ void freeOdysseus(Odysseus *ptOdysseus) {
     free(ptOdysseus->lastError);
     ptOdysseus->lastError = NULL;
  
-    if (NULL != ptOdysseus->supplies) {
-        for (i = 0; i < ptOdysseus->initialNumSupplies; ++i) {
-            free(ptOdysseus->supplies[i].name);
-            ptOdysseus->supplies[i].name = NULL;
+    if (NULL != ptOdysseus->cargo.supplies) {
+        for (i = 0; i < ptOdysseus->cargo.numSupplies; ++i) {
+            free(ptOdysseus->cargo.supplies[i].name);
+            ptOdysseus->cargo.supplies[i].name = NULL;
         }
-        free(ptOdysseus->supplies);
-        ptOdysseus->supplies = NULL;
+        free(ptOdysseus->cargo.supplies);
+        ptOdysseus->cargo.supplies = NULL;
     }
-    ptOdysseus->initialNumSupplies = 0;
+    ptOdysseus->cargo.numSupplies = 0;
+    ptOdysseus->cargo.totalAmount = 0;
 }
 
 /*************************************************
@@ -191,21 +192,21 @@ void odysseusPrintInfo(Odysseus *ptOdysseus) {
     println(psStr);
     free(psStr);
  
-    asprintf(&psStr, "Initial number of supplies: %d",
-             ptOdysseus->initialNumSupplies);
+     asprintf(&psStr, "Initial number of supplies: %d",
+             ptOdysseus->cargo.numSupplies);
     println(psStr);
     free(psStr);
  
-    for (i = 0; i < ptOdysseus->initialNumSupplies; ++i) {
+    for (i = 0; i < ptOdysseus->cargo.numSupplies; ++i) {
         asprintf(&psStr, "Supply %d:", i + 1);
         println(psStr);
         free(psStr);
  
-        asprintf(&psStr, "\tName: %s", ptOdysseus->supplies[i].name);
+        asprintf(&psStr, "\tName: %s", ptOdysseus->cargo.supplies[i].name);
         println(psStr);
         free(psStr);
  
-        asprintf(&psStr, "\tAmount: %d", ptOdysseus->supplies[i].amount);
+        asprintf(&psStr, "\tAmount: %d", ptOdysseus->cargo.supplies[i].amount);
         println(psStr);
         free(psStr);
     }

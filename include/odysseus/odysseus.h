@@ -29,20 +29,20 @@
 #define ERROR_ARGC "Usage: odysseus <config_file>.dat"
 #define ERROR_OPEN_FILE "Failed to open file: %s"
 
-// Structs
-typedef struct {
-    char *name;
-    int amount;
-} Supply;
 
-typedef struct {
+#include "odysseus/odysseus_cargo.h"
+
+// Structs
+typedef struct KnownIsland{
+    char *name;
     char *ip;
     int port;
-    SPHRAGIS_Island sphragis;
+    int num_neighbors;
+    int *neighbors; //index of the neighbors in the connection
 } KnownIsland;
 
 typedef struct {
-    KnownIsland *connections;
+    KnownIsland *connections; // yellow[0] and green[1]
     int numConnections;
 } Map;
 
@@ -53,14 +53,14 @@ typedef struct Odysseus {
     char *port;
     char *initialInfo;
     float initialMoney;
-    int initialNumSupplies;
     int ithaca_socket;
     Supply *supplies;
     Map map;
     int whereAmI; // index of the current island in the connections array If
                   // Ithaca -1
     int island_socket;
-    char *lastError; // heap detail text of the last failed command, may be NULL
+    Cargo cargo;
+    char *lastError;
 } Odysseus;
 
 #endif

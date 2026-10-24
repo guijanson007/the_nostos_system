@@ -14,31 +14,26 @@
 
 // own headers
 #include "odysseus/odysseus_conversation.h"
-#include "utils/utils.h"
 
-// standard library headers
-#include <arpa/inet.h>
+int findDestination(Odysseus ptOdysseus, const char *psDestination) {
+    const KnownIsland *ptHere = NULL;
+    int nNeighbor = 0;
+    int i = 0;
 
-static int findDestination(Odysseus tOdysseus, const char *psDestination) {
-    if (tOdysseus.whereAmI == -1) {
-        return 0; // position of Aeaea in the array
-    } else {
-        for (int i = 0; i < tOdysseus.map.numConnections; i++) {
-            if (strcmp(tOdysseus.map.connections[i].sphragis.name,
-                       psDestination) == 0) {
-                for (int j = 0;
-                     j < tOdysseus.map.connections[tOdysseus.whereAmI]
-                             .sphragis.known_island_count;
-                     j++) {
-                    if (0 ==
-                        strcmp(tOdysseus.map.connections[tOdysseus.whereAmI]
-                                   .sphragis.known_islands[j],
-                               psDestination)) {
-                        return i;
-                    }
-                }
-                return -1;
-            }
+    if (-1 == ptOdysseus.whereAmI) {
+        if (0 ==
+            strcasecmp(ptOdysseus.map.connections[0].name, psDestination)) {
+            return 0;
+        }
+        return -1;
+    }
+
+    ptHere = &ptOdysseus.map.connections[ptOdysseus.whereAmI];
+    for (i = 0; i < ptHere->num_neighbors; i++) {
+        nNeighbor = ptHere->neighbors[i];
+        if (0 == strcasecmp(ptOdysseus.map.connections[nNeighbor].name,
+                            psDestination)) {
+            return nNeighbor;
         }
     }
     return -1;
@@ -100,18 +95,16 @@ void odysseusSail(Odysseus *tOdysseus, const char *psDestination) {
             return;
     } else {
         if (-1 ==
-            asprintf(
-                &buff, "Leaving %s...",
-                tOdysseus->map.connections[tOdysseus->whereAmI].sphragis.name))
+            asprintf(&buff, "Leaving %s...",
+                     tOdysseus->map.connections[tOdysseus->whereAmI].name))
             return;
         close(tOdysseus->island_socket);
     }
     println(buff);
     free(buff);
 
-    if (-1 ==
-        asprintf(&buff, "Sailing to %s...",
-                 tOdysseus->map.connections[nDestinationIndex].sphragis.name))
+    if (-1 == asprintf(&buff, "Sailing to %s...",
+                       tOdysseus->map.connections[nDestinationIndex].name))
         return;
     println(buff);
     free(buff);
@@ -125,24 +118,31 @@ void odysseusSail(Odysseus *tOdysseus, const char *psDestination) {
     tOdysseus->whereAmI = nDestinationIndex;
 
     int status = arriveAtIsland(tOdysseus);
+
+    if (ARRIVAL_WAIT == status) {
+        println("The harbor is full. We drop anchor and wait.");
+        status = waitingAtPort(tOdysseus);
+    }
+
     switch (status) {
-        case ARRIVAL_WAIT:
-            // Waiting to be docked
-            break;
         case ARRIVAL_DOCKED:
-            if (-1 == asprintf(&buff, ">>> %s has granted access to the port.",
-                               tOdysseus->map.connections[tOdysseus->whereAmI]
-                                   .sphragis.name))
-                return;
-            println(buff);
-            free(buff);
+            asprintf(&buff, ">>> %s has granted access to the port.",
+                     tOdysseus->map.connections[nDestinationIndex].name);
+            tOdysseus->whereAmI = nDestinationIndex;
+            break;
+        case ARRIVAL_LOST_AT_SEA:
+            asprintf(&buff,
+                     "The crew has run out of provisions.\nOdysseus %s has "
+                     "been lost at sea.",
+                     tOdysseus->name);
             break;
         default:
-            return;
             close(tOdysseus->island_socket);
             tOdysseus->island_socket = -1;
             break;
     }
+    println(buff);
+    free(buff);
 }
 
 void odysseusBuy(Odysseus *tOdysseus, const char *psProduct,

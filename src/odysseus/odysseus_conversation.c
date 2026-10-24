@@ -49,7 +49,7 @@ OdysseusStatus connectToIthaca(Odysseus *tOdysseus) {
 
 int disconnectFromIthaca(Odysseus *tOdysseus) {
     Message tMessage = {0};
-    tMessage.type = DISCONNECT_ITHACA;
+    tMessage.type = MSG_DISCONNECT_ITHACA;
     tMessage.flag = FLAG_NONE;
     tMessage.dataLength = 0;
     tMessage.data[0] = '\0';
@@ -63,7 +63,7 @@ int disconnectFromIthaca(Odysseus *tOdysseus) {
         return -1;
     }
 
-    if (tMessage.type != DISCONNECT_ITHACA) {
+    if (tMessage.type != MSG_DISCONNECT_ITHACA) {
         printErr(ERROR_ITHACA_RESPONSE);
         return -1;
     }
@@ -85,21 +85,20 @@ int disconnectFromIthaca(Odysseus *tOdysseus) {
 
 int arriveAtIsland(Odysseus *tOdysseus) {
     Message tMessage = {0};
-    tMessage.type = ARRIVAL_ISLAND;
+    tMessage.type = MSG_ARRIVAL_ISLAND;
     tMessage.flag = FLAG_NONE;
     tMessage.dataLength = strlen(tOdysseus->name);
     strcpy(tMessage.data, tOdysseus->name);
 
-    if (sendMessage(&tMessage, tOdysseus->island_socket) != 0) {
+    if (sendMessage(&tMessage, tOdysseus->island_socket) != 0)
         return -1;
-    }
 
     // Wait for the response from the island
     if (receiveMessage(&tMessage, tOdysseus->island_socket) != 0) {
         return -1;
     }
 
-    if (tMessage.type != ARRIVAL_ISLAND) {
+    if (tMessage.type != MSG_ARRIVAL_ISLAND) {
         printErr(ERROR_ISLAND_RESPONSE);
         return -1;
     }
@@ -124,7 +123,7 @@ int arriveAtIsland(Odysseus *tOdysseus) {
 OdysseusStatus notifyConnection(Odysseus *tOdysseus) {
     Message tMessage = {0};
 
-    tMessage.type = CONNECT_ITHACA;
+    tMessage.type = MSG_CONNECT_ITHACA;
     tMessage.flag = FLAG_NONE;
     tMessage.dataLength = strlen(tOdysseus->name);
     strcpy(tMessage.data, tOdysseus->name);
@@ -138,7 +137,7 @@ OdysseusStatus notifyConnection(Odysseus *tOdysseus) {
         return ODY_ERR_IO;
     }
 
-    if (tMessage.type != CONNECT_ITHACA) {
+    if (tMessage.type != MSG_CONNECT_ITHACA) {
         return ODY_ERR_PROTOCOL;
     }
 
@@ -151,4 +150,54 @@ OdysseusStatus notifyConnection(Odysseus *tOdysseus) {
         return ODY_OK;
     }
     return ODY_ERR_PROTOCOL;
+}
+
+int waitingAtPort(Odysseus *ptOdysseus) {
+    fd_set tReadFds;
+    struct timeval tTimeout;
+    Message tMessage;
+    char *psBuffer = NULL;
+    int nReady = 0;
+
+    tTimeout.tv_sec = 5;
+    tTimeout.tv_usec = 0;
+
+    while (1) {
+        FD_ZERO(&tReadFds);
+        FD_SET(ptOdysseus->island_socket, &tReadFds);
+        nReady = select(ptOdysseus->island_socket + 1, &tReadFds, NULL, NULL,
+                        &tTimeout);
+
+        if (-1 == nReady) {
+            return ARRIVAL_ERROR;
+        }
+
+        if (0 == nReady) {
+            consumeFood(&ptOdysseus->cargo);
+            if (-1 != asprintf(&psBuffer,
+                               "\n>>> The crew consumes another ration.\n"
+                               "Provisions remaining: %d kg",
+                               ptOdysseus->cargo.totalAmount)) {
+                println(psBuffer);
+                free(psBuffer);
+            }
+            if (0 >= ptOdysseus->cargo.totalAmount) {
+                return ARRIVAL_LOST_AT_SEA;
+            }
+            tTimeout.tv_sec = 5;
+            tTimeout.tv_usec = 0;
+            continue;
+        }
+
+        if (0 != receiveMessage(&tMessage, ptOdysseus->island_socket)) {
+            printErr(ERROR_ISLAND_RESPONSE);
+            return ARRIVAL_ERROR;
+        }
+
+        if (MSG_ARRIVAL_ISLAND == tMessage.type &&
+            FLAG_RESPONSE == tMessage.flag &&
+            0 == strcmp(tMessage.data, DOCKED)) {
+            return ARRIVAL_DOCKED;
+        }
+    }
 }
