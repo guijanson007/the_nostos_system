@@ -2,6 +2,18 @@
 
 #include "utils/utils_communication.h"
 
+void buildMessage(Message *msg, const char flags, char *data) {
+    size_t tLength = strlen(data);
+
+    if (tLength > 253) {
+        return;             
+    }
+    
+    msg->flag = flags;
+    msg->dataLength = (unsigned char)tLength;
+    memcpy(msg->data, data, tLength);
+    msg->data[tLength] = '\0';
+}
 
 int sendMessage(const Message *msg, int fd) {
     unsigned char buffer[MESSAGE_SIZE] = {0};

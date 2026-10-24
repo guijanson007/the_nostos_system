@@ -218,8 +218,8 @@ int main(int argc, char *argv[]) {
  
     signal(SIGINT, onSigint);
     
-    int fd_socket = openListenConn(tIthaca.psIp, tIthaca.nPort);
-    if (fd_socket < 0) {
+     tIthaca.nServerFd = openListenConn(tIthaca.psIp, tIthaca.nPort);
+    if (tIthaca.nServerFd < 0) {
         write(STDOUT_FILENO, ERROR_SOCKET, strlen(ERROR_SOCKET));
         freeIthaca(&tIthaca);
         freeVoyage(&atVoyages, &tNumVoyages);
@@ -227,43 +227,38 @@ int main(int argc, char *argv[]) {
     }
 
 
-    fd_set fds_clients;
-    FD_ZERO(&fds_clients);
-    FD_SET(fd_socket, &fds_clients);
+    FD_ZERO(&tIthaca.fds_clients);
+    FD_SET(tIthaca.nServerFd, &tIthaca.fds_clients);
 
-    int max_fd = fd_socket;
+    tIthaca.max_fd = tIthaca.nServerFd;
 
     while (!nEv_quit) {
-            fd_set read_fds = fds_clients;
-        if (select(max_fd + 1, &read_fds, NULL, NULL, NULL) == -1) break;
+        fd_set read_fds = tIthaca.fds_clients;
+        if (select(tIthaca.max_fd + 1, &read_fds, NULL, NULL, NULL) == -1) break;
 
-        for (int fd = 0; fd <= max_fd; fd++) {
+        for (int fd = 0; fd <= tIthaca.max_fd; fd++) {
             if (!FD_ISSET(fd, &read_fds)) continue;
 
-            if (fd == fd_socket) {
-                int fd_client = accept(fd_socket, NULL, NULL);
+            if (fd == tIthaca.nServerFd) {
+                int fd_client = accept(tIthaca.nServerFd, NULL, NULL);
                 if (fd_client < 0) {
                     write(STDOUT_FILENO, ERROR_ACCEPT, strlen(ERROR_ACCEPT));
                     continue;
                 }
-                FD_SET(fd_client, &fds_clients); 
-                if (fd_client > max_fd) max_fd = fd_client;
+                FD_SET(fd_client, &tIthaca.fds_clients); 
+                if (fd_client > tIthaca.max_fd) tIthaca.max_fd = fd_client;
             }
             else {
-                char *buffer = readUntil(fd, '\n');
-                if (buffer == NULL) {
-                    close(fd);
-                    FD_CLR(fd, &fds_clients);
-                    continue;
-                }
+                Message msg;
+                receiveMessage(&msg, fd);
                 //Option to handel the options
-                free(buffer);
+                choseOption(&tIthaca, msg, fd);
             }
         }
     }
 
-    for (int fd = 0; fd <= max_fd; fd++) {
-        if (FD_ISSET(fd, &fds_clients))
+    for (int fd = 0; fd <= tIthaca.max_fd; fd++) {
+        if (FD_ISSET(fd, &tIthaca.fds_clients))
             close(fd);
     }
 

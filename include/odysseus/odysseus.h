@@ -33,14 +33,16 @@ typedef struct {
     int amount;
 } Supply;
 
-typedef struct {
+typedef struct KnownIsland{
+    char *name;
     char *ip;
     int port;
-    SPHRAGIS_Island sphragis;
+    int num_neighbors;
+    int *neighbors; //index of the neighbors in the connection
 } KnownIsland;
 
 typedef struct {
-    KnownIsland *connections;
+    KnownIsland *connections; // yellow[0] and green[1]
     int numConnections;
 } Map;
 
@@ -53,10 +55,10 @@ typedef struct {
     float initialMoney;
     int initialNumSupplies;
     int ithaca_socket;
-    Supply *supplies;
-    Map map;
     int whereAmI; // index of the current island in the connections array If Ithaca -1
     int island_socket;
+    Supply *supplies;
+    Map map;
 } Odysseus;
 
 
