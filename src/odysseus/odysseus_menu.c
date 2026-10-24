@@ -1,7 +1,8 @@
 /***********************************************
  *
  * @File : odysseus_menu.c
- * @Purpose : console menu for odysseus process. Shows the prompt, reads the user commands and executes them.
+ * @Purpose : console menu for odysseus process. Shows the prompt, reads the
+ * user commands and executes them.
  * @Author : Guilherme Rodrigues
  * @Date : 25/09/2026
  *
@@ -11,7 +12,6 @@
 
 // header
 #include "odysseus/odysseus_menu.h"
-
 
 /*************************************************
  *
@@ -23,7 +23,7 @@
  **************************************************/
 void odysseusStartMenu(Odysseus tOdysseus) {
     char *psBuffer = NULL;
- 
+
     asprintf(&psBuffer, MSG_START_MENU, tOdysseus.name);
     println(psBuffer);
     free(psBuffer);
@@ -67,13 +67,16 @@ void resetInputField() {
 int odysseusShowMenu(Odysseus *tOdysseus) {
     OdysseusCommand tCommand = {0};
     const char *psErrorMessage = NULL;
+    OdysseusStatus eStatus = ODY_OK;
     char *psInput = NULL;
- 
+
     setupInputField();
- 
+
     if (-1 == readLine(STDIN_FILENO, &psInput)) {
         if (EINTR == errno) {
             // Interrupted by signal
+            resetInputField();
+            println("");
             return 0;
         } else {
             // Error reading input
@@ -81,18 +84,18 @@ int odysseusShowMenu(Odysseus *tOdysseus) {
             return 0;
         }
     }
- 
+
     resetInputField();
- 
+
     if (NULL == psInput) {
         return 0;
     }
- 
+
     if (0 == parseOdysseusCommand(psInput, &tCommand)) {
         free(psInput);
         return 1;
     }
- 
+
     if (COMMAND_VALID != validateOdysseusCommand(&tCommand, &psErrorMessage)) {
         printErr(psErrorMessage);
         // Print an empty line for better readability
@@ -101,9 +104,15 @@ int odysseusShowMenu(Odysseus *tOdysseus) {
         // Return 1 to continue the menu even after an invalid command
         return 1;
     }
-    executeOdysseusCommand(tOdysseus, &tCommand);
+    eStatus = executeOdysseusCommand(tOdysseus, &tCommand);
     free(psInput);
-    println(MSG_COMMAND_OK);
+    if (ODY_OK != eStatus) {
+        printErr(odysseusStatusMessage(tOdysseus, eStatus));
+        // Print an empty line for better readability
+        printErr("");
+        return 1;
+    }
+    // println(MSG_COMMAND_OK);
     // Print an empty line for better readability
     println("");
     return 1;

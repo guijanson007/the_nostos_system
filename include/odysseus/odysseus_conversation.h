@@ -1,8 +1,6 @@
 #ifndef _ODYSSEUS_CONVERSETION_H
 #define _ODYSSEUS_CONVERSETION_H
 
-
-#include "utils/utils_communication.h"
 #include "odysseus/odysseus.h"
 
 #define ERROR_ITHACA_RESPONSE "ERROR: Unexpected response from Ithaca\n"
@@ -13,9 +11,10 @@
 #define ARRIVAL_DOCKED 2
 #define ARRIVAL_LOST_AT_SEA 3
 
-
+OdysseusStatus connectToIthaca(Odysseus *tOdysseus);
 int disconnectFromIthaca(Odysseus *tOdysseus);
 int arriveAtIsland(Odysseus *tOdysseus);
-int waitingInThePort(Odysseus *tOdysseus);
+OdysseusStatus notifyConnection(Odysseus *tOdysseus);
+int waitingAtPort(Odysseus *ptOdysseus);
 
 #endif

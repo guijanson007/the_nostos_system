@@ -322,7 +322,7 @@ int main(int argc, char *argv[]) {
             } else {
                 Message msg;
                 receiveMessage(&msg, fd);
-                //Option to handel the options
+                // Option to handel the options
                 choseOption(&tIsland, msg, fd);
             }
         }

@@ -83,6 +83,6 @@ typedef enum {
 //Functions
 int parseOdysseusCommand(char *psLine, OdysseusCommand *ptCommand);
 CommandValidationResult validateOdysseusCommand(const OdysseusCommand *ptCommand, const char **ppsErrorMessage);
-void executeOdysseusCommand(Odysseus *tOdysseus, const OdysseusCommand *ptCommand);
+OdysseusStatus executeOdysseusCommand(Odysseus *tOdysseus, const OdysseusCommand *ptCommand);
 
 #endif // ODYSSEUS_COMMAND_H

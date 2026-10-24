@@ -1,6 +1,6 @@
-/* 
+/*
  * SPHRAGIS Library for OS 26-27
- * 
+ *
  * Made by: Valeria, Aaron, Victor
  *
  */
@@ -35,7 +35,8 @@ typedef struct {
  * @Return: SPHRAGIS_OK on success, SPHRAGIS_ERROR_INVALID_ISLAND for an
  *          unknown island, or SPHRAGIS_ERROR on an image read/write failure.
  ***********************************************/
-int SPHRAGIS_sign_with_glyph(char *island_name, char *input_path, char *output_path);
+int SPHRAGIS_sign_with_glyph(char *island_name, char *input_path,
+                             char *output_path);
 
 /***********************************************
  * @Purpose: Checks whether an image contains an island's glyph.
