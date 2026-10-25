@@ -75,7 +75,22 @@ void odysseusClaim(Odysseus *tOdysseus) { (void)tOdysseus; }
 
 void odysseusListVoyages(Odysseus *tOdysseus) { (void)tOdysseus; }
 
-void odysseusListMarket(Odysseus *tOdysseus) { (void)tOdysseus; }
+OdysseusStatus odysseusListMarket(Odysseus *tOdysseus) {
+    OdysseusStatus eStatus = ODY_OK;
+
+    if (tOdysseus->island_socket == -1 || tOdysseus->whereAmI == -1)
+        return ODY_ERR_ALREADY_CONNECTED;
+
+    eStatus =
+        getListMarket(tOdysseus);
+
+    if (ODY_OK != eStatus) {
+        close(tOdysseus->ithaca_socket);
+        tOdysseus->ithaca_socket = -1;
+    }
+
+    return ODY_OK;
+}
 
 void odysseusAcceptVoyage(Odysseus *tOdysseus, const char *psVoyageId) {
     (void)tOdysseus;

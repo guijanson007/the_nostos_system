@@ -232,6 +232,7 @@ int main(int argc, char *argv[]) {
     printData(&tIthaca, atVoyages, tNumVoyages);
 
     signal(SIGINT, onSigint);
+    signal(SIGPIPE, SIG_IGN);
 
     tIthaca.nServerFd = openListenConn(tIthaca.psIp, tIthaca.nPort);
     if (tIthaca.nServerFd < 0) {

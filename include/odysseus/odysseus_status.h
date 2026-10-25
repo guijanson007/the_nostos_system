@@ -21,7 +21,8 @@ typedef enum {
     ODY_ERR_IO,
     ODY_ERR_PROTOCOL,
     ODY_ERR_REMOTE,
-    ODY_ERR_ALREADY_CONNECTED
+    ODY_ERR_ALREADY_CONNECTED,
+    ODY_ERR_INVALID_COMMAND
 } OdysseusStatus;
 
 struct Odysseus;

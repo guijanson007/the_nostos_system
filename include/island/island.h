@@ -49,6 +49,12 @@ typedef struct {
 } Client;
 
 typedef struct {
+    char sName[100];
+    int nQuantity;
+    int nPrice;
+} Stock;
+
+typedef struct {
     char *psName;
     char *psFile;
     char *psIp;
@@ -63,13 +69,10 @@ typedef struct {
     int numDocked;
     size_t numClients;
     size_t nArrivalCounter;
+    Stock *atStock;
+    size_t tNumStock;
 } Island;
  
-typedef struct {
-    char sName[100];
-    int nQuantity;
-    int nPrice;
-} Stock;
 
 // Local Includes
 #include "utils/utils.h"
