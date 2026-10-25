@@ -26,6 +26,46 @@ void quitProgram(int nSignum) {
     nEv_quit = 1;
 }
 
+static int odysseusInitState(Odysseus *ptOdysseus) {
+    char *psCopy = NULL;
+    char *psName = NULL;
+    char *psIp = NULL;
+    char *psPort = NULL;
+    KnownIsland *ptAeaea = NULL;
+
+    ptOdysseus->whereAmI = -1; // we start at Ithaca
+    ptOdysseus->ithaca_socket = -1;
+    ptOdysseus->island_socket = -1;
+
+    // Map with one island: Aeaea
+    ptOdysseus->map.connections = calloc(1, sizeof(KnownIsland));
+    if (NULL == ptOdysseus->map.connections) {
+        return -1;
+    }
+    psCopy = strdup(ptOdysseus->initialInfo);
+    if (NULL == psCopy) {
+        return -1;
+    }
+    psName = strtok(psCopy, " ");
+    psIp = strtok(NULL, " ");
+    psPort = strtok(NULL, " ");
+    if (NULL == psName || NULL == psIp || NULL == psPort) {
+        free(psCopy);
+        return -1;
+    }
+
+    ptAeaea = &ptOdysseus->map.connections[0];
+    ptAeaea->name = strdup(psName);
+    ptAeaea->ip = strdup(psIp);
+    ptAeaea->port = atoi(psPort);
+    ptAeaea->num_neighbors = 0;
+    ptAeaea->neighbors = NULL;
+    ptOdysseus->map.numConnections = 1;
+    free(psCopy);
+
+    return (NULL == ptAeaea->name || NULL == ptAeaea->ip) ? -1 : 0;
+}
+
 /***********************************************
  *
  * @Name : main
@@ -69,11 +109,14 @@ int main(int argc, char *argv[]) {
         NULL == tOdysseus.ip || NULL == tOdysseus.port ||
         NULL == tOdysseus.initialInfo ||
         (0 < tOdysseus.cargo.numSupplies &&
-         (NULL == tOdysseus.cargo.supplies || NULL == tOdysseus.cargo.supplies->name ||
+         (NULL == tOdysseus.cargo.supplies ||
+          NULL == tOdysseus.cargo.supplies->name ||
           0 == tOdysseus.cargo.supplies->amount))) {
         freeOdysseus(&tOdysseus);
         return EXIT_FAILURE;
     }
+
+    odysseusInitState(&tOdysseus);
 
     // odysseusPrintInfo(&tOdysseus);
 

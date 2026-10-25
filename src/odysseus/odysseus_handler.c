@@ -75,7 +75,8 @@ void odysseusClaim(Odysseus *tOdysseus) { (void)tOdysseus; }
 
 void odysseusListVoyages(Odysseus *tOdysseus) { (void)tOdysseus; }
 
-void odysseusListMarket(Odysseus *tOdysseus) { (void)tOdysseus; }
+void odysseusListMarket(Odysseus *tOdysseus) {
+}
 
 void odysseusAcceptVoyage(Odysseus *tOdysseus, const char *psVoyageId) {
     (void)tOdysseus;
