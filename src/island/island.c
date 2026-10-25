@@ -256,8 +256,6 @@ int main(int argc, char *argv[]) {
     int nFdConfig = -1;
     int nFdStock = -1;
     Island tIsland = {0};
-    Stock *atStock = NULL;
-    size_t tNumStock = 0;
     SPHRAGIS_Island tSphragis = {0};
 
     if (0 != checkArgcIsland(argc, argv)) {
@@ -278,21 +276,22 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
     }
 
-    if (-1 == loadData(&nFdConfig, &nFdStock, &tIsland, &tSphragis, &atStock,
-                       &tNumStock)) {
+    if (-1 == loadData(&nFdConfig, &nFdStock, &tIsland, &tSphragis,
+                       &tIsland.atStock, &tIsland.tNumStock)) {
         return EXIT_FAILURE;
     }
 
     // DEBUGGING
-    printData(tIsland, atStock, tNumStock);
+    printData(tIsland, tIsland.atStock, tIsland.tNumStock);
     signal(SIGINT, onSigint);
+    signal(SIGPIPE, SIG_IGN);
 
     tIsland.nServerFd = openListenConn(tIsland.psIp, tIsland.nPort);
     if (tIsland.nServerFd < 0) {
         write(STDOUT_FILENO, ERROR_SOCKET, strlen(ERROR_SOCKET));
         closeFiles(&nFdConfig, &nFdStock);
+        freeStock(&tIsland.atStock);
         freeIsland(&tIsland, &tSphragis);
-        freeStock(&atStock);
         return EXIT_FAILURE;
     }
 
@@ -334,8 +333,8 @@ int main(int argc, char *argv[]) {
     }
 
     closeFiles(&nFdConfig, &nFdStock);
+    freeStock(&tIsland.atStock);
     freeIsland(&tIsland, &tSphragis);
-    freeStock(&atStock);
     println("\nIsland process finished.");
     return EXIT_SUCCESS;
 }

@@ -99,6 +99,7 @@ int main(int argc, char *argv[]) {
     tAction.sa_handler = quitProgram;
     tAction.sa_flags = 0;
     sigaction(SIGINT, &tAction, NULL);
+    signal(SIGPIPE, SIG_IGN);
 
     memset(&tOdysseus, 0, sizeof(Odysseus));
     tOdysseus = odysseusParseFile(nFd);

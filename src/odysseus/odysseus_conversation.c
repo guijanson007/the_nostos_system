@@ -282,7 +282,7 @@ OdysseusStatus getListMarket(Odysseus *tOdysseus) {
 
         if (index == total) { // MAP
             println("...");
-            asprintf(&buff, "%s\t\t\t\t%d gold", product, price);
+            asprintf(&buff, "%s\t\t\t%d gold", product, price);
             println(buff);
             free(buff);
             break;
