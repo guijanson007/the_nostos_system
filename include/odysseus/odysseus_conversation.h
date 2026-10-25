@@ -16,5 +16,6 @@ int disconnectFromIthaca(Odysseus *tOdysseus);
 int arriveAtIsland(Odysseus *tOdysseus);
 OdysseusStatus notifyConnection(Odysseus *tOdysseus);
 int waitingAtPort(Odysseus *ptOdysseus);
+OdysseusStatus getListMarket(Odysseus *tOdysseus);
 
 #endif

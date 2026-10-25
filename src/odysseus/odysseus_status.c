@@ -73,6 +73,8 @@ const char *odysseusStatusMessage(const Odysseus *ptOdysseus,
             return "ERROR: Unexpected response from Ithaca";
         case ODY_ERR_ALREADY_CONNECTED:
             return "ERROR: Already connected to Ithaca";
+        case ODY_ERR_INVALID_COMMAND:
+            return "ERROR: Invalid request from your current position";
         default:
             return "ERROR: Unknown error";
     }

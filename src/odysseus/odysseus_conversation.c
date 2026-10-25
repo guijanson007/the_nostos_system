@@ -200,3 +200,98 @@ int waitingAtPort(Odysseus *ptOdysseus) {
         }
     }
 }
+
+static int parseMessageMarket(char *psData, int nLength, int *pnIndex,
+                              int *pnTotal, char **ppsProduct, int *pnAmount,
+                              int *pnPrice) {
+    char *psIndex = NULL;
+    char *psTotal = NULL;
+    char *psAmount = NULL;
+    char *psPrice = NULL;
+
+    if (NULL == psData || nLength <= 0 || nLength > 253) {
+        return -1;
+    }
+    psData[nLength] = '\0';
+
+    psIndex = strtok(psData, "&");
+    psTotal = strtok(NULL, "&");
+    *ppsProduct = strtok(NULL, "&");
+    psAmount = strtok(NULL, "&");
+    psPrice = strtok(NULL, "&");
+
+    if (NULL == psIndex || NULL == psTotal || NULL == *ppsProduct ||
+        NULL == psAmount || NULL == psPrice || NULL != strtok(NULL, "&")) {
+        return -1;
+    }
+    if (!isAllDigits(psIndex) || !isAllDigits(psTotal) ||
+        !isAllDigits(psAmount) || !isAllDigits(psPrice)) {
+        return -1;
+    }
+
+    *pnIndex = atoi(psIndex);
+    *pnTotal = atoi(psTotal);
+    *pnAmount = atoi(psAmount);
+    *pnPrice = atoi(psPrice);
+
+    if (*pnIndex < 1 || *pnIndex > *pnTotal) {
+        return -1;
+    }
+    return 0;
+}
+
+OdysseusStatus getListMarket(Odysseus *tOdysseus) {
+    int index = 0;
+    int total = 0;
+    char *product;
+    int amount = 0;
+    int price = 0;
+
+    char *buff = NULL;
+
+    Message msg;
+    msg.type = MSG_LIST_MARKET;
+    msg.flag = FLAG_NONE;
+    msg.dataLength = 0;
+    msg.data[0] = '\0';
+
+    if (sendMessage(&msg, tOdysseus->island_socket) != 0) {
+        return ODY_ERR_REMOTE;
+    }
+
+    asprintf(&buff, "--- %s MARKET ---",
+             tOdysseus->map.connections[tOdysseus->whereAmI].name);
+    println(buff);
+    free(buff);
+    while (1) {
+        if (receiveMessage(&msg, tOdysseus->island_socket) != 0)
+            return ODY_ERR_REMOTE;
+
+        if (msg.type != MSG_LIST_MARKET || msg.dataLength == 0)
+            return ODY_ERR_INVALID_COMMAND;
+
+        if (msg.flag & FLAG_ERROR) {
+            odysseusSetError(tOdysseus, "%.*s", (int)msg.dataLength, msg.data);
+            return ODY_ERR_REMOTE;
+        }
+
+        if (0 != parseMessageMarket(msg.data, msg.dataLength, &index, &total,
+                                    &product, &amount, &price)) {
+            return ODY_ERR_REMOTE;
+        }
+
+        if (index == total) { // MAP
+            println("...");
+            asprintf(&buff, "%s\t\t\t\t%d gold", product, price);
+            println(buff);
+            free(buff);
+            break;
+        }
+
+        asprintf(&buff, "%s\t%d kg\t %d gold / kg", product, amount, price);
+        println(buff);
+        free(buff);
+    }
+
+    return ODY_OK;
+}
