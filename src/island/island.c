@@ -255,6 +255,7 @@ int checkArgcIsland(int argc, char *argv[]) {
 int main(int argc, char *argv[]) {
     int nFdConfig = -1;
     int nFdStock = -1;
+    int nResult = -1;
     Island tIsland = {0};
     SPHRAGIS_Island tSphragis = {0};
 
@@ -320,8 +321,15 @@ int main(int argc, char *argv[]) {
                     tIsland.max_fd = fd_client;
             } else {
                 Message msg;
-                receiveMessage(&msg, fd);
-                // Option to handel the options
+                nResult = receiveMessage(&msg, fd);
+
+                if (-1 == nResult) {
+                    clientLeaves(&tIsland, fd);
+                    continue;
+                } else if (-2 == nResult) {
+                    continue;
+                }
+
                 choseOption(&tIsland, msg, fd);
             }
         }

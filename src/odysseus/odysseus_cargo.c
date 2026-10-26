@@ -7,27 +7,30 @@
  *
  ************************************************/
 
-
 #define _GNU_SOURCE
 #include "odysseus/odysseus_cargo.h"
-
-
 
 void consumeFood(Cargo *ptCargo) {
     int foodToConsume = CONSUME_WEIGHT;
 
     for (int i = 0; i < ptCargo->numSupplies && foodToConsume > 0; i++) {
-        if (ptCargo->supplies[i].amount <= 0) continue;
+        if (ptCargo->supplies[i].amount <= 0)
+            continue;
 
         if (ptCargo->supplies[i].amount >= foodToConsume) {
             ptCargo->supplies[i].amount -= foodToConsume;
             ptCargo->totalAmount -= foodToConsume;
             foodToConsume = 0;
-        }
-        else {
+        } else {
             ptCargo->totalAmount -= ptCargo->supplies[i].amount;
             foodToConsume -= ptCargo->supplies[i].amount;
             ptCargo->supplies[i].amount = 0;
         }
+    }
+}
+
+void calculateTotalGold(Cargo *ptCargo) {
+    for (int i = 0; i < ptCargo->numSupplies; i++) {
+        ptCargo->totalAmount += ptCargo->supplies[i].amount;
     }
 }

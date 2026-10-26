@@ -22,6 +22,5 @@
 // Projects
 void freeOdysseus(Odysseus *ptOdysseus);
 Odysseus odysseusParseFile(int nFd);
-void odysseusPrintInfo(Odysseus *ptOdysseus);
 
 #endif 
