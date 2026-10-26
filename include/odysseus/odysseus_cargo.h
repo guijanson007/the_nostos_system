@@ -3,7 +3,7 @@
 
 #define CONSUME_WEIGHT 7
 
-//Struct
+// Struct
 typedef struct {
     char *name;
     int amount;
@@ -13,8 +13,10 @@ typedef struct {
     Supply *supplies;
     int numSupplies;
     int totalAmount;
+    int nGold;
 } Cargo;
 
 void consumeFood(Cargo *ptCargo);
+void calculateTotalGold(Cargo *ptCargo);
 
 #endif

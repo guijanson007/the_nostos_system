@@ -67,7 +67,36 @@ OdysseusStatus odysseusConnect(Odysseus *tOdysseus) {
 
 void odysseusMap(Odysseus *tOdysseus) { (void)tOdysseus; }
 
-void odysseusStatus(Odysseus *tOdysseus) { (void)tOdysseus; }
+void odysseusStatus(Odysseus *ptOdysseus) {
+    char *buff;
+
+    asprintf(&buff, "--- %s ---\nGold: %.d\n\nCargo:", ptOdysseus->name,
+             ptOdysseus->cargo.nGold);
+    println(buff);
+    free(buff);
+
+    for (int i = 0; i < ptOdysseus->cargo.numSupplies; i++) {
+        asprintf(&buff, "%s: %d kg", ptOdysseus->cargo.supplies[i].name,
+                 ptOdysseus->cargo.supplies[i].amount);
+        println(buff);
+        free(buff);
+    }
+
+    asprintf(&buff, "\nTotal provisions: %d kg\n",
+             ptOdysseus->cargo.totalAmount);
+    println(buff);
+    free(buff);
+
+    // TO IMPLEMENT WHEN THE VOYAGE IS DONE (Current voyage: None)
+
+    char *psLocation =
+        (-1 == ptOdysseus->whereAmI)
+            ? "Ithaca"
+            : ptOdysseus->map.connections[ptOdysseus->whereAmI].name;
+    asprintf(&buff, "Current location: %s", psLocation);
+    println(buff);
+    free(buff);
+}
 
 void odysseusDeliver(Odysseus *tOdysseus) { (void)tOdysseus; }
 
@@ -81,8 +110,7 @@ OdysseusStatus odysseusListMarket(Odysseus *tOdysseus) {
     if (tOdysseus->island_socket == -1 || tOdysseus->whereAmI == -1)
         return ODY_ERR_ALREADY_CONNECTED;
 
-    eStatus =
-        getListMarket(tOdysseus);
+    eStatus = getListMarket(tOdysseus);
 
     if (ODY_OK != eStatus) {
         close(tOdysseus->ithaca_socket);

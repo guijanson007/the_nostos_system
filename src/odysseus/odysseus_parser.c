@@ -101,7 +101,7 @@ Odysseus odysseusParseFile(int nFd) {
         return tOdysseus;
     }
 
-    tOdysseus.initialMoney = atof(apsLines[4]);
+    tOdysseus.cargo.nGold = atoi(apsLines[4]);
     tOdysseus.cargo.numSupplies = atoi(apsLines[5]);
 
     if (0 == buildSupplies(&tOdysseus, apsLines, tOutCount)) {
@@ -110,6 +110,7 @@ Odysseus odysseusParseFile(int nFd) {
         return tOdysseus;
     }
 
+    calculateTotalGold(&tOdysseus.cargo);
     // We can free the lines now since we have copied the data we need
     freeLines(apsLines, tOutCount);
 
@@ -173,60 +174,5 @@ void freeOdysseus(Odysseus *ptOdysseus) {
     if (-1 != ptOdysseus->island_socket) {
         close(ptOdysseus->island_socket);
         ptOdysseus->island_socket = -1;
-    }
-}
-
-/*************************************************
- *
- * @Name : odysseusPrintInfo
- * @Def : Prints the information of the Odysseus struct to standard output.
- * (Solely used for debugging purposes)
- * @Arg : In: ptOdysseus = pointer to Odysseus struct to print
- * @Ret : None.
- *
- **************************************************/
-void odysseusPrintInfo(Odysseus *ptOdysseus) {
-    char *psStr = NULL;
-    int i = 0;
-
-    println("Odysseus Info:");
-
-    asprintf(&psStr, "Name: %s", ptOdysseus->name);
-    println(psStr);
-    free(psStr);
-
-    asprintf(&psStr, "Path: %s", ptOdysseus->path);
-    println(psStr);
-    free(psStr);
-
-    asprintf(&psStr, "IP:%s | Port: %s", ptOdysseus->ip, ptOdysseus->port);
-    println(psStr);
-    free(psStr);
-
-    asprintf(&psStr, "Initial Info: %s", ptOdysseus->initialInfo);
-    println(psStr);
-    free(psStr);
-
-    asprintf(&psStr, "Initial money: %f", ptOdysseus->initialMoney);
-    println(psStr);
-    free(psStr);
-
-    asprintf(&psStr, "Initial number of supplies: %d",
-             ptOdysseus->cargo.numSupplies);
-    println(psStr);
-    free(psStr);
-
-    for (i = 0; i < ptOdysseus->cargo.numSupplies; ++i) {
-        asprintf(&psStr, "Supply %d:", i + 1);
-        println(psStr);
-        free(psStr);
-
-        asprintf(&psStr, "\tName: %s", ptOdysseus->cargo.supplies[i].name);
-        println(psStr);
-        free(psStr);
-
-        asprintf(&psStr, "\tAmount: %d", ptOdysseus->cargo.supplies[i].amount);
-        println(psStr);
-        free(psStr);
     }
 }

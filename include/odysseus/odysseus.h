@@ -52,7 +52,6 @@ typedef struct Odysseus {
     char *ip;
     char *port;
     char *initialInfo;
-    float initialMoney;
     int ithaca_socket;
     Supply *supplies;
     Map map;
