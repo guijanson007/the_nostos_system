@@ -11,6 +11,13 @@
 #define _GNU_SOURCE
 #include "island/island_conversetion.h"
 
+
+static void sendError(Message *ptMsg, int nFd, const char *psReason) {
+    buildMessage(ptMsg, FLAG_RESPONSE | FLAG_ERROR, psReason);
+    sendMessage(ptMsg, nFd);
+}
+
+
 /***********************************************
  *
  * @Name : findClientIndex
@@ -30,6 +37,13 @@ static int findClientIndex(const Island *ptIsland, int nFd) {
     }
 
     return -1;
+}
+
+
+static int isClientDocked(const Island *ptIsland, int nFd) {
+    int nIndex = findClientIndex(ptIsland, nFd);
+
+    return (-1 != nIndex && CLIENT_DOCKED == ptIsland->client[nIndex].state);
 }
 
 /***********************************************
@@ -114,29 +128,25 @@ static void arravalIsland(Island *island, Message msg, int fd_client) {
 
     msg.type = MSG_ARRIVAL_ISLAND;
     if (msg.flag != FLAG_NONE || msg.dataLength == 0) {
-        buildMessage(&msg, FLAG_RESPONSE | FLAG_ERROR, ERROR_MESSAGE_FORMAT);
-        sendMessage(&msg, fd_client);
+        sendError(&msg, fd_client, ERROR_MESSAGE_FORMAT);
         return;
     }
 
     if (findClientIndex(island, fd_client) != -1) {
-        buildMessage(&msg, FLAG_RESPONSE | FLAG_ERROR, ERROR_ODYSSEUS_ALREDY_EXIST);
-        sendMessage(&msg, fd_client);
+        sendError(&msg, fd_client, ERROR_ODYSSEUS_ALREDY_EXIST);
         return;
     }
 
     psName = strdup(msg.data);
     if (NULL == psName) {
-        buildMessage(&msg, FLAG_RESPONSE | FLAG_ERROR, ERROR_MEMORY);
-        sendMessage(&msg, fd_client);
+        sendError(&msg, fd_client, ERROR_MEMORY);
         return;
     }
 
     atTmp = realloc(island->client, sizeof(Client) * (island->numClients + 1));
     if (NULL == atTmp) {
         free(psName);
-        buildMessage(&msg, FLAG_RESPONSE | FLAG_ERROR, ERROR_MEMORY);
-        sendMessage(&msg, fd_client);
+        sendError(&msg, fd_client, ERROR_MEMORY);
         return;
     }
     island->client = atTmp;
@@ -177,39 +187,140 @@ static void admitNextShips(Island *ptIsland) {
     }
 }
 
-static void listMarket(Stock *atStock, size_t tNumStock, Message tMsg,
-                       int nFd_client) {
+static void listMarket(Island *ptIsland, Message tMsg, int nFd) {
+    char *buff = NULL;
     tMsg.type = MSG_LIST_MARKET;
-    char *buff;
 
-    if (tMsg.flag != FLAG_NONE || tMsg.dataLength != 0) {
-        buildMessage(&tMsg, FLAG_RESPONSE | FLAG_ERROR, ERROR_MESSAGE_FORMAT);
-        sendMessage(&tMsg, nFd_client);
+    if (!isClientDocked(ptIsland, nFd)) {
+        sendError(&tMsg, nFd, "NOT_DOCKED");
+        return;
+    }
+    if (FLAG_NONE != tMsg.flag || 0 != tMsg.dataLength) {
+        sendError(&tMsg, nFd, ERROR_MESSAGE_FORMAT);
         return;
     }
 
-    for (size_t i = 0; i < tNumStock; i++) {
+    for (size_t i = 0; i < ptIsland->tNumStock; i++) {
         buff = NULL;
-        if (-1 == asprintf(&buff, "%zu&%zu&%s&%d&%d", i + 1, tNumStock + 1,
-                           atStock[i].sName, atStock[i].nQuantity,
-                           atStock[i].nPrice)) {
+        if (-1 == asprintf(&buff, "%zu&%zu&%s&%d&%d", i + 1, ptIsland->tNumStock + 1,ptIsland->atStock[i].sName, ptIsland->atStock[i].nQuantity, ptIsland->atStock[i].nPrice)) {
             return;
         }
 
         buildMessage(&tMsg, FLAG_RESPONSE, buff);
         free(buff);
 
-        if (0 != sendMessage(&tMsg, nFd_client)) {
+        if (0 != sendMessage(&tMsg, nFd)) {
             return;
         }
     }
 
     buff = NULL;
     if (-1 !=
-        asprintf(&buff, "%zu&%zu&MAP&1&50", tNumStock + 1, tNumStock + 1)) {
+        asprintf(&buff, "%zu&%zu&MAP&1&50", ptIsland->tNumStock + 1, ptIsland->tNumStock + 1)) {
         buildMessage(&tMsg, FLAG_RESPONSE, buff);
         free(buff);
-        sendMessage(&tMsg, nFd_client);
+        sendMessage(&tMsg, nFd);
+    }
+}
+
+static int parseTradeRequest(char *psData, int nLength, char **psProduct,
+                             int *pnAmount) {
+    char *psAmount = NULL;
+
+    if (NULL == psData || nLength <= 0 || nLength > 253) {
+        return -1;
+    }
+    psData[nLength] = '\0';
+
+    *psProduct = strtok(psData, "&");
+    psAmount = strtok(NULL, "&");
+
+ 
+    if (NULL == *psProduct || NULL == psAmount || NULL != strtok(NULL, "&")) {
+        return -1;
+    }
+    if (!isPositiveInteger(psAmount)) {
+        return -1;
+    }
+
+    *pnAmount = atoi(psAmount);
+
+    return 0;
+}
+
+static int saveStockEntry(int nFdStock, size_t tIndex, const Stock *ptItem) {
+    off_t tOffset = 0;
+    int nWritten = 0;
+
+    tOffset = (off_t)(tIndex * sizeof(Stock));
+
+    if (-1 == lseek(nFdStock, tOffset, SEEK_SET)) {
+        return -1;
+    }
+
+    nWritten = write(nFdStock, ptItem, sizeof(Stock));
+    if (-1 == nWritten) {
+        return -1;
+    }
+    if (nWritten != sizeof(Stock)) {
+        return -1;
+    }
+
+    return 0;
+}
+
+static void buyProduct(Island *ptIsland, Message tMsg, int nFd) {
+    char *psProduct = NULL;
+    char *psBuff = NULL;
+    int nAmount = 0;
+    int nIndex = 0;
+    size_t i = 0;
+
+    tMsg.type = MSG_BUY;
+    if (!isClientDocked(ptIsland, nFd)) {
+        sendError(&tMsg, nFd, "NOT_DOCKED");
+        return;
+    }
+    if (FLAG_NONE != tMsg.flag ||
+        0 != parseTradeRequest(tMsg.data, tMsg.dataLength, &psProduct, &nAmount)) {
+        sendError(&tMsg, nFd, ERROR_MESSAGE_FORMAT);
+        return;
+    }
+
+    for (i = 0; i < ptIsland->tNumStock; i++) {
+        if (0 == strcasecmp(psProduct, ptIsland->atStock[i].sName)) {
+            break;
+        }
+    }
+
+    if (i == ptIsland->tNumStock) {
+        sendError(&tMsg, nFd, "UNKNOWN_PRODUCT");
+        return;
+    }
+    if (ptIsland->atStock[i].nQuantity < nAmount) {
+        sendError(&tMsg, nFd, "NOT_ENOUGH_STOCK");
+        return;
+    }
+
+    ptIsland->atStock[i].nQuantity -= nAmount;
+    if (0 != saveStockEntry(ptIsland->nFdStock, i, &ptIsland->atStock[i])) {
+        printErr("ERROR: could not update the stock file");
+    }
+    if (-1 == asprintf(&psBuff, "OK&%s&%d&%d", ptIsland->atStock[i].sName, nAmount,
+                       nAmount * ptIsland->atStock[i].nPrice)) {
+        return;
+    }
+
+    buildMessage(&tMsg, FLAG_RESPONSE, psBuff);
+    free(psBuff);
+    sendMessage(&tMsg, nFd);
+
+    nIndex = findClientIndex(ptIsland, nFd);
+    if (-1 != nIndex &&
+        -1 != asprintf(&psBuff, ">>> %s bought %d kg of %s.",
+                       ptIsland->client[nIndex].psName, nAmount,  ptIsland->atStock[i].sName)) {
+        println(psBuff);
+        free(psBuff);
     }
 }
 
@@ -221,10 +332,10 @@ void choseOption(Island *island, Message msg, int fd_client) {
             break;
         case MSG_LIST_MARKET:
             // LIST MARKET (RESPONSE)
-            listMarket(island->atStock, island->tNumStock, msg, fd_client);
+            listMarket(island, msg, fd_client);
             break;
         case MSG_BUY:
-            // BUY (RESPONSE)
+            buyProduct(island, msg, fd_client);
             break;
         case MSG_SELL:
             // SELL (RESPONSE)

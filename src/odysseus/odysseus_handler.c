@@ -193,11 +193,19 @@ void odysseusSail(Odysseus *tOdysseus, const char *psDestination) {
     free(buff);
 }
 
-void odysseusBuy(Odysseus *tOdysseus, const char *psProduct,
-                 const char *psAmount) {
-    (void)tOdysseus;
-    (void)psProduct;
-    (void)psAmount;
+OdysseusStatus odysseusBuy(Odysseus *tOdysseus, const char *psProduct, const char *psAmount) {
+    OdysseusStatus eStatus;
+
+    if (-1 != tOdysseus->ithaca_socket) {
+        return ODY_ERR_ALREADY_CONNECTED;
+    }
+
+    eStatus = buyProducts(tOdysseus, psProduct, psAmount);
+    if (ODY_OK != eStatus) {
+        return eStatus;
+    }
+
+    return eStatus;
 }
 
 void odysseusSell(Odysseus *tOdysseus, const char *psProduct,

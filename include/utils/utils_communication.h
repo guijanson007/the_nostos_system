@@ -41,7 +41,7 @@ typedef struct {
     char data[254];
 } Message;
 
-void buildMessage(Message *msg, const char flags, char *data);
+void buildMessage(Message *msg, const char flags, const char *data);
 int sendMessage(const Message *msg, int fd);
 int receiveMessage(Message *msg, int fd);
 

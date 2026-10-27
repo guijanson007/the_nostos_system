@@ -71,6 +71,7 @@ typedef struct {
     size_t nArrivalCounter;
     Stock *atStock;
     size_t tNumStock;
+    int nFdStock;
 } Island;
  
 

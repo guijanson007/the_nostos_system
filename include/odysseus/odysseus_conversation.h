@@ -17,5 +17,6 @@ int arriveAtIsland(Odysseus *tOdysseus);
 OdysseusStatus notifyConnection(Odysseus *tOdysseus);
 int waitingAtPort(Odysseus *ptOdysseus);
 OdysseusStatus getListMarket(Odysseus *tOdysseus);
+OdysseusStatus buyProducts(Odysseus *tOdysseus, const char *psProduct, const char *psAmount);
 
 #endif
