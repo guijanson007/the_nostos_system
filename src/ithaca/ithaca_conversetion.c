@@ -43,6 +43,7 @@ static void disconectIthaca(int fd_client, Ithaca *ithaca, Message msg) {
 }
 
 static void connectIthaca(int fd_client, Ithaca *ithaca, Message msg) {
+
     msg.type = MSG_CONNECT_ITHACA;
 
     Client *tempClients =
@@ -98,6 +99,9 @@ void choseOption(Ithaca *ithaca, Message msg, int fd_client) {
     switch (msg.type) {
         case MSG_CONNECT_ITHACA:
             // Conct Ithaca (Request)
+            print(">>> ");
+            print(msg.data);
+            println(" connected to Ithaca.");
             connectIthaca(fd_client, ithaca, msg);
             break;
         case MSG_LIST_VOYAGES:
