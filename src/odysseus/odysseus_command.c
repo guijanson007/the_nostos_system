@@ -259,14 +259,13 @@ OdysseusStatus executeOdysseusCommand(Odysseus *tOdysseus,
             return odysseusConnect(tOdysseus);
         case COMMAND_LIST:
             if (0 == strcmp(ptCommand->argv[0], ARG_VOYAGES)) {
-                odysseusListVoyages(tOdysseus);
+                return odysseusListVoyages(tOdysseus);
             } else {
                 odysseusListMarket(tOdysseus);
             }
             break;
         case COMMAND_ACCEPT:
-            odysseusAcceptVoyage(tOdysseus, ptCommand->argv[0]);
-            break;
+            return odysseusAcceptVoyage(tOdysseus, ptCommand->argv[0]);
         case COMMAND_SAIL:
             odysseusSail(tOdysseus, ptCommand->argv[0]);
             break;

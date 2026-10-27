@@ -12,6 +12,8 @@
 #define ARRIVAL_LOST_AT_SEA 3
 
 OdysseusStatus connectToIthaca(Odysseus *tOdysseus);
+OdysseusStatus requestListOfVoyages(Odysseus *tOdysseus);
+OdysseusStatus requestAcceptVoyage(Odysseus *tOdysseus, int nVoyageId);
 int disconnectFromIthaca(Odysseus *tOdysseus);
 int arriveAtIsland(Odysseus *tOdysseus);
 OdysseusStatus notifyConnection(Odysseus *tOdysseus);

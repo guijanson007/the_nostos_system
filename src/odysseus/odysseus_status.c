@@ -73,6 +73,13 @@ const char *odysseusStatusMessage(const Odysseus *ptOdysseus,
             return "ERROR: Unexpected response from Ithaca";
         case ODY_ERR_ALREADY_CONNECTED:
             return "ERROR: Already connected to Ithaca";
+        case ODY_ERR_NOT_CONNECTED:
+            return "ERROR: You are not connected to Ithaca";
+        case ODY_ERR_ACTIVE_VOYAGE:
+            return "ERROR: You already have an active voyage";
+        case ODY_ERR_NOT_LISTED:
+            return "ERROR: That voyage is not in the last listing, use LIST "
+                   "VOYAGES";
         default:
             return "ERROR: Unknown error";
     }

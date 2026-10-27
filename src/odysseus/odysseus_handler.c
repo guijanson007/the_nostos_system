@@ -14,6 +14,7 @@
 
 // own headers
 #include "odysseus/odysseus_conversation.h"
+#include "odysseus/odysseus_parser.h"
 
 int findDestination(Odysseus ptOdysseus, const char *psDestination) {
     const KnownIsland *ptHere = NULL;
@@ -73,13 +74,73 @@ void odysseusDeliver(Odysseus *tOdysseus) { (void)tOdysseus; }
 
 void odysseusClaim(Odysseus *tOdysseus) { (void)tOdysseus; }
 
-void odysseusListVoyages(Odysseus *tOdysseus) { (void)tOdysseus; }
+OdysseusStatus odysseusListVoyages(Odysseus *tOdysseus) {
+    OdysseusStatus eStatus = ODY_OK;
+    char *psBuffer = NULL;
+    int i = 0;
+
+    if (-1 == tOdysseus->ithaca_socket) {
+        return ODY_ERR_NOT_CONNECTED;
+    }
+    if (0 != tOdysseus->activeVoyage.id) {
+        return ODY_ERR_ACTIVE_VOYAGE;
+    }
+
+    eStatus = requestListOfVoyages(tOdysseus);
+    if (ODY_OK != eStatus) {
+        return eStatus;
+    }
+
+    println("--- AVAILABLE VOYAGES ---");
+    for (i = 0; i < tOdysseus->numListedVoyages; i++) {
+        const OdysseusVoyage *ptVoyage = &tOdysseus->listedVoyages[i];
+        if (-1 != asprintf(&psBuffer, "%d. %-20s -> %-10s [%d]", ptVoyage->id,
+                           ptVoyage->object, ptVoyage->destination,
+                           ptVoyage->reward)) {
+            println(psBuffer);
+            free(psBuffer);
+        }
+    }
+    return ODY_OK;
+}
 
 void odysseusListMarket(Odysseus *tOdysseus) { (void)tOdysseus; }
 
-void odysseusAcceptVoyage(Odysseus *tOdysseus, const char *psVoyageId) {
-    (void)tOdysseus;
-    (void)psVoyageId;
+OdysseusStatus odysseusAcceptVoyage(Odysseus *tOdysseus,
+                                    const char *psVoyageId) {
+    OdysseusStatus eStatus = ODY_OK;
+    char *psBuffer = NULL;
+    int nVoyageId = atoi(psVoyageId);
+    int nListed = 0;
+    int i = 0;
+
+    if (-1 == tOdysseus->ithaca_socket) {
+        return ODY_ERR_NOT_CONNECTED;
+    }
+    if (0 != tOdysseus->activeVoyage.id) {
+        return ODY_ERR_ACTIVE_VOYAGE;
+    }
+    for (i = 0; i < tOdysseus->numListedVoyages; i++) {
+        if (nVoyageId == tOdysseus->listedVoyages[i].id) {
+            nListed = 1;
+        }
+    }
+    if (!nListed) {
+        return ODY_ERR_NOT_LISTED;
+    }
+
+    eStatus = requestAcceptVoyage(tOdysseus, nVoyageId);
+    if (ODY_OK != eStatus) {
+        return eStatus;
+    }
+
+    if (-1 != asprintf(&psBuffer, "Voyage %d accepted.\nDestination: %s.",
+                       tOdysseus->activeVoyage.id,
+                       tOdysseus->activeVoyage.destination)) {
+        println(psBuffer);
+        free(psBuffer);
+    }
+    return ODY_OK;
 }
 
 void odysseusSail(Odysseus *tOdysseus, const char *psDestination) {
