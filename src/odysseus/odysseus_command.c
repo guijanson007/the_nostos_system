@@ -271,7 +271,7 @@ OdysseusStatus executeOdysseusCommand(Odysseus *tOdysseus,
             odysseusSail(tOdysseus, ptCommand->argv[0]);
             break;
         case COMMAND_BUY:
-            odysseusBuy(tOdysseus, ptCommand->argv[0], ptCommand->argv[1]);
+            return odysseusBuy(tOdysseus, ptCommand->argv[0], ptCommand->argv[1]);
             break;
         case COMMAND_SELL:
             odysseusSell(tOdysseus, ptCommand->argv[0], ptCommand->argv[1]);

@@ -254,10 +254,11 @@ int checkArgcIsland(int argc, char *argv[]) {
  ************************************************/
 int main(int argc, char *argv[]) {
     int nFdConfig = -1;
-    int nFdStock = -1;
     int nResult = -1;
     Island tIsland = {0};
     SPHRAGIS_Island tSphragis = {0};
+
+    tIsland.nFdStock = -1;
 
     if (0 != checkArgcIsland(argc, argv)) {
         printErr(ERROR_ARGC);
@@ -270,14 +271,14 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
     }
 
-    nFdStock = open(argv[2], O_RDONLY);
-    if (-1 == nFdStock) {
+    tIsland.nFdStock = open(argv[2], O_RDWR);
+    if (-1 == tIsland.nFdStock) {
         printErr(ERROR_FILE_STOCK);
         close(nFdConfig);
         return EXIT_FAILURE;
     }
 
-    if (-1 == loadData(&nFdConfig, &nFdStock, &tIsland, &tSphragis,
+    if (-1 == loadData(&nFdConfig, &tIsland.nFdStock, &tIsland, &tSphragis,
                        &tIsland.atStock, &tIsland.tNumStock)) {
         return EXIT_FAILURE;
     }
@@ -290,7 +291,7 @@ int main(int argc, char *argv[]) {
     tIsland.nServerFd = openListenConn(tIsland.psIp, tIsland.nPort);
     if (tIsland.nServerFd < 0) {
         write(STDOUT_FILENO, ERROR_SOCKET, strlen(ERROR_SOCKET));
-        closeFiles(&nFdConfig, &nFdStock);
+        closeFiles(&nFdConfig, &tIsland.nFdStock);
         freeStock(&tIsland.atStock);
         freeIsland(&tIsland, &tSphragis);
         return EXIT_FAILURE;
@@ -307,7 +308,7 @@ int main(int argc, char *argv[]) {
             break;
 
         for (int fd = 0; fd <= tIsland.max_fd; fd++) {
-            if (!FD_ISSET(fd, &read_fds))
+            if (!FD_ISSET(fd, &read_fds) || !FD_ISSET(fd, &tIsland.fds_clients))
                 continue;
 
             if (fd == tIsland.nServerFd) {
@@ -340,7 +341,7 @@ int main(int argc, char *argv[]) {
             close(fd);
     }
 
-    closeFiles(&nFdConfig, &nFdStock);
+    closeFiles(&nFdConfig, &tIsland.nFdStock);
     freeStock(&tIsland.atStock);
     freeIsland(&tIsland, &tSphragis);
     println("\nIsland process finished.");

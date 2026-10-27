@@ -295,3 +295,112 @@ OdysseusStatus getListMarket(Odysseus *tOdysseus) {
 
     return ODY_OK;
 }
+
+static int parseMessageTrade(char *psData, int nLength, char **ppsProduct,
+                             int *pnAmount, int *pnCost) {
+    char *psOk = NULL;
+    char *psAmount = NULL;
+    char *psCost = NULL;
+
+    if (NULL == psData || nLength <= 0 || nLength > 253) return -1;
+    
+    psData[nLength] = '\0';
+
+    psOk = strtok(psData, "&");
+    *ppsProduct = strtok(NULL, "&");
+    psAmount = strtok(NULL, "&");
+    psCost = strtok(NULL, "&");
+
+    if (NULL == psOk || NULL == *ppsProduct || NULL == psAmount ||
+        NULL == psCost || NULL != strtok(NULL, "&")) return -1;
+
+    if (0 != strcmp(psOk, "OK")) return -1;
+
+    if (!isAllDigits(psAmount) || !isAllDigits(psCost)) return -1;
+
+    *pnAmount = atoi(psAmount);
+    *pnCost = atoi(psCost);
+
+    return 0;
+}
+
+static int addSupply(Cargo *ptCargo, const char *psName, int nAmount) {
+    Supply *atTmp = NULL;
+    char *psCopy = NULL;
+    int i = 0;
+
+    for (i = 0; i < ptCargo->numSupplies; i++) {
+        if (0 == strcasecmp(ptCargo->supplies[i].name, psName)) {
+            ptCargo->supplies[i].amount += nAmount;
+            ptCargo->totalAmount += nAmount;
+            return 0;
+        }
+    }
+
+    psCopy = strdup(psName);
+    if (NULL == psCopy) {
+        return -1;
+    }
+
+    atTmp =
+        realloc(ptCargo->supplies, sizeof(Supply) * (ptCargo->numSupplies + 1));
+    if (NULL == atTmp) {
+        free(psCopy);
+        return -1;
+    }
+
+    ptCargo->supplies = atTmp;
+    ptCargo->supplies[ptCargo->numSupplies].name = psCopy;
+    ptCargo->supplies[ptCargo->numSupplies].amount = nAmount;
+    ptCargo->numSupplies++;
+    ptCargo->totalAmount += nAmount;
+
+    return 0;
+}
+
+OdysseusStatus buyProducts(Odysseus *tOdysseus, const char *psProduct,
+                           const char *psAmount) {
+    Message msg;
+    char *buff;
+    char *product;
+    int amount, cost;
+
+    msg.type = MSG_BUY;
+
+    if (-1 == asprintf(&buff, "%s&%s", psProduct, psAmount)) {
+        return ODY_ERR_IO;
+    }
+    buildMessage(&msg, FLAG_NONE, buff);
+    free(buff);
+    if (-1 == sendMessage(&msg, tOdysseus->island_socket)) {
+        return ODY_ERR_SOCKET;
+    }
+
+    if (0 != receiveMessage(&msg, tOdysseus->island_socket)) {
+        return ODY_ERR_REMOTE;
+    }
+
+    if (MSG_BUY != msg.type) {
+        return ODY_ERR_REMOTE;
+    }
+    if (msg.flag & FLAG_ERROR) {
+        odysseusSetError(tOdysseus, "%s", msg.data);
+        return ODY_ERR_REMOTE;
+    }
+
+    if (0 != parseMessageTrade(msg.data, msg.dataLength, &product, &amount, &cost)) {
+        return ODY_ERR_REMOTE;
+    }
+
+    tOdysseus->cargo.nGold -= cost;
+    if (0 != addSupply(&tOdysseus->cargo, product, amount)) {
+        return ODY_ERR_IO;
+    }
+
+    if (-1 != asprintf(&buff, "Bought %d kg of %s for %d gold.", amount, product, cost)) {
+        println(buff);
+        free(buff);
+    }
+
+    return ODY_OK;
+}

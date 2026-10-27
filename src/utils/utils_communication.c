@@ -2,7 +2,7 @@
 
 #include "utils/utils_communication.h"
 
-void buildMessage(Message *msg, const char flags, char *data) {
+void buildMessage(Message *msg, const char flags, const char *data) {
     size_t tLength = strlen(data);
 
     if (tLength > 253) {
