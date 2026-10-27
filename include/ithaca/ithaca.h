@@ -46,6 +46,22 @@ typedef struct {
     char *psName;
 } Client;
 
+typedef enum {
+    VOYAGE_AVAILABLE = 0,
+    VOYAGE_ASSIGNED,
+    VOYAGE_FAILED,
+} VoyageState;
+
+typedef struct {
+    int nId;
+    char *psObject;
+    char *psFile;
+    char *psDestination;
+    int nReward;
+    VoyageState eState;
+    char *psOwner; // Odysseus name; kept after it disconnects
+} Voyage;
+
 typedef struct {
     char *psName;
     char *psMission;
@@ -56,15 +72,9 @@ typedef struct {
     int nServerFd;
     Client *clients;
     size_t numClients;
+    Voyage *atVoyages; // Not owned: main frees it with freeVoyage
+    size_t tNumVoyages;
 } Ithaca;
-
-typedef struct {
-    int nId;
-    char *psObject;
-    char *psFile;
-    char *psDestination;
-    int nReward;
-} Voyage;
 
 // Local includes
 #include "utils/utils.h"

@@ -76,6 +76,7 @@ void freeVoyage(Voyage **patVoyages, size_t *ptNumVoyages) {
         free((*patVoyages)[i].psObject);
         free((*patVoyages)[i].psFile);
         free((*patVoyages)[i].psDestination);
+        free((*patVoyages)[i].psOwner);
     }
     free(*patVoyages);
     *patVoyages = NULL;
@@ -240,6 +241,9 @@ int main(int argc, char *argv[]) {
         freeVoyage(&atVoyages, &tNumVoyages);
         return EXIT_FAILURE;
     }
+
+    tIthaca.atVoyages = atVoyages;
+    tIthaca.tNumVoyages = tNumVoyages;
 
     FD_ZERO(&tIthaca.fds_clients);
     FD_SET(tIthaca.nServerFd, &tIthaca.fds_clients);
