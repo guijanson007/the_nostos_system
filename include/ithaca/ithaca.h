@@ -38,6 +38,7 @@
 #define FAREWELL "\nFinishing the Ithaca process"
 #define ERROR_RECEIVE_MESSAGE                                                  \
     "ERROR: There was an error receiving the message from the client\n"
+#define WAITING_FOR_CLIENTS "Waiting for Odysseus...\n"
 
 // Structs
 typedef struct {
