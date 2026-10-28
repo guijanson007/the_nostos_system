@@ -143,17 +143,18 @@ OdysseusStatus odysseusListVoyages(Odysseus *tOdysseus) {
 OdysseusStatus odysseusListMarket(Odysseus *tOdysseus) {
     OdysseusStatus eStatus = ODY_OK;
 
-    if (tOdysseus->island_socket == -1 || tOdysseus->whereAmI == -1)
-        return ODY_ERR_ALREADY_CONNECTED;
-
-    eStatus = getListMarket(tOdysseus);
-
-    if (ODY_OK != eStatus) {
-        close(tOdysseus->ithaca_socket);
-        tOdysseus->ithaca_socket = -1;
+    if (-1 == tOdysseus->island_socket || -1 == tOdysseus->whereAmI) {
+        return ODY_ERR_NOT_AT_ISLAND;
     }
 
-    return ODY_OK;
+    eStatus = getListMarket(tOdysseus);
+    if (ODY_OK != eStatus && ODY_ERR_REMOTE != eStatus) {
+        // The island conversation is out of sync, drop it
+        close(tOdysseus->island_socket);
+        tOdysseus->island_socket = -1;
+    }
+
+    return eStatus;
 }
 
 OdysseusStatus odysseusAcceptVoyage(Odysseus *tOdysseus,

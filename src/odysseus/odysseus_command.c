@@ -261,7 +261,7 @@ OdysseusStatus executeOdysseusCommand(Odysseus *tOdysseus,
             if (0 == strcmp(ptCommand->argv[0], ARG_VOYAGES)) {
                 return odysseusListVoyages(tOdysseus);
             } else {
-                odysseusListMarket(tOdysseus);
+                return odysseusListMarket(tOdysseus);
             }
             break;
         case COMMAND_ACCEPT:

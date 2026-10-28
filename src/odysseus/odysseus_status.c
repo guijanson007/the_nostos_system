@@ -96,6 +96,8 @@ const char *odysseusStatusMessage(const Odysseus *ptOdysseus,
             return "ERROR: Unexpected response from Ithaca";
         case ODY_ERR_ISLAND_PROTOCOL:
             return "ERROR: Unexpected response from the island";
+        case ODY_ERR_NOT_AT_ISLAND:
+            return "ERROR: You are not docked at an island";
         case ODY_ERR_ALREADY_CONNECTED:
             return "ERROR: Already connected to Ithaca";
         case ODY_ERR_INVALID_COMMAND:
