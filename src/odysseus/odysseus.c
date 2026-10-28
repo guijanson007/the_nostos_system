@@ -89,9 +89,10 @@ int main(int argc, char *argv[]) {
     nFd = open(argv[1], O_RDONLY);
 
     if (-1 == nFd) {
-        asprintf(&psErrorMsg, ERROR_OPEN_FILE, argv[1]);
-        printErr(psErrorMsg);
-        free(psErrorMsg);
+        if (-1 != asprintf(&psErrorMsg, ERROR_OPEN_FILE, argv[1])) {
+            printErr(psErrorMsg);
+            free(psErrorMsg);
+        }
         return EXIT_FAILURE;
     }
     // No SA_RESTART: a blocking read() must return EINTR when SIGINT arrives
@@ -117,7 +118,11 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
     }
 
-    odysseusInitState(&tOdysseus);
+    if (0 != odysseusInitState(&tOdysseus)) {
+        printErr(ERROR_INIT_STATE);
+        freeOdysseus(&tOdysseus);
+        return EXIT_FAILURE;
+    }
 
     // odysseusPrintInfo(&tOdysseus);
 

@@ -28,6 +28,7 @@
 #define EXPECTED_ARGC 2
 #define ERROR_ARGC "Usage: odysseus <config_file>.dat"
 #define ERROR_OPEN_FILE "Failed to open file: %s"
+#define ERROR_INIT_STATE "Failed to initialise the odysseus state"
 
 #include "odysseus/odysseus_cargo.h"
 
