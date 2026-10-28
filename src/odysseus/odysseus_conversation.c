@@ -355,6 +355,8 @@ OdysseusStatus waitingAtPort(Odysseus *ptOdysseus, int *pnArrival) {
     char *psBuffer = NULL;
     int nReady = 0;
 
+    memset(&tMessage, 0, sizeof(tMessage));
+    *pnArrival = ARRIVAL_NONE;
     tTimeout.tv_sec = 5;
     tTimeout.tv_usec = 0;
 
@@ -365,7 +367,8 @@ OdysseusStatus waitingAtPort(Odysseus *ptOdysseus, int *pnArrival) {
                         &tTimeout);
 
         if (-1 == nReady) {
-            return ODY_ERR_IO;
+            // SIGINT: stop waiting quietly, the menu loop will quit
+            return EINTR == errno ? ODY_OK : ODY_ERR_IO;
         }
 
         if (0 == nReady) {
@@ -388,6 +391,12 @@ OdysseusStatus waitingAtPort(Odysseus *ptOdysseus, int *pnArrival) {
 
         if (0 != receiveMessage(&tMessage, ptOdysseus->island_socket)) {
             return ODY_ERR_IO;
+        }
+
+        if (tMessage.flag & FLAG_ERROR) {
+            odysseusSetRemoteError(ptOdysseus, tMessage.data,
+                                   tMessage.dataLength);
+            return ODY_ERR_REMOTE;
         }
 
         if (MSG_ARRIVAL_ISLAND == tMessage.type &&
