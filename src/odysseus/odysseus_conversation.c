@@ -160,6 +160,12 @@ OdysseusStatus requestListOfVoyages(Odysseus *tOdysseus) {
         nId = atoi(apsFields[2]);
         if (0 == nTotal) {
             nTotal = atoi(apsFields[1]);
+            if (nTotal > MAX_LISTED_VOYAGES) {
+                // A frame count we won't allocate for, and can't drain
+                nTotal = 0;
+                eStatus = ODY_ERR_PROTOCOL;
+                break;
+            }
             atVoyages = calloc((size_t)nTotal, sizeof(OdysseusVoyage));
         }
         if (NULL == atVoyages) {

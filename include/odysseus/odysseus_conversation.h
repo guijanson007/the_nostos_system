@@ -4,6 +4,7 @@
 #include "odysseus/odysseus.h"
 
 #define ARRIVAL_NONE 0
+#define MAX_LISTED_VOYAGES 1000
 #define ARRIVAL_WAIT 1
 #define ARRIVAL_DOCKED 2
 #define ARRIVAL_LOST_AT_SEA 3
