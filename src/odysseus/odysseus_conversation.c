@@ -107,8 +107,8 @@ static int fillVoyage(OdysseusVoyage *ptVoyage, int nId, const char *psObject,
  *
  **************************************************/
 OdysseusStatus requestListOfVoyages(Odysseus *tOdysseus) {
-    Message tMessage = {0};
-    char *apsFields[6] = {NULL};
+    Message tMessage;
+    char *apsFields[6];
     OdysseusVoyage *atVoyages = NULL;
     OdysseusStatus eStatus = ODY_OK;
     int nTotal = 0;
@@ -116,6 +116,8 @@ OdysseusStatus requestListOfVoyages(Odysseus *tOdysseus) {
     int nId = 0;
     int i = 0;
 
+    memset(&tMessage, 0, sizeof(tMessage));
+    memset(apsFields, 0, sizeof(apsFields));
     tMessage.type = MSG_LIST_VOYAGES;
     tMessage.flag = FLAG_NONE;
 
@@ -195,11 +197,14 @@ OdysseusStatus requestListOfVoyages(Odysseus *tOdysseus) {
  *
  **************************************************/
 OdysseusStatus requestAcceptVoyage(Odysseus *tOdysseus, int nVoyageId) {
-    Message tMessage = {0};
-    char *apsFields[5] = {NULL};
-    OdysseusVoyage tVoyage = {0};
+    Message tMessage;
+    char *apsFields[5];
+    OdysseusVoyage tVoyage;
     char *psId = NULL;
 
+    memset(&tMessage, 0, sizeof(tMessage));
+    memset(apsFields, 0, sizeof(apsFields));
+    memset(&tVoyage, 0, sizeof(tVoyage));
     tMessage.type = MSG_ACCEPT;
     tMessage.flag = FLAG_NONE;
     if (-1 == asprintf(&psId, "%d", nVoyageId)) {
@@ -239,7 +244,8 @@ OdysseusStatus requestAcceptVoyage(Odysseus *tOdysseus, int nVoyageId) {
 }
 
 OdysseusStatus disconnectFromIthaca(Odysseus *tOdysseus) {
-    Message tMessage = {0};
+    Message tMessage;
+    memset(&tMessage, 0, sizeof(tMessage));
     tMessage.type = MSG_DISCONNECT_ITHACA;
     tMessage.flag = FLAG_NONE;
     tMessage.dataLength = 0;
@@ -271,7 +277,8 @@ OdysseusStatus disconnectFromIthaca(Odysseus *tOdysseus) {
 }
 
 OdysseusStatus arriveAtIsland(Odysseus *tOdysseus, int *pnArrival) {
-    Message tMessage = {0};
+    Message tMessage;
+    memset(&tMessage, 0, sizeof(tMessage));
     tMessage.type = MSG_ARRIVAL_ISLAND;
     tMessage.flag = FLAG_NONE;
     tMessage.dataLength = strlen(tOdysseus->name);
@@ -306,7 +313,8 @@ OdysseusStatus arriveAtIsland(Odysseus *tOdysseus, int *pnArrival) {
 }
 
 OdysseusStatus notifyConnection(Odysseus *tOdysseus) {
-    Message tMessage = {0};
+    Message tMessage;
+    memset(&tMessage, 0, sizeof(tMessage));
 
     tMessage.type = MSG_CONNECT_ITHACA;
     tMessage.flag = FLAG_NONE;

@@ -66,11 +66,12 @@ void resetInputField() {
  *
  **************************************************/
 int odysseusShowMenu(Odysseus *tOdysseus) {
-    OdysseusCommand tCommand = {0};
+    OdysseusCommand tCommand;
     const char *psErrorMessage = NULL;
     OdysseusStatus eStatus = ODY_OK;
     char *psInput = NULL;
 
+    memset(&tCommand, 0, sizeof(tCommand));
     setupInputField();
 
     if (-1 == readLine(STDIN_FILENO, &psInput)) {
