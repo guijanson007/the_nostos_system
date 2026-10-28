@@ -30,6 +30,7 @@
 #define ERROR_SOCKET "ERROR: the socket could not be created\n"
 #define ERR_CONNECT "ERROR: Could not connect to the server\n"
 #define MAX_CONN 10
+#define MAX_INT_DIGITS 9
 
 // Functions
 void freeLines(char **apsLines, size_t tCount);

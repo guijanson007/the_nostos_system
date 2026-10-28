@@ -469,7 +469,8 @@ int isPositiveInteger(const char *psString) {
         return 0;
     }
 
-    return (0 < atoi(psString));
+    // Bounded length so atoi never overflows
+    return strlen(psString) <= MAX_INT_DIGITS && 0 < atoi(psString);
 }
 
 int openListenConn(char *ip, int port) {
