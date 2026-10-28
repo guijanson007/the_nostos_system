@@ -121,6 +121,39 @@ Odysseus odysseusParseFile(int nFd) {
 
 /**************************************************
  *
+ * @Name : freeOdysseusVoyage
+ * @Def : Frees the strings of a voyage and resets it to "no voyage".
+ * @Arg : In/Out: ptVoyage = voyage to clear
+ * @Ret : None.
+ *
+ **************************************************/
+void freeOdysseusVoyage(OdysseusVoyage *ptVoyage) {
+    free(ptVoyage->object);
+    free(ptVoyage->destination);
+    memset(ptVoyage, 0, sizeof(*ptVoyage));
+}
+
+/**************************************************
+ *
+ * @Name : freeListedVoyages
+ * @Def : Frees the voyages of the last LIST VOYAGES answer.
+ * @Arg : In/Out: ptOdysseus = Odysseus holding the listing
+ * @Ret : None.
+ *
+ **************************************************/
+void freeListedVoyages(Odysseus *ptOdysseus) {
+    int i = 0;
+
+    for (i = 0; i < ptOdysseus->numListedVoyages; i++) {
+        freeOdysseusVoyage(&ptOdysseus->listedVoyages[i]);
+    }
+    free(ptOdysseus->listedVoyages);
+    ptOdysseus->listedVoyages = NULL;
+    ptOdysseus->numListedVoyages = 0;
+}
+
+/**************************************************
+ *
  * @Name : freeOdysseus
  * @Def : Frees all dynamically allocated memory in the Odysseus struct.
  * @Arg : In: ptOdysseus = pointer to Odysseus struct to free
@@ -146,6 +179,9 @@ void freeOdysseus(Odysseus *ptOdysseus) {
     ptOdysseus->initialInfo = NULL;
     free(ptOdysseus->lastError);
     ptOdysseus->lastError = NULL;
+
+    freeListedVoyages(ptOdysseus);
+    freeOdysseusVoyage(&ptOdysseus->activeVoyage);
 
     if (NULL != ptOdysseus->cargo.supplies) {
         for (i = 0; i < ptOdysseus->cargo.numSupplies; ++i) {

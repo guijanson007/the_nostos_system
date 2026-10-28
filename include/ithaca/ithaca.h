@@ -38,12 +38,29 @@
 #define FAREWELL "\nFinishing the Ithaca process"
 #define ERROR_RECEIVE_MESSAGE                                                  \
     "ERROR: There was an error receiving the message from the client\n"
+#define WAITING_FOR_CLIENTS "Waiting for Odysseus...\n"
 
 // Structs
 typedef struct {
     int nFd;
     char *psName;
 } Client;
+
+typedef enum {
+    VOYAGE_AVAILABLE = 0,
+    VOYAGE_ASSIGNED,
+    VOYAGE_FAILED,
+} VoyageState;
+
+typedef struct {
+    int nId;
+    char *psObject;
+    char *psFile;
+    char *psDestination;
+    int nReward;
+    VoyageState eState;
+    char *psOwner; // Odysseus name; kept after it disconnects
+} Voyage;
 
 typedef struct {
     char *psName;
@@ -55,15 +72,9 @@ typedef struct {
     int nServerFd;
     Client *clients;
     size_t numClients;
+    Voyage *atVoyages; // Not owned: main frees it with freeVoyage
+    size_t tNumVoyages;
 } Ithaca;
-
-typedef struct {
-    int nId;
-    char *psObject;
-    char *psFile;
-    char *psDestination;
-    int nReward;
-} Voyage;
 
 // Local includes
 #include "utils/utils.h"

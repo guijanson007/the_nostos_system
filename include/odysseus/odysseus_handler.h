@@ -19,12 +19,13 @@ void odysseusMap(Odysseus *tOdysseus);
 void odysseusStatus(Odysseus *tOdysseus);
 void odysseusDeliver(Odysseus *tOdysseus);
 void odysseusClaim(Odysseus *tOdysseus);
-void odysseusListVoyages(Odysseus *tOdysseus);
 OdysseusStatus odysseusListMarket(Odysseus *tOdysseus);
-void odysseusAcceptVoyage(Odysseus *tOdysseus, const char *psVoyageId);
-void odysseusSail(Odysseus *tOdysseus, const char *psVoyageId);
 OdysseusStatus odysseusBuy(Odysseus *tOdysseus, const char *psProduct,
-                 const char *psAmount);
+                           const char *psAmount);
+OdysseusStatus odysseusListVoyages(Odysseus *tOdysseus);
+OdysseusStatus odysseusAcceptVoyage(Odysseus *tOdysseus,
+                                    const char *psVoyageId);
+OdysseusStatus odysseusSail(Odysseus *tOdysseus, const char *psDestination);
 void odysseusSell(Odysseus *tOdysseus, const char *psProduct,
                   const char *psAmount);
 

@@ -82,6 +82,8 @@ static int parseVoyage(char *psLine, Voyage *ptVoyage, int nId) {
     ptVoyage->psFile = strdup(psFile);
     ptVoyage->psDestination = strdup(psDestination);
     ptVoyage->nReward = atoi(psReward);
+    ptVoyage->eState = VOYAGE_AVAILABLE;
+    ptVoyage->psOwner = NULL;
     if (NULL == ptVoyage->psObject || NULL == ptVoyage->psFile ||
         NULL == ptVoyage->psDestination) {
         free(ptVoyage->psObject);

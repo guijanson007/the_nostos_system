@@ -1,7 +1,7 @@
 Polyphemus
 ./polyphemus_files
-172.16.214.21 9001
-Aeaea 172.16.214.21 9002
+0.0.0.0 8625
+Aeaea 0.0.0.0 8626
 250
 2
 Barley 40

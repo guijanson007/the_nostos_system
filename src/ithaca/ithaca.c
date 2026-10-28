@@ -8,7 +8,6 @@
  * @Date : 22/09/2026
  *
  ************************************************/
-
 #define _GNU_SOURCE
 
 // header
@@ -17,6 +16,7 @@
 // own headers
 #include "ithaca/ithaca_conversetion.h"
 #include "ithaca/ithaca_parser.h"
+#include "utils/utils.h"
 
 int nEv_quit = 0;
 
@@ -76,6 +76,7 @@ void freeVoyage(Voyage **patVoyages, size_t *ptNumVoyages) {
         free((*patVoyages)[i].psObject);
         free((*patVoyages)[i].psFile);
         free((*patVoyages)[i].psDestination);
+        free((*patVoyages)[i].psOwner);
     }
     free(*patVoyages);
     *patVoyages = NULL;
@@ -229,18 +230,21 @@ int main(int argc, char *argv[]) {
     closeFiles(&nFdIthaca, &nFdVoyage);
 
     // DEBUGGING
-    printData(&tIthaca, atVoyages, tNumVoyages);
+    // printData(&tIthaca, atVoyages, tNumVoyages);
 
     signal(SIGINT, onSigint);
     signal(SIGPIPE, SIG_IGN);
 
     tIthaca.nServerFd = openListenConn(tIthaca.psIp, tIthaca.nPort);
     if (tIthaca.nServerFd < 0) {
-        write(STDOUT_FILENO, ERROR_SOCKET, strlen(ERROR_SOCKET));
+        printErr(ERROR_SOCKET);
         freeIthaca(&tIthaca);
         freeVoyage(&atVoyages, &tNumVoyages);
         return EXIT_FAILURE;
     }
+
+    tIthaca.atVoyages = atVoyages;
+    tIthaca.tNumVoyages = tNumVoyages;
 
     FD_ZERO(&tIthaca.fds_clients);
     FD_SET(tIthaca.nServerFd, &tIthaca.fds_clients);
@@ -248,23 +252,28 @@ int main(int argc, char *argv[]) {
     tIthaca.max_fd = tIthaca.nServerFd;
 
     while (!nEv_quit) {
-        fd_set read_fds = tIthaca.fds_clients;
-        if (select(tIthaca.max_fd + 1, &read_fds, NULL, NULL, NULL) == -1)
+        if (tIthaca.max_fd ==
+            tIthaca.nServerFd) { // Only the server socket is in the set
+            println(WAITING_FOR_CLIENTS);
+        }
+
+        fd_set tReadFds = tIthaca.fds_clients;
+        if (select(tIthaca.max_fd + 1, &tReadFds, NULL, NULL, NULL) == -1)
             break;
 
         for (int fd = 0; fd <= tIthaca.max_fd; fd++) {
-            if (!FD_ISSET(fd, &read_fds))
+            if (!FD_ISSET(fd, &tReadFds))
                 continue;
 
             if (fd == tIthaca.nServerFd) {
-                int fd_client = accept(tIthaca.nServerFd, NULL, NULL);
-                if (fd_client < 0) {
+                int nFdClient = accept(tIthaca.nServerFd, NULL, NULL);
+                if (nFdClient < 0) {
                     printErr(ERROR_ACCEPT);
                     continue;
                 }
-                FD_SET(fd_client, &tIthaca.fds_clients);
-                if (fd_client > tIthaca.max_fd)
-                    tIthaca.max_fd = fd_client;
+                FD_SET(nFdClient, &tIthaca.fds_clients);
+                if (nFdClient > tIthaca.max_fd)
+                    tIthaca.max_fd = nFdClient;
             } else {
                 Message msg;
                 if (receiveMessage(&msg, fd) != 0) {

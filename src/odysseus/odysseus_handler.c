@@ -14,6 +14,7 @@
 
 // own headers
 #include "odysseus/odysseus_conversation.h"
+#include "odysseus/odysseus_parser.h"
 
 int findDestination(Odysseus ptOdysseus, const char *psDestination) {
     const KnownIsland *ptHere = NULL;
@@ -102,7 +103,35 @@ void odysseusDeliver(Odysseus *tOdysseus) { (void)tOdysseus; }
 
 void odysseusClaim(Odysseus *tOdysseus) { (void)tOdysseus; }
 
-void odysseusListVoyages(Odysseus *tOdysseus) { (void)tOdysseus; }
+OdysseusStatus odysseusListVoyages(Odysseus *tOdysseus) {
+    OdysseusStatus eStatus = ODY_OK;
+    char *psBuffer = NULL;
+    int i = 0;
+
+    if (-1 == tOdysseus->ithaca_socket) {
+        return ODY_ERR_NOT_CONNECTED;
+    }
+    if (0 != tOdysseus->activeVoyage.id) {
+        return ODY_ERR_ACTIVE_VOYAGE;
+    }
+
+    eStatus = requestListOfVoyages(tOdysseus);
+    if (ODY_OK != eStatus) {
+        return eStatus;
+    }
+
+    println("--- AVAILABLE VOYAGES ---");
+    for (i = 0; i < tOdysseus->numListedVoyages; i++) {
+        const OdysseusVoyage *ptVoyage = &tOdysseus->listedVoyages[i];
+        if (-1 != asprintf(&psBuffer, "%d. %-20s -> %-10s [%d]", ptVoyage->id,
+                           ptVoyage->object, ptVoyage->destination,
+                           ptVoyage->reward)) {
+            println(psBuffer);
+            free(psBuffer);
+        }
+    }
+    return ODY_OK;
+}
 
 OdysseusStatus odysseusListMarket(Odysseus *tOdysseus) {
     OdysseusStatus eStatus = ODY_OK;
@@ -120,77 +149,121 @@ OdysseusStatus odysseusListMarket(Odysseus *tOdysseus) {
     return ODY_OK;
 }
 
-void odysseusAcceptVoyage(Odysseus *tOdysseus, const char *psVoyageId) {
-    (void)tOdysseus;
-    (void)psVoyageId;
+OdysseusStatus odysseusAcceptVoyage(Odysseus *tOdysseus,
+                                    const char *psVoyageId) {
+    OdysseusStatus eStatus = ODY_OK;
+    char *psBuffer = NULL;
+    int nVoyageId = atoi(psVoyageId);
+    int nListed = 0;
+    int i = 0;
+
+    if (-1 == tOdysseus->ithaca_socket) {
+        return ODY_ERR_NOT_CONNECTED;
+    }
+    if (0 != tOdysseus->activeVoyage.id) {
+        return ODY_ERR_ACTIVE_VOYAGE;
+    }
+    for (i = 0; i < tOdysseus->numListedVoyages; i++) {
+        if (nVoyageId == tOdysseus->listedVoyages[i].id) {
+            nListed = 1;
+        }
+    }
+    if (!nListed) {
+        return ODY_ERR_NOT_LISTED;
+    }
+
+    eStatus = requestAcceptVoyage(tOdysseus, nVoyageId);
+    if (ODY_OK != eStatus) {
+        return eStatus;
+    }
+
+    if (-1 != asprintf(&psBuffer, "Voyage %d accepted.\nDestination: %s.",
+                       tOdysseus->activeVoyage.id,
+                       tOdysseus->activeVoyage.destination)) {
+        println(psBuffer);
+        free(psBuffer);
+    }
+    return ODY_OK;
 }
 
-void odysseusSail(Odysseus *tOdysseus, const char *psDestination) {
-    char *buff = NULL;
+OdysseusStatus odysseusSail(Odysseus *tOdysseus, const char *psDestination) {
+    OdysseusStatus eStatus = ODY_OK;
+    char *psBuffer = NULL;
     int nDestinationIndex = findDestination(*tOdysseus, psDestination);
+    int nArrival = ARRIVAL_NONE;
+
     if (nDestinationIndex == -1) {
-        asprintf(&buff, "We can't sail to %s from here", psDestination);
-        println(buff);
-        free(buff);
-        return;
+        if (-1 != asprintf(&psBuffer, "We can't sail to %s from here",
+                           psDestination)) {
+            println(psBuffer);
+            free(psBuffer);
+        }
+        return ODY_OK;
     }
 
     if (tOdysseus->whereAmI == -1 && nDestinationIndex == 0) {
-        if (-1 == disconnectFromIthaca(tOdysseus)) {
-            return;
+        eStatus = disconnectFromIthaca(tOdysseus);
+        if (ODY_OK != eStatus) {
+            return eStatus;
         }
-        if (-1 == asprintf(&buff, "Leaving Ithaca..."))
-            return;
+        println("Leaving Ithaca...");
     } else {
-        if (-1 ==
-            asprintf(&buff, "Leaving %s...",
-                     tOdysseus->map.connections[tOdysseus->whereAmI].name))
-            return;
+        if (-1 != asprintf(&psBuffer, "Leaving %s...",
+                           tOdysseus->map.connections[tOdysseus->whereAmI].name)) {
+            println(psBuffer);
+            free(psBuffer);
+        }
         close(tOdysseus->island_socket);
     }
-    println(buff);
-    free(buff);
 
-    if (-1 == asprintf(&buff, "Sailing to %s...",
-                       tOdysseus->map.connections[nDestinationIndex].name))
-        return;
-    println(buff);
-    free(buff);
+    if (-1 != asprintf(&psBuffer, "Sailing to %s...",
+                       tOdysseus->map.connections[nDestinationIndex].name)) {
+        println(psBuffer);
+        free(psBuffer);
+    }
 
     tOdysseus->island_socket =
         openClientConn(tOdysseus->map.connections[nDestinationIndex].ip,
                        tOdysseus->map.connections[nDestinationIndex].port);
     if (tOdysseus->island_socket < 0) {
-        return;
+        // openClientConn already reported the failure
+        return ODY_OK;
     }
     tOdysseus->whereAmI = nDestinationIndex;
 
-    int status = arriveAtIsland(tOdysseus);
-
-    if (ARRIVAL_WAIT == status) {
+    eStatus = arriveAtIsland(tOdysseus, &nArrival);
+    if (ODY_OK == eStatus && ARRIVAL_WAIT == nArrival) {
         println("The harbor is full. We drop anchor and wait.");
-        status = waitingAtPort(tOdysseus);
+        eStatus = waitingAtPort(tOdysseus, &nArrival);
+    }
+    if (ODY_OK != eStatus) {
+        close(tOdysseus->island_socket);
+        tOdysseus->island_socket = -1;
+        return eStatus;
     }
 
-    switch (status) {
+    switch (nArrival) {
         case ARRIVAL_DOCKED:
-            asprintf(&buff, ">>> %s has granted access to the port.",
-                     tOdysseus->map.connections[nDestinationIndex].name);
-            tOdysseus->whereAmI = nDestinationIndex;
+            if (-1 != asprintf(
+                          &psBuffer, ">>> %s has granted access to the port.",
+                          tOdysseus->map.connections[nDestinationIndex].name)) {
+                println(psBuffer);
+                free(psBuffer);
+            }
             break;
         case ARRIVAL_LOST_AT_SEA:
-            asprintf(&buff,
-                     "The crew has run out of provisions.\nOdysseus %s has "
-                     "been lost at sea.",
-                     tOdysseus->name);
+            if (-1 != asprintf(&psBuffer,
+                               "The crew has run out of provisions.\nOdysseus "
+                               "%s has been lost at sea.",
+                               tOdysseus->name)) {
+                println(psBuffer);
+                free(psBuffer);
+            }
             break;
         default:
-            close(tOdysseus->island_socket);
-            tOdysseus->island_socket = -1;
             break;
     }
-    println(buff);
-    free(buff);
+    return ODY_OK;
 }
 
 OdysseusStatus odysseusBuy(Odysseus *tOdysseus, const char *psProduct, const char *psAmount) {

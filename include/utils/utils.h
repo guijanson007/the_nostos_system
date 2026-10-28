@@ -11,16 +11,16 @@
  ************************************************/
 
 // System includes
+#include <arpa/inet.h>
 #include <errno.h>
+#include <fcntl.h>
+#include <netdb.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 #include <sys/socket.h>
-#include <fcntl.h>
-#include <netdb.h>
-#include <arpa/inet.h>
+#include <unistd.h>
 
 // Constants
 #define READ_CHUNK_SIZE 4096
@@ -46,5 +46,6 @@ int isPositiveInteger(const char *psString);
 int openListenConn(char *ip, int port);
 int openClientConn(char *ip, int port);
 char *readUntil(int fd, char cEnd);
+void print(const char *psMessage);
 
 #endif // __UTILS_H__

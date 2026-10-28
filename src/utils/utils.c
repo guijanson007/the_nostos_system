@@ -64,6 +64,18 @@ void println(const char *psMessage) {
     write(STDOUT_FILENO, "\n", strlen("\n"));
 }
 
+/**********************************************
+ * @Name : print
+ * @Def : Writes a message to the standard output.
+ * @Arg : In: psMessage = message to write
+ * @Ret : None.
+ *
+ * ********************************************/
+
+void print(const char *psMessage) {
+    write(STDOUT_FILENO, psMessage, strlen(psMessage));
+}
+
 /***********************************************
  *
  * @Name : printErr

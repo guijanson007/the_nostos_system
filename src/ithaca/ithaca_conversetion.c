@@ -42,41 +42,195 @@ static void disconectIthaca(int fd_client, Ithaca *ithaca, Message msg) {
     }
 }
 
+static void replyError(int fd_client, Message *msg, char *psReason) {
+    buildMessage(msg, FLAG_RESPONSE | FLAG_ERROR, psReason);
+    sendMessage(msg, fd_client);
+}
+
 static void connectIthaca(int fd_client, Ithaca *ithaca, Message msg) {
+    Client *tempClients = NULL;
+    char *psName = NULL;
+    size_t i = 0;
+
     msg.type = MSG_CONNECT_ITHACA;
 
-    Client *tempClients =
-        realloc(ithaca->clients, (ithaca->numClients + 1) * sizeof(Client));
+    if (msg.flag != FLAG_NONE || msg.dataLength == 0) {
+        replyError(fd_client, &msg, ERROR_MESSAGE_FORMAT);
+        return;
+    }
 
-    if (!tempClients) {
-        buildMessage(&msg, FLAG_RESPONSE | FLAG_ERROR, ERROR_MEMORY_ALLOCATION);
-        sendMessage(&msg, fd_client);
+    if (-1 != findClientIndex(ithaca, fd_client)) {
+        replyError(fd_client, &msg, ERROR_CLIENT_ALREADY_CONNECTED);
+        return;
+    }
+    for (i = 0; i < ithaca->numClients; i++) {
+        if (strcmp(ithaca->clients[i].psName, msg.data) == 0) {
+            replyError(fd_client, &msg, ERROR_CLIENT_ALREADY_CONNECTED);
+            return;
+        }
+    }
+
+    psName = strdup(msg.data);
+    tempClients =
+        realloc(ithaca->clients, (ithaca->numClients + 1) * sizeof(Client));
+    if (NULL == psName || NULL == tempClients) {
+        free(psName);
+        // A failed realloc leaves the old array valid, so only keep it
+        if (NULL != tempClients) {
+            ithaca->clients = tempClients;
+        }
+        replyError(fd_client, &msg, ERROR_MEMORY_ALLOCATION);
         return;
     }
 
     ithaca->clients = tempClients;
+    ithaca->clients[ithaca->numClients].nFd = fd_client;
+    ithaca->clients[ithaca->numClients].psName = psName;
+    ithaca->numClients++;
 
-    if (msg.flag != FLAG_NONE || msg.dataLength == 0) {
-        buildMessage(&msg, FLAG_RESPONSE | FLAG_ERROR, ERROR_MESSAGE_FORMAT);
-    } else {
-        size_t i = 0;
-        for (i = 0; i < ithaca->numClients; i++) {
-            if (strcmp(ithaca->clients[i].psName, msg.data) == 0) {
-                buildMessage(&msg, FLAG_RESPONSE | FLAG_ERROR,
-                             ERROR_CLIENT_ALREADY_CONNECTED);
-                sendMessage(&msg, fd_client);
-                return;
-            }
-        }
-
-        ithaca->clients[ithaca->numClients].nFd = fd_client;
-        ithaca->clients[ithaca->numClients].psName =
-            strdup(msg.data); // Allocate memory for the name
-        ithaca->numClients++;
-
-        buildMessage(&msg, FLAG_RESPONSE, OK_MESSAGE);
-    }
+    consoleLog(psName, " connected to Ithaca.");
+    buildMessage(&msg, FLAG_RESPONSE, OK_MESSAGE);
     sendMessage(&msg, fd_client);
+}
+
+static Voyage *findVoyage(Ithaca *ithaca, int nId) {
+    size_t i = 0;
+
+    for (i = 0; i < ithaca->tNumVoyages; i++) {
+        if (nId == ithaca->atVoyages[i].nId) {
+            return &ithaca->atVoyages[i];
+        }
+    }
+    return NULL;
+}
+
+static Voyage *findActiveVoyage(Ithaca *ithaca, const char *psName) {
+    size_t i = 0;
+
+    for (i = 0; i < ithaca->tNumVoyages; i++) {
+        Voyage *ptVoyage = &ithaca->atVoyages[i];
+        if (VOYAGE_ASSIGNED == ptVoyage->eState &&
+            0 == strcmp(ptVoyage->psOwner, psName)) {
+            return ptVoyage;
+        }
+    }
+    return NULL;
+}
+
+static void listVoyages(int fd_client, Ithaca *ithaca, Message msg) {
+    char voyageInfo[MESSAGE_SIZE];
+    const char *psName = NULL;
+    Voyage *ptVoyage = NULL;
+    size_t i = 0;
+    int nTotal = 0;
+    int nIndex = 0;
+    int nClient = findClientIndex(ithaca, fd_client);
+
+    msg.type = MSG_LIST_VOYAGES;
+
+    if (-1 == nClient) {
+        replyError(fd_client, &msg, ERROR_NOT_CONNECTED);
+        return;
+    }
+    if (msg.flag != FLAG_NONE || msg.dataLength != 0) {
+        replyError(fd_client, &msg, ERROR_MESSAGE_FORMAT);
+        return;
+    }
+    psName = ithaca->clients[nClient].psName;
+    consoleLog(psName, " requested available voyages.");
+
+    // Listing again means the previous mission was lost: it is failed for good
+    while (NULL != (ptVoyage = findActiveVoyage(ithaca, psName))) {
+        ptVoyage->eState = VOYAGE_FAILED;
+    }
+
+    for (i = 0; i < ithaca->tNumVoyages; i++) {
+        if (VOYAGE_AVAILABLE == ithaca->atVoyages[i].eState) {
+            nTotal++;
+        }
+    }
+    if (0 == nTotal) {
+        replyError(fd_client, &msg, ERROR_NO_VOYAGES);
+        return;
+    }
+
+    for (i = 0; i < ithaca->tNumVoyages; i++) {
+        ptVoyage = &ithaca->atVoyages[i];
+        if (VOYAGE_AVAILABLE != ptVoyage->eState) {
+            continue;
+        }
+        nIndex++;
+        snprintf(voyageInfo, sizeof(voyageInfo), "%d&%d&%d&%s&%s&%d", nIndex,
+                 nTotal, ptVoyage->nId, ptVoyage->psObject,
+                 ptVoyage->psDestination, ptVoyage->nReward);
+        buildMessage(&msg, FLAG_RESPONSE, voyageInfo);
+        if (0 != sendMessage(&msg, fd_client)) {
+            return;
+        }
+    }
+}
+
+static void acceptVoyage(int fd_client, Ithaca *ithaca, Message msg) {
+    char voyageInfo[MESSAGE_SIZE];
+    char *psOwner = NULL;
+    const char *psName = NULL;
+    Voyage *ptVoyage = NULL;
+    int nClient = findClientIndex(ithaca, fd_client);
+
+    msg.type = MSG_ACCEPT;
+
+    if (-1 == nClient) {
+        replyError(fd_client, &msg, ERROR_NOT_CONNECTED);
+        return;
+    }
+    if (msg.flag != FLAG_NONE || msg.dataLength == 0) {
+        replyError(fd_client, &msg, ERROR_MESSAGE_FORMAT);
+        return;
+    }
+    // At most 9 digits so atoi can't overflow
+    if (msg.dataLength > 9 || !isPositiveInteger(msg.data)) {
+        replyError(fd_client, &msg, ERROR_INVALID_VOYAGE_ID);
+        return;
+    }
+    psName = ithaca->clients[nClient].psName;
+    ptVoyage = findVoyage(ithaca, atoi(msg.data));
+    if (NULL == ptVoyage) {
+        replyError(fd_client, &msg, ERROR_INVALID_VOYAGE_ID);
+        return;
+    }
+    if (NULL != findActiveVoyage(ithaca, psName)) {
+        replyError(fd_client, &msg, ERROR_ACTIVE_VOYAGE);
+        return;
+    }
+    // Ithaca handles one request at a time, so this check-and-set is atomic
+    if (VOYAGE_AVAILABLE != ptVoyage->eState) {
+        replyError(fd_client, &msg, ERROR_VOYAGE_NOT_AVAILABLE);
+        return;
+    }
+    psOwner = strdup(psName);
+    if (NULL == psOwner) {
+        replyError(fd_client, &msg, ERROR_MEMORY_ALLOCATION);
+        return;
+    }
+
+    free(ptVoyage->psOwner);
+    ptVoyage->psOwner = psOwner;
+    ptVoyage->eState = VOYAGE_ASSIGNED;
+
+    snprintf(voyageInfo, sizeof(voyageInfo), "OK&%d&%s&%s&%d", ptVoyage->nId,
+             ptVoyage->psObject, ptVoyage->psDestination, ptVoyage->nReward);
+    buildMessage(&msg, FLAG_RESPONSE, voyageInfo);
+    sendMessage(&msg, fd_client);
+
+    snprintf(voyageInfo, sizeof(voyageInfo), ">>> Voyage %d assigned to %s.",
+             ptVoyage->nId, psName);
+    println(voyageInfo);
+}
+
+void consoleLog(const char *sOdysseusName, const char *sPostFix) {
+    print(">>> ");
+    print(sOdysseusName);
+    println(sPostFix);
 }
 
 int removeClient(Ithaca *ptIthaca, int nFd) {
@@ -102,9 +256,11 @@ void choseOption(Ithaca *ithaca, Message msg, int fd_client) {
             break;
         case MSG_LIST_VOYAGES:
             // LIST VOYAGES (REQUEST)
+            listVoyages(fd_client, ithaca, msg);
             break;
         case MSG_ACCEPT:
             // ACCEPT (REQUEST)
+            acceptVoyage(fd_client, ithaca, msg);
             break;
         case MSG_CLAIM:
             // CLAIM (REQUEST)
