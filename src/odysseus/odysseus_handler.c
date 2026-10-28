@@ -69,34 +69,41 @@ OdysseusStatus odysseusConnect(Odysseus *tOdysseus) {
 void odysseusMap(Odysseus *tOdysseus) { (void)tOdysseus; }
 
 void odysseusStatus(Odysseus *ptOdysseus) {
-    char *buff;
+    char *psBuffer = NULL;
+    const char *psLocation = NULL;
+    int i = 0;
 
-    asprintf(&buff, "--- %s ---\nGold: %.d\n\nCargo:", ptOdysseus->name,
-             ptOdysseus->cargo.nGold);
-    println(buff);
-    free(buff);
-
-    for (int i = 0; i < ptOdysseus->cargo.numSupplies; i++) {
-        asprintf(&buff, "%s: %d kg", ptOdysseus->cargo.supplies[i].name,
-                 ptOdysseus->cargo.supplies[i].amount);
-        println(buff);
-        free(buff);
+    if (-1 != asprintf(&psBuffer, "--- %s ---\nGold: %d\n\nCargo:",
+                       ptOdysseus->name, ptOdysseus->cargo.nGold)) {
+        println(psBuffer);
+        free(psBuffer);
     }
 
-    asprintf(&buff, "\nTotal provisions: %d kg\n",
-             ptOdysseus->cargo.totalAmount);
-    println(buff);
-    free(buff);
+    for (i = 0; i < ptOdysseus->cargo.numSupplies; i++) {
+        if (NULL != ptOdysseus->cargo.supplies[i].name &&
+            -1 != asprintf(&psBuffer, "%s: %d kg",
+                           ptOdysseus->cargo.supplies[i].name,
+                           ptOdysseus->cargo.supplies[i].amount)) {
+            println(psBuffer);
+            free(psBuffer);
+        }
+    }
+
+    if (-1 != asprintf(&psBuffer, "\nTotal provisions: %d kg\n",
+                       ptOdysseus->cargo.totalAmount)) {
+        println(psBuffer);
+        free(psBuffer);
+    }
 
     // TO IMPLEMENT WHEN THE VOYAGE IS DONE (Current voyage: None)
 
-    char *psLocation =
-        (-1 == ptOdysseus->whereAmI)
-            ? "Ithaca"
-            : ptOdysseus->map.connections[ptOdysseus->whereAmI].name;
-    asprintf(&buff, "Current location: %s", psLocation);
-    println(buff);
-    free(buff);
+    psLocation = (-1 == ptOdysseus->whereAmI)
+                     ? "Ithaca"
+                     : ptOdysseus->map.connections[ptOdysseus->whereAmI].name;
+    if (-1 != asprintf(&psBuffer, "Current location: %s", psLocation)) {
+        println(psBuffer);
+        free(psBuffer);
+    }
 }
 
 void odysseusDeliver(Odysseus *tOdysseus) { (void)tOdysseus; }
