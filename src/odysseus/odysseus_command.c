@@ -207,6 +207,8 @@ CommandValidationResult validateOdysseusCommand(const OdysseusCommand *ptCommand
         case COMMAND_BUY:
             if (0 == hasExactlyTwoArguments(ptCommand)) {
                 *ppsErrorMessage = USAGE_BUY;
+            } else if (NULL != strchr(ptCommand->argv[0], FIELD_SEPARATOR)) {
+                *ppsErrorMessage = ERROR_PRODUCT;
             } else if (0 == isPositiveInteger(ptCommand->argv[1])) {
                 *ppsErrorMessage = ERROR_AMOUNT;
             }
