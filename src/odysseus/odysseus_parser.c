@@ -41,6 +41,11 @@ static int buildSupplies(Odysseus *ptOdysseus, char **apsLines,
                 if (NULL != psToken) {
                     ptOdysseus->cargo.supplies[tLine - SUPPLIES_FIRST_LINE]
                         .name = strdup(psToken);
+                    if (NULL == ptOdysseus->cargo
+                                    .supplies[tLine - SUPPLIES_FIRST_LINE]
+                                    .name) {
+                        return 0;
+                    }
                     psToken = strtok(NULL, " ");
                     if (NULL != psToken) {
                         ptOdysseus->cargo.supplies[tLine - SUPPLIES_FIRST_LINE]
