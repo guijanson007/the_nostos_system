@@ -281,8 +281,7 @@ OdysseusStatus arriveAtIsland(Odysseus *tOdysseus, int *pnArrival) {
     memset(&tMessage, 0, sizeof(tMessage));
     tMessage.type = MSG_ARRIVAL_ISLAND;
     tMessage.flag = FLAG_NONE;
-    tMessage.dataLength = strlen(tOdysseus->name);
-    strcpy(tMessage.data, tOdysseus->name);
+    buildMessage(&tMessage, FLAG_NONE, tOdysseus->name);
 
     if (sendMessage(&tMessage, tOdysseus->island_socket) != 0) {
         return ODY_ERR_IO;
@@ -318,8 +317,7 @@ OdysseusStatus notifyConnection(Odysseus *tOdysseus) {
 
     tMessage.type = MSG_CONNECT_ITHACA;
     tMessage.flag = FLAG_NONE;
-    tMessage.dataLength = strlen(tOdysseus->name);
-    strcpy(tMessage.data, tOdysseus->name);
+    buildMessage(&tMessage, FLAG_NONE, tOdysseus->name);
 
     if (sendMessage(&tMessage, tOdysseus->ithaca_socket) != 0) {
         return ODY_ERR_IO;
