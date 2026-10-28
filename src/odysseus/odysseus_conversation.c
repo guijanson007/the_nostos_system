@@ -577,46 +577,52 @@ static int addSupply(Cargo *ptCargo, const char *psName, int nAmount) {
 
 OdysseusStatus buyProducts(Odysseus *tOdysseus, const char *psProduct,
                            const char *psAmount) {
-    Message msg;
-    char *buff;
-    char *product;
-    int amount, cost;
+    Message tMessage;
+    char *psBuffer = NULL;
+    char *psBought = NULL;
+    int nAmount = 0;
+    int nCost = 0;
 
-    msg.type = MSG_BUY;
+    memset(&tMessage, 0, sizeof(tMessage));
+    tMessage.type = MSG_BUY;
 
-    if (-1 == asprintf(&buff, "%s&%s", psProduct, psAmount)) {
+    if (-1 == asprintf(&psBuffer, "%s&%s", psProduct, psAmount)) {
         return ODY_ERR_IO;
     }
-    buildMessage(&msg, FLAG_NONE, buff);
-    free(buff);
-    if (-1 == sendMessage(&msg, tOdysseus->island_socket)) {
-        return ODY_ERR_SOCKET;
-    }
-
-    if (0 != receiveMessage(&msg, tOdysseus->island_socket)) {
-        return ODY_ERR_REMOTE;
-    }
-
-    if (MSG_BUY != msg.type) {
-        return ODY_ERR_REMOTE;
-    }
-    if (msg.flag & FLAG_ERROR) {
-        odysseusSetRemoteError(tOdysseus, msg.data, msg.dataLength);
-        return ODY_ERR_REMOTE;
-    }
-
-    if (0 != parseMessageTrade(msg.data, msg.dataLength, &product, &amount, &cost)) {
-        return ODY_ERR_REMOTE;
-    }
-
-    tOdysseus->cargo.nGold -= cost;
-    if (0 != addSupply(&tOdysseus->cargo, product, amount)) {
+    buildMessage(&tMessage, FLAG_NONE, psBuffer);
+    free(psBuffer);
+    psBuffer = NULL;
+    if (-1 == sendMessage(&tMessage, tOdysseus->island_socket)) {
         return ODY_ERR_IO;
     }
 
-    if (-1 != asprintf(&buff, "Bought %d kg of %s for %d gold.", amount, product, cost)) {
-        println(buff);
-        free(buff);
+    if (0 != receiveMessage(&tMessage, tOdysseus->island_socket)) {
+        return ODY_ERR_IO;
+    }
+
+    if (MSG_BUY != tMessage.type) {
+        return ODY_ERR_ISLAND_PROTOCOL;
+    }
+    if (tMessage.flag & FLAG_ERROR) {
+        odysseusSetRemoteError(tOdysseus, tMessage.data, tMessage.dataLength);
+        return ODY_ERR_REMOTE;
+    }
+
+    if (0 != parseMessageTrade(tMessage.data, tMessage.dataLength, &psBought,
+                               &nAmount, &nCost)) {
+        return ODY_ERR_ISLAND_PROTOCOL;
+    }
+
+    // Store the goods first: if that fails nothing has been charged locally
+    if (0 != addSupply(&tOdysseus->cargo, psBought, nAmount)) {
+        return ODY_ERR_IO;
+    }
+    tOdysseus->cargo.nGold -= nCost;
+
+    if (-1 != asprintf(&psBuffer, "Bought %d kg of %s for %d gold.", nAmount,
+                       psBought, nCost)) {
+        println(psBuffer);
+        free(psBuffer);
     }
 
     return ODY_OK;

@@ -274,19 +274,13 @@ OdysseusStatus odysseusSail(Odysseus *tOdysseus, const char *psDestination) {
     return ODY_OK;
 }
 
-OdysseusStatus odysseusBuy(Odysseus *tOdysseus, const char *psProduct, const char *psAmount) {
-    OdysseusStatus eStatus;
-
-    if (-1 != tOdysseus->ithaca_socket) {
-        return ODY_ERR_ALREADY_CONNECTED;
+OdysseusStatus odysseusBuy(Odysseus *tOdysseus, const char *psProduct,
+                           const char *psAmount) {
+    if (-1 == tOdysseus->island_socket || -1 == tOdysseus->whereAmI) {
+        return ODY_ERR_NOT_AT_ISLAND;
     }
 
-    eStatus = buyProducts(tOdysseus, psProduct, psAmount);
-    if (ODY_OK != eStatus) {
-        return eStatus;
-    }
-
-    return eStatus;
+    return buyProducts(tOdysseus, psProduct, psAmount);
 }
 
 void odysseusSell(Odysseus *tOdysseus, const char *psProduct,
