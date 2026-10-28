@@ -210,6 +210,9 @@ OdysseusStatus odysseusSail(Odysseus *tOdysseus, const char *psDestination) {
     }
 
     if (tOdysseus->whereAmI == -1 && nDestinationIndex == 0) {
+        if (-1 == tOdysseus->ithaca_socket) {
+            return ODY_ERR_NOT_CONNECTED;
+        }
         eStatus = disconnectFromIthaca(tOdysseus);
         if (ODY_OK != eStatus) {
             return eStatus;
@@ -222,6 +225,7 @@ OdysseusStatus odysseusSail(Odysseus *tOdysseus, const char *psDestination) {
             free(psBuffer);
         }
         close(tOdysseus->island_socket);
+        tOdysseus->island_socket = -1;
     }
 
     if (-1 != asprintf(&psBuffer, "Sailing to %s...",
@@ -237,7 +241,6 @@ OdysseusStatus odysseusSail(Odysseus *tOdysseus, const char *psDestination) {
         // openClientConn already reported the failure
         return ODY_OK;
     }
-    tOdysseus->whereAmI = nDestinationIndex;
 
     eStatus = arriveAtIsland(tOdysseus, &nArrival);
     if (ODY_OK == eStatus && ARRIVAL_WAIT == nArrival) {
@@ -252,6 +255,7 @@ OdysseusStatus odysseusSail(Odysseus *tOdysseus, const char *psDestination) {
 
     switch (nArrival) {
         case ARRIVAL_DOCKED:
+            tOdysseus->whereAmI = nDestinationIndex;
             if (-1 != asprintf(
                           &psBuffer, ">>> %s has granted access to the port.",
                           tOdysseus->map.connections[nDestinationIndex].name)) {
