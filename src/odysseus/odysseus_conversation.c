@@ -457,7 +457,7 @@ OdysseusStatus getListMarket(Odysseus *tOdysseus) {
             return ODY_ERR_INVALID_COMMAND;
 
         if (msg.flag & FLAG_ERROR) {
-            odysseusSetError(tOdysseus, "%.*s", (int)msg.dataLength, msg.data);
+            odysseusSetRemoteError(tOdysseus, msg.data, msg.dataLength);
             return ODY_ERR_REMOTE;
         }
 
@@ -570,7 +570,7 @@ OdysseusStatus buyProducts(Odysseus *tOdysseus, const char *psProduct,
         return ODY_ERR_REMOTE;
     }
     if (msg.flag & FLAG_ERROR) {
-        odysseusSetError(tOdysseus, "%s", msg.data);
+        odysseusSetRemoteError(tOdysseus, msg.data, msg.dataLength);
         return ODY_ERR_REMOTE;
     }
 
