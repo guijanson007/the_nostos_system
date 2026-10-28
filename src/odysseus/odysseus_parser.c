@@ -64,13 +64,15 @@ static int buildSupplies(Odysseus *ptOdysseus, char **apsLines,
  *
  **************************************************/
 Odysseus odysseusParseFile(int nFd) {
-    Odysseus tOdysseus = {0};
+    Odysseus tOdysseus;
     size_t tOutCount = 0;
     char **apsLines = NULL;
     char *psIpPort = NULL;
     char *psToken = NULL;
 
+    memset(&tOdysseus, 0, sizeof(tOdysseus));
     tOdysseus.ithaca_socket = -1;
+    tOdysseus.island_socket = -1;
 
     apsLines = readLines(nFd, &tOutCount);
 
