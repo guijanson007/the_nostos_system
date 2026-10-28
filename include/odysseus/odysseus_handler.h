@@ -23,7 +23,7 @@ OdysseusStatus odysseusListVoyages(Odysseus *tOdysseus);
 void odysseusListMarket(Odysseus *tOdysseus);
 OdysseusStatus odysseusAcceptVoyage(Odysseus *tOdysseus,
                                     const char *psVoyageId);
-void odysseusSail(Odysseus *tOdysseus, const char *psVoyageId);
+OdysseusStatus odysseusSail(Odysseus *tOdysseus, const char *psDestination);
 void odysseusBuy(Odysseus *tOdysseus, const char *psProduct,
                  const char *psAmount);
 void odysseusSell(Odysseus *tOdysseus, const char *psProduct,

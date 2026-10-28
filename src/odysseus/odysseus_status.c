@@ -16,31 +16,54 @@
 #include "odysseus/odysseus.h"
 
 // standard library headers
-#include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
 
 /*************************************************
  *
- * @Name : odysseusSetError
- * @Def : Stores a formatted detail message in the Odysseus instance, to be
- * read later by odysseusStatusMessage. Replaces (and frees) any previous
- * message. The message is freed by the next call or by freeOdysseus.
+ * @Name : odysseusSetErrnoError
+ * @Def : Stores "<prefix><strerror(errno)>" as the detail message of the
+ * Odysseus instance, to be read later by odysseusStatusMessage. Replaces (and
+ * frees) any previous message. The message is freed by the next call or by
+ * freeOdysseus.
  * @Arg : In/Out: ptOdysseus = Odysseus instance that keeps the message
- *        In: psFormat = printf-style format string
- *        In: ... = format arguments
+ *        In: psPrefix = text that goes before the error description
+ *        In: nErrno = errno value to describe
  * @Ret : None. If the allocation fails the message is left NULL.
  *
  **************************************************/
-void odysseusSetError(Odysseus *ptOdysseus, const char *psFormat, ...) {
-    va_list tArgs;
-
+void odysseusSetErrnoError(Odysseus *ptOdysseus, const char *psPrefix,
+                           int nErrno) {
     free(ptOdysseus->lastError);
     ptOdysseus->lastError = NULL;
 
-    va_start(tArgs, psFormat);
-    if (-1 == vasprintf(&ptOdysseus->lastError, psFormat, tArgs)) {
+    if (-1 == asprintf(&ptOdysseus->lastError, "%s%s", psPrefix,
+                       strerror(nErrno))) {
         ptOdysseus->lastError = NULL;
     }
-    va_end(tArgs);
+}
+
+/*************************************************
+ *
+ * @Name : odysseusSetRemoteError
+ * @Def : Stores the error text sent by the remote side as the detail message
+ * of the Odysseus instance. The text is copied with its length, so it does not
+ * need to be NUL terminated. Replaces (and frees) any previous message.
+ * @Arg : In/Out: ptOdysseus = Odysseus instance that keeps the message
+ *        In: psData = text received in the message
+ *        In: tDataLength = number of bytes of psData to copy
+ * @Ret : None. If the allocation fails the message is left NULL.
+ *
+ **************************************************/
+void odysseusSetRemoteError(Odysseus *ptOdysseus, const char *psData,
+                            size_t tDataLength) {
+    free(ptOdysseus->lastError);
+    ptOdysseus->lastError = NULL;
+
+    if (-1 == asprintf(&ptOdysseus->lastError, "%.*s", (int)tDataLength,
+                       psData)) {
+        ptOdysseus->lastError = NULL;
+    }
 }
 
 /*************************************************
@@ -71,6 +94,8 @@ const char *odysseusStatusMessage(const Odysseus *ptOdysseus,
             return "ERROR: Could not communicate with the server";
         case ODY_ERR_PROTOCOL:
             return "ERROR: Unexpected response from Ithaca";
+        case ODY_ERR_ISLAND_PROTOCOL:
+            return "ERROR: Unexpected response from the island";
         case ODY_ERR_ALREADY_CONNECTED:
             return "ERROR: Already connected to Ithaca";
         case ODY_ERR_NOT_CONNECTED:
