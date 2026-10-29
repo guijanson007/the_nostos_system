@@ -262,7 +262,8 @@ OdysseusStatus odysseusSail(Odysseus *tOdysseus, const char *psDestination) {
                 println(psBuffer);
                 free(psBuffer);
             }
-            break;
+            
+            return ODY_OK;
         case ARRIVAL_LOST_AT_SEA:
             if (-1 != asprintf(&psBuffer,
                                "The crew has run out of provisions.\nOdysseus "
@@ -271,7 +272,10 @@ OdysseusStatus odysseusSail(Odysseus *tOdysseus, const char *psDestination) {
                 println(psBuffer);
                 free(psBuffer);
             }
-            break;
+            close(tOdysseus->island_socket);
+            tOdysseus->island_socket = -1;
+
+            return ODY_LOST_AT_SEA;
         default:
             break;
     }
@@ -296,7 +300,7 @@ OdysseusStatus odysseusSell(Odysseus *tOdysseus, const char *psProduct,
     }
 
     for (int i = 0; i < tOdysseus->cargo.numSupplies; i++) {
-        if (0 == strcmp(tOdysseus->cargo.supplies[i].name, psProduct)) {
+        if (0 == strcasecmp(tOdysseus->cargo.supplies[i].name, psProduct)) {
             if (nAmount <= tOdysseus->cargo.supplies[i].amount) {
                 return sellProduct(tOdysseus, psProduct, nAmount);
             }

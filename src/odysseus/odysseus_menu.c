@@ -100,7 +100,6 @@ int odysseusShowMenu(Odysseus *tOdysseus) {
 
     if (COMMAND_VALID != validateOdysseusCommand(&tCommand, &psErrorMessage)) {
         printErr(psErrorMessage);
-        // Print an empty line for better readability
         printErr("");
         free(psInput);
         // Return 1 to continue the menu even after an invalid command
@@ -108,6 +107,9 @@ int odysseusShowMenu(Odysseus *tOdysseus) {
     }
     eStatus = executeOdysseusCommand(tOdysseus, &tCommand);
     free(psInput);
+    if (ODY_LOST_AT_SEA == eStatus) {
+        return 0;
+    }
     if (ODY_OK != eStatus) {
         printErr(odysseusStatusMessage(tOdysseus, eStatus));
         // Print an empty line for better readability

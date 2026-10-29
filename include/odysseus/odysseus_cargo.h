@@ -25,9 +25,8 @@ typedef struct {
 } Cargo;
 
 void consumeFood(Cargo *ptCargo);
-void calculateTotalGold(Cargo *ptCargo);
+void calculateTotalAmount(Cargo *ptCargo);
 int addSupply(Cargo *ptCargo, const char *psName, int nAmount);
 int removeSuplies(Cargo *ptCargo, const char *psName, int nAmount);
-
 
 #endif

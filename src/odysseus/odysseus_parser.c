@@ -41,9 +41,9 @@ static int buildSupplies(Odysseus *ptOdysseus, char **apsLines,
                 if (NULL != psToken) {
                     ptOdysseus->cargo.supplies[tLine - SUPPLIES_FIRST_LINE]
                         .name = strdup(psToken);
-                    if (NULL == ptOdysseus->cargo
-                                    .supplies[tLine - SUPPLIES_FIRST_LINE]
-                                    .name) {
+                    if (NULL ==
+                        ptOdysseus->cargo.supplies[tLine - SUPPLIES_FIRST_LINE]
+                            .name) {
                         return 0;
                     }
                     psToken = strtok(NULL, " ");
@@ -117,7 +117,7 @@ Odysseus odysseusParseFile(int nFd) {
         return tOdysseus;
     }
 
-    calculateTotalGold(&tOdysseus.cargo);
+    calculateTotalAmount(&tOdysseus.cargo);
     // We can free the lines now since we have copied the data we need
     freeLines(apsLines, tOutCount);
 

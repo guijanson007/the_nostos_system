@@ -29,7 +29,7 @@ void consumeFood(Cargo *ptCargo) {
     }
 }
 
-void calculateTotalGold(Cargo *ptCargo) {
+void calculateTotalAmount(Cargo *ptCargo) {
     for (int i = 0; i < ptCargo->numSupplies; i++) {
         ptCargo->totalAmount += ptCargo->supplies[i].amount;
     }
@@ -69,30 +69,33 @@ int addSupply(Cargo *ptCargo, const char *psName, int nAmount) {
     return 0;
 }
 
-
 int removeSuplies(Cargo *ptCargo, const char *psName, int nAmount) {
     int i;
-    
+
     for (i = 0; i < ptCargo->numSupplies; i++) {
         if (0 == strcasecmp(ptCargo->supplies[i].name, psName)) {
-            if (i == ptCargo->numSupplies) {
-                return -1
-            }
-
-            if (ptCargo->supplies[i].amount < nAmount) {
-                return -1;
-            }
-            
-            ptCargo->supplies[i].amount -= nAmount;
-            ptCargo->totalAmount -= nAmount;
-
-            if (0 == ptCargo->supplies[i].amount) {
-                    free(ptCargo->supplies[i].name);
-            for (j = i; j < ptCargo->numSupplies - 1; j++) {
-                ptCargo->supplies[j] = ptCargo->supplies[j + 1];
-            }
-            ptCargo->numSupplies--;
+            break;
         }
+    }
+
+    if (i == ptCargo->numSupplies) {
+        return -1;
+    }
+    if (ptCargo->supplies[i].amount < nAmount) {
+        return -1;
+    }
+
+    ptCargo->supplies[i].amount -= nAmount;
+    ptCargo->totalAmount -= nAmount;
+
+    if (0 == ptCargo->supplies[i].amount) {
+        free(ptCargo->supplies[i].name);
+
+        for (int j = i; j < ptCargo->numSupplies - 1; j++) {
+            ptCargo->supplies[j] = ptCargo->supplies[j + 1];
+        }
+
+        ptCargo->numSupplies--;
     }
 
     return 0;
