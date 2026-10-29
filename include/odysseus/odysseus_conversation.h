@@ -16,8 +16,8 @@ OdysseusStatus disconnectFromIthaca(Odysseus *tOdysseus);
 OdysseusStatus arriveAtIsland(Odysseus *tOdysseus, int *pnArrival);
 OdysseusStatus notifyConnection(Odysseus *tOdysseus);
 OdysseusStatus getListMarket(Odysseus *tOdysseus);
-OdysseusStatus buyProducts(Odysseus *tOdysseus, const char *psProduct,
-                           const char *psAmount);
+OdysseusStatus buyProducts(Odysseus *tOdysseus, const char *psProduct, const char *psAmount);
+OdysseusStatus sellProduct(Odysseus *tOdysseus, const  char *psProduct, const int tAmount);
 OdysseusStatus buyMap(Odysseus *tOdysseus);
 OdysseusStatus departFromIsland(Odysseus *tOdysseus);
 OdysseusStatus waitingAtPort(Odysseus *ptOdysseus, int *pnArrival);

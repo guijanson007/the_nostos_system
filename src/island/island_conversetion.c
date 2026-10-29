@@ -249,13 +249,10 @@ static int parseTradeRequest(char *psData, int nLength, char **psProduct,
     return 0;
 }
 
-static int saveStockEntry(int nFdStock, size_t tIndex, const Stock *ptItem) {
-    off_t tOffset = 0;
+static int saveStockEntry(int nFdStock, size_t tIndex, Stock *ptItem) {
     int nWritten = 0;
 
-    tOffset = (off_t)(tIndex * sizeof(Stock));
-
-    if (-1 == lseek(nFdStock, tOffset, SEEK_SET)) {
+    if (-1 == lseek(nFdStock, tIndex * sizeof(Stock), SEEK_SET)) {
         return -1;
     }
 
@@ -270,22 +267,20 @@ static int saveStockEntry(int nFdStock, size_t tIndex, const Stock *ptItem) {
     return 0;
 }
 
-static void buyProduct(Island *ptIsland, Message tMsg, int nFd) {
+static int prepareTrade(Island *ptIsland, Message *ptMsg, int nFd, char nType, int *pnAmount, size_t *ptIndex) {
     char *psProduct = NULL;
-    char *psBuff = NULL;
-    int nAmount = 0;
-    int nIndex = 0;
     size_t i = 0;
 
-    tMsg.type = MSG_BUY;
+    ptMsg->type = nType;
     if (!isClientDocked(ptIsland, nFd)) {
-        sendError(&tMsg, nFd, "NOT_DOCKED");
-        return;
+        sendError(ptMsg, nFd, "NOT_DOCKED");
+        return -1;
     }
-    if (FLAG_NONE != tMsg.flag ||
-        0 != parseTradeRequest(tMsg.data, tMsg.dataLength, &psProduct, &nAmount)) {
-        sendError(&tMsg, nFd, ERROR_MESSAGE_FORMAT);
-        return;
+
+    if (FLAG_NONE != ptMsg->flag ||
+        0 != parseTradeRequest(ptMsg->data, ptMsg->dataLength, &psProduct, pnAmount)) {
+        sendError(ptMsg, nFd, ERROR_MESSAGE_FORMAT);
+        return -1;
     }
 
     for (i = 0; i < ptIsland->tNumStock; i++) {
@@ -295,7 +290,46 @@ static void buyProduct(Island *ptIsland, Message tMsg, int nFd) {
     }
 
     if (i == ptIsland->tNumStock) {
-        sendError(&tMsg, nFd, "UNKNOWN_PRODUCT");
+        sendError(ptMsg, nFd, "UNKNOWN_PRODUCT");
+        return -1;
+    }
+
+    *ptIndex = i;
+    return 0;
+}
+
+static void completeTrade(Island *ptIsland, Message *ptMsg, int nFd, size_t tIndex, int nAmount, char *psVerb) {
+    Stock *ptItem = &ptIsland->atStock[tIndex];
+    char *psBuff = NULL;
+    int nIndex = 0;
+
+    if (0 != saveStockEntry(ptIsland->nFdStock, tIndex, ptItem)) {
+        printErr("ERROR: could not update the stock file");
+    }
+
+    if (-1 == asprintf(&psBuff, "OK&%s&%d&%d", ptItem->sName, nAmount,
+                       nAmount * ptItem->nPrice)) {
+        return;
+    }
+    buildMessage(ptMsg, FLAG_RESPONSE, psBuff);
+    free(psBuff);
+    sendMessage(ptMsg, nFd);
+
+    nIndex = findClientIndex(ptIsland, nFd);
+    if (-1 != nIndex &&
+        -1 != asprintf(&psBuff, ">>> %s %s %d kg of %s.",
+                       ptIsland->client[nIndex].psName, psVerb, nAmount,
+                       ptItem->sName)) {
+        println(psBuff);
+        free(psBuff);
+    }
+}
+
+static void buyProduct(Island *ptIsland, Message tMsg, int nFd) {
+    int nAmount = 0;
+    size_t i = 0;
+
+    if (0 != prepareTrade(ptIsland, &tMsg, nFd, MSG_BUY, &nAmount, &i)) {
         return;
     }
     if (ptIsland->atStock[i].nQuantity < nAmount) {
@@ -304,25 +338,19 @@ static void buyProduct(Island *ptIsland, Message tMsg, int nFd) {
     }
 
     ptIsland->atStock[i].nQuantity -= nAmount;
-    if (0 != saveStockEntry(ptIsland->nFdStock, i, &ptIsland->atStock[i])) {
-        printErr("ERROR: could not update the stock file");
-    }
-    if (-1 == asprintf(&psBuff, "OK&%s&%d&%d", ptIsland->atStock[i].sName, nAmount,
-                       nAmount * ptIsland->atStock[i].nPrice)) {
+    completeTrade(ptIsland, &tMsg, nFd, i, nAmount, "bought");
+}
+
+static void sellProduct(Island *ptIsland, Message tMsg, int nFd) {
+    int nAmount = 0;
+    size_t i = 0;
+
+    if (0 != prepareTrade(ptIsland, &tMsg, nFd, MSG_SELL, &nAmount, &i)) {
         return;
     }
 
-    buildMessage(&tMsg, FLAG_RESPONSE, psBuff);
-    free(psBuff);
-    sendMessage(&tMsg, nFd);
-
-    nIndex = findClientIndex(ptIsland, nFd);
-    if (-1 != nIndex &&
-        -1 != asprintf(&psBuff, ">>> %s bought %d kg of %s.",
-                       ptIsland->client[nIndex].psName, nAmount,  ptIsland->atStock[i].sName)) {
-        println(psBuff);
-        free(psBuff);
-    }
+    ptIsland->atStock[i].nQuantity += nAmount;
+    completeTrade(ptIsland, &tMsg, nFd, i, nAmount, "sold");
 }
 
 /***********************************************
@@ -439,10 +467,12 @@ void choseOption(Island *island, Message msg, int fd_client) {
             listMarket(island, msg, fd_client);
             break;
         case MSG_BUY:
+            // BUY PRODUCT (RESPONSE)
             buyProduct(island, msg, fd_client);
             break;
         case MSG_SELL:
             // SELL (RESPONSE)
+            sellProduct(island, msg, fd_client);
             break;
         case MSG_BUY_MAP:
             buyMap(island, msg, fd_client);
