@@ -35,6 +35,31 @@ static int findIsland(const Map *ptMap, const char *psName) {
     return -1;
 }
 
+int findDestinationFromIsland(Odysseus ptOdysseus, const char *psDestination) {
+    const KnownIsland *ptHere = NULL;
+    int nNeighbor = 0;
+    int i = 0;
+
+    if (-1 == ptOdysseus.whereAmI) {
+        if (0 ==
+            strcasecmp(ptOdysseus.map.connections[0].name, psDestination)) {
+            return 0;
+        }
+        return -1;
+    }
+
+    ptHere = &ptOdysseus.map.connections[ptOdysseus.whereAmI];
+    
+    for (i = 0; i < ptHere->num_neighbors; i++) {
+        nNeighbor = ptHere->neighbors[i];
+        if (0 == strcasecmp(ptOdysseus.map.connections[nNeighbor].name,
+                            psDestination)) {
+            return nNeighbor;
+        }
+    }
+    return -1;
+}
+
 /***********************************************
  *
  * @Name : addIsland
@@ -68,6 +93,7 @@ static int addIsland(Map *ptMap, const MapRoute *ptRoute) {
     ptNew->port = ptRoute->port;
     ptNew->num_neighbors = 0;
     ptNew->neighbors = NULL;
+
     return ptMap->numConnections++;
 }
 
@@ -97,6 +123,7 @@ static int addNeighbor(KnownIsland *ptIsland, int nNeighbor) {
     }
     ptIsland->neighbors = anTmp;
     ptIsland->neighbors[ptIsland->num_neighbors++] = nNeighbor;
+
     return 0;
 }
 
