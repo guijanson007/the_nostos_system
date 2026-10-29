@@ -41,6 +41,13 @@ typedef struct KnownIsland {
     int *neighbors; // index of the neighbors in the connection
 } KnownIsland;
 
+// Route received when buying a map, before it is merged into the Map
+typedef struct {
+    char *name;
+    char *ip;
+    int port;
+} MapRoute;
+
 typedef struct {
     KnownIsland *connections; // yellow[0] and green[1]
     int numConnections;
