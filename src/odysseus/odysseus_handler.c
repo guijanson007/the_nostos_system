@@ -14,6 +14,7 @@
 
 // own headers
 #include "odysseus/odysseus_conversation.h"
+#include "odysseus/odysseus_map.h"
 #include "odysseus/odysseus_parser.h"
 
 int findDestination(Odysseus ptOdysseus, const char *psDestination) {
@@ -66,7 +67,7 @@ OdysseusStatus odysseusConnect(Odysseus *tOdysseus) {
     return eStatus;
 }
 
-void odysseusMap(Odysseus *tOdysseus) { (void)tOdysseus; }
+void odysseusMap(Odysseus *tOdysseus) { displayMap(tOdysseus); }
 
 void odysseusStatus(Odysseus *ptOdysseus) {
     char *psBuffer = NULL;
