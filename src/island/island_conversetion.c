@@ -216,7 +216,8 @@ static void listMarket(Island *ptIsland, Message tMsg, int nFd) {
 
     buff = NULL;
     if (-1 !=
-        asprintf(&buff, "%zu&%zu&MAP&1&50", ptIsland->tNumStock + 1, ptIsland->tNumStock + 1)) {
+        asprintf(&buff, "%zu&%zu&%s&%d&%d", ptIsland->tNumStock + 1,
+                 ptIsland->tNumStock + 1, MAP_PRODUCT, MAP_AMOUNT, MAP_PRICE)) {
         buildMessage(&tMsg, FLAG_RESPONSE, buff);
         free(buff);
         sendMessage(&tMsg, nFd);
@@ -324,6 +325,70 @@ static void buyProduct(Island *ptIsland, Message tMsg, int nFd) {
     }
 }
 
+/***********************************************
+ *
+ * @Name : buyMap
+ * @Def : Answers a BUY MAP request with all the (SPHRAGIS validated) routes
+ *        of the island, one frame per route. The map is not in the stock, so
+ *        nothing is modified.
+ * @Arg : In: ptIsland = island with the routes and the client list
+ *        In: tMsg = request received
+ *        In: nFd = socket of the client
+ * @Ret : None.
+ *
+ ************************************************/
+static void buyMap(Island *ptIsland, Message tMsg, int nFd) {
+    char *psBuff = NULL;
+    int nIndex = 0;
+    size_t i = 0;
+
+    tMsg.type = MSG_BUY_MAP;
+    if (!isClientDocked(ptIsland, nFd)) {
+        sendError(&tMsg, nFd, "NOT_DOCKED");
+        return;
+    }
+    if (FLAG_NONE != tMsg.flag || 0 == tMsg.dataLength ||
+        !isPositiveInteger(tMsg.data) || MAP_AMOUNT != atoi(tMsg.data)) {
+        sendError(&tMsg, nFd, ERROR_MESSAGE_FORMAT);
+        return;
+    }
+
+    if (0 == ptIsland->tNumRoutes) {
+        if (-1 == asprintf(&psBuff, "%s&%d&0", OK_MESSAGE, MAP_PRICE)) {
+            return;
+        }
+        buildMessage(&tMsg, FLAG_RESPONSE, psBuff);
+        free(psBuff);
+        if (0 != sendMessage(&tMsg, nFd)) {
+            return;
+        }
+    }
+
+    for (i = 0; i < ptIsland->tNumRoutes; i++) {
+        psBuff = NULL;
+        if (-1 == asprintf(&psBuff, "%s&%d&%zu&%zu&%s&%s&%d", OK_MESSAGE,
+                           MAP_PRICE, i + 1, ptIsland->tNumRoutes,
+                           ptIsland->atRoutes[i].psName,
+                           ptIsland->atRoutes[i].psIp,
+                           ptIsland->atRoutes[i].nPort)) {
+            return;
+        }
+        buildMessage(&tMsg, FLAG_RESPONSE, psBuff);
+        free(psBuff);
+        if (0 != sendMessage(&tMsg, nFd)) {
+            return;
+        }
+    }
+
+    nIndex = findClientIndex(ptIsland, nFd);
+    if (-1 != nIndex &&
+        -1 != asprintf(&psBuff, ">>> %s bought the local map.",
+                       ptIsland->client[nIndex].psName)) {
+        println(psBuff);
+        free(psBuff);
+    }
+}
+
 void choseOption(Island *island, Message msg, int fd_client) {
     switch (msg.type) {
         case MSG_ARRIVAL_ISLAND:
@@ -341,7 +406,7 @@ void choseOption(Island *island, Message msg, int fd_client) {
             // SELL (RESPONSE)
             break;
         case MSG_BUY_MAP:
-            // BUY MAP (RESPONSE)
+            buyMap(island, msg, fd_client);
             break;
         case MSG_DELIVER:
             // DELIVER (RESPONSE)
