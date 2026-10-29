@@ -280,11 +280,22 @@ OdysseusStatus odysseusSail(Odysseus *tOdysseus, const char *psDestination) {
 
 OdysseusStatus odysseusBuy(Odysseus *tOdysseus, const char *psProduct,
                            const char *psAmount) {
+    OdysseusStatus eStatus = ODY_OK;
+
     if (-1 == tOdysseus->island_socket || -1 == tOdysseus->whereAmI) {
         return ODY_ERR_NOT_AT_ISLAND;
     }
 
-    return buyProducts(tOdysseus, psProduct, psAmount);
+    eStatus = buyProducts(tOdysseus, psProduct, psAmount);
+
+    if (ODY_OK != eStatus && ODY_ERR_REMOTE != eStatus &&
+        ODY_ERR_NOT_ENOUGH_GOLD != eStatus) {
+        // The island conversation is out of sync, drop it
+        close(tOdysseus->island_socket);
+        tOdysseus->island_socket = -1;
+    }
+
+    return eStatus;
 }
 
 void odysseusSell(Odysseus *tOdysseus, const char *psProduct,

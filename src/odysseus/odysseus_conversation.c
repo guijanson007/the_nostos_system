@@ -17,6 +17,7 @@
 
 #define WAIT "WAIT"
 #define DOCKED "DOCKED"
+#define NO_PRICE -1
 
 OdysseusStatus connectToIthaca(Odysseus *tOdysseus) {
     struct sockaddr_in sAddr;
@@ -447,7 +448,20 @@ static int parseMessageMarket(char *psData, int nLength, int *pnIndex,
     return 0;
 }
 
-OdysseusStatus getListMarket(Odysseus *tOdysseus) {
+/***********************************************
+ *
+ * @Name : queryMarket
+ * @Def : Asks the island for its market. It can print it and/or look for the
+ *        price of one product.
+ * @Arg : In/Out: tOdysseus = odysseus docked at the island
+ *        In: nPrint = 1 to print the market, 0 to stay silent
+ *        In: psWanted = product whose price is wanted, or NULL
+ *        Out: pnPrice = price of psWanted when the island sells it
+ * @Ret : ODY_OK if everything went well, the error status otherwise.
+ *
+ ************************************************/
+static OdysseusStatus queryMarket(Odysseus *tOdysseus, int nPrint,
+                                  const char *psWanted, int *pnPrice) {
     int nIndex = 0;
     int nTotal = 0;
     int nExpected = 1;
@@ -465,7 +479,8 @@ OdysseusStatus getListMarket(Odysseus *tOdysseus) {
         return ODY_ERR_IO;
     }
 
-    if (-1 != asprintf(&psBuffer, "--- %s MARKET ---",
+    if (nPrint &&
+        -1 != asprintf(&psBuffer, "--- %s MARKET ---",
                        tOdysseus->map.connections[tOdysseus->whereAmI].name)) {
         println(psBuffer);
         free(psBuffer);
@@ -494,16 +509,22 @@ OdysseusStatus getListMarket(Odysseus *tOdysseus) {
         nExpected++;
 
         if (nIndex == nTotal) { // MAP
-            println("...");
-            if (-1 != asprintf(&psBuffer, "%s\t\t\t%d gold", psProduct,
-                               nPrice)) {
-                println(psBuffer);
-                free(psBuffer);
+            if (nPrint) {
+                println("...");
+                if (-1 != asprintf(&psBuffer, "%s\t\t\t%d gold", psProduct,
+                                   nPrice)) {
+                    println(psBuffer);
+                    free(psBuffer);
+                }
             }
             break;
         }
 
-        if (-1 != asprintf(&psBuffer, "%s\t%d kg\t %d gold / kg", psProduct,
+        if (NULL != psWanted && 0 == strcasecmp(psProduct, psWanted)) {
+            *pnPrice = nPrice;
+        }
+        if (nPrint &&
+            -1 != asprintf(&psBuffer, "%s\t%d kg\t %d gold / kg", psProduct,
                            nAmount, nPrice)) {
             println(psBuffer);
             free(psBuffer);
@@ -511,6 +532,10 @@ OdysseusStatus getListMarket(Odysseus *tOdysseus) {
     }
 
     return ODY_OK;
+}
+
+OdysseusStatus getListMarket(Odysseus *tOdysseus) {
+    return queryMarket(tOdysseus, 1, NULL, NULL);
 }
 
 static int parseMessageTrade(char *psData, int nLength, char **ppsProduct,
@@ -578,10 +603,22 @@ static int addSupply(Cargo *ptCargo, const char *psName, int nAmount) {
 OdysseusStatus buyProducts(Odysseus *tOdysseus, const char *psProduct,
                            const char *psAmount) {
     Message tMessage;
+    OdysseusStatus eStatus = ODY_OK;
     char *psBuffer = NULL;
     char *psBought = NULL;
     int nAmount = 0;
     int nCost = 0;
+    int nPrice = NO_PRICE;
+
+    // The island can't know our gold, so check it here before ordering
+    eStatus = queryMarket(tOdysseus, 0, psProduct, &nPrice);
+    if (ODY_OK != eStatus) {
+        return eStatus;
+    }
+    if (NO_PRICE != nPrice &&
+        (long long)atoi(psAmount) * nPrice > tOdysseus->cargo.nGold) {
+        return ODY_ERR_NOT_ENOUGH_GOLD;
+    }
 
     memset(&tMessage, 0, sizeof(tMessage));
     tMessage.type = MSG_BUY;
