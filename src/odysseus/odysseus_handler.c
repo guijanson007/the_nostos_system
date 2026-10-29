@@ -18,30 +18,6 @@
 #include "odysseus/odysseus_parser.h"
 #include "utils/utils_communication.h"
 
-int findDestination(Odysseus ptOdysseus, const char *psDestination) {
-    const KnownIsland *ptHere = NULL;
-    int nNeighbor = 0;
-    int i = 0;
-
-    if (-1 == ptOdysseus.whereAmI) {
-        if (0 ==
-            strcasecmp(ptOdysseus.map.connections[0].name, psDestination)) {
-            return 0;
-        }
-        return -1;
-    }
-
-    ptHere = &ptOdysseus.map.connections[ptOdysseus.whereAmI];
-    for (i = 0; i < ptHere->num_neighbors; i++) {
-        nNeighbor = ptHere->neighbors[i];
-        if (0 == strcasecmp(ptOdysseus.map.connections[nNeighbor].name,
-                            psDestination)) {
-            return nNeighbor;
-        }
-    }
-    return -1;
-}
-
 OdysseusStatus odysseusConnect(Odysseus *tOdysseus) {
     OdysseusStatus eStatus = ODY_OK;
 
@@ -199,7 +175,8 @@ OdysseusStatus odysseusAcceptVoyage(Odysseus *tOdysseus,
 OdysseusStatus odysseusSail(Odysseus *tOdysseus, const char *psDestination) {
     OdysseusStatus eStatus = ODY_OK;
     char *psBuffer = NULL;
-    int nDestinationIndex = findDestination(*tOdysseus, psDestination);
+    int nDestinationIndex =
+        findDestinationFromIsland(*tOdysseus, psDestination);
     int nArrival = ARRIVAL_NONE;
 
     if (nDestinationIndex == -1) {
@@ -221,8 +198,9 @@ OdysseusStatus odysseusSail(Odysseus *tOdysseus, const char *psDestination) {
         }
         println("Leaving Ithaca...");
     } else {
-        if (-1 != asprintf(&psBuffer, "Leaving %s...",
-                           tOdysseus->map.connections[tOdysseus->whereAmI].name)) {
+        if (-1 !=
+            asprintf(&psBuffer, "Leaving %s...",
+                     tOdysseus->map.connections[tOdysseus->whereAmI].name)) {
             println(psBuffer);
             free(psBuffer);
         }
@@ -263,13 +241,13 @@ OdysseusStatus odysseusSail(Odysseus *tOdysseus, const char *psDestination) {
     switch (nArrival) {
         case ARRIVAL_DOCKED:
             tOdysseus->whereAmI = nDestinationIndex;
-            if (-1 != asprintf(
-                          &psBuffer, ">>> %s has granted access to the port.",
-                          tOdysseus->map.connections[nDestinationIndex].name)) {
+            if (-1 !=
+                asprintf(&psBuffer, ">>> %s has granted access to the port.",
+                         tOdysseus->map.connections[nDestinationIndex].name)) {
                 println(psBuffer);
                 free(psBuffer);
             }
-            
+
             return ODY_OK;
         case ARRIVAL_LOST_AT_SEA:
             if (-1 != asprintf(&psBuffer,
@@ -320,7 +298,7 @@ OdysseusStatus odysseusBuy(Odysseus *tOdysseus, const char *psProduct,
 }
 
 OdysseusStatus odysseusSell(Odysseus *tOdysseus, const char *psProduct,
-                  const char *psAmount) {
+                            const char *psAmount) {
     int nAmount = atoi(psAmount);
 
     if (-1 == tOdysseus->island_socket || -1 == tOdysseus->whereAmI) {
