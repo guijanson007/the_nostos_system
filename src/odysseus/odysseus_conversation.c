@@ -802,3 +802,29 @@ OdysseusStatus buyMap(Odysseus *tOdysseus) {
 
     return ODY_OK;
 }
+
+OdysseusStatus departFromIsland(Odysseus *tOdysseus) {
+    Message tMessage;
+
+    memset(&tMessage, 0, sizeof(tMessage));
+    tMessage.type = MSG_DEPARTURE_ISLAND;
+    tMessage.flag = FLAG_NONE;
+    if (0 != sendMessage(&tMessage, tOdysseus->island_socket)) {
+        return ODY_ERR_IO;
+    }
+    if (0 != receiveMessage(&tMessage, tOdysseus->island_socket)) {
+        return ODY_ERR_IO;
+    }
+
+    if (MSG_DEPARTURE_ISLAND != tMessage.type) {
+        return ODY_ERR_ISLAND_PROTOCOL;
+    }
+    if (tMessage.flag & FLAG_ERROR) {
+        odysseusSetRemoteError(tOdysseus, tMessage.data, tMessage.dataLength);
+        return ODY_ERR_REMOTE;
+    }
+    if (0 != strcmp(tMessage.data, OK_RESPONSE)) {
+        return ODY_ERR_ISLAND_PROTOCOL;
+    }
+    return ODY_OK;
+}

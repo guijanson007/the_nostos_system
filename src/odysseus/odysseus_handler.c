@@ -203,7 +203,7 @@ OdysseusStatus odysseusSail(Odysseus *tOdysseus, const char *psDestination) {
     int nArrival = ARRIVAL_NONE;
 
     if (nDestinationIndex == -1) {
-        if (-1 != asprintf(&psBuffer, "We can't sail to %s from here",
+        if (-1 != asprintf(&psBuffer, "We can't sail to %s from here...",
                            psDestination)) {
             println(psBuffer);
             free(psBuffer);
@@ -226,8 +226,13 @@ OdysseusStatus odysseusSail(Odysseus *tOdysseus, const char *psDestination) {
             println(psBuffer);
             free(psBuffer);
         }
-        close(tOdysseus->island_socket);
-        tOdysseus->island_socket = -1;
+        if (-1 != tOdysseus->island_socket) {
+            // Closing the socket frees the berth anyway, so a failed
+            // departure doesn't stop us from sailing
+            departFromIsland(tOdysseus);
+            close(tOdysseus->island_socket);
+            tOdysseus->island_socket = -1;
+        }
     }
 
     if (-1 != asprintf(&psBuffer, "Sailing to %s...",
