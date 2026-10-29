@@ -31,7 +31,8 @@
 typedef enum {
     CLIENT_NEW = 0,
     CLIENT_WAITING,
-    CLIENT_DOCKED
+    CLIENT_DOCKED,
+    CLIENT_LEFT // sent DEPARTURE, berth already freed
 }ClientState;
 
 

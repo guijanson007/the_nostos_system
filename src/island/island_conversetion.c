@@ -389,6 +389,45 @@ static void buyMap(Island *ptIsland, Message tMsg, int nFd) {
     }
 }
 
+/***********************************************
+ *
+ * @Name : departure
+ * @Def : Frees the berth of a docked client that is about to sail, answers
+ *        OK and admits the next ship of the queue. The later close of the
+ *        socket then finds the client already marked as left.
+ * @Arg : In/Out: ptIsland = island with the client list
+ *        In: tMsg = request received
+ *        In: nFd = socket of the client
+ * @Ret : None.
+ *
+ ************************************************/
+static void departure(Island *ptIsland, Message tMsg, int nFd) {
+    char *psBuff = NULL;
+    int nIndex = findClientIndex(ptIsland, nFd);
+
+    tMsg.type = MSG_DEPARTURE_ISLAND;
+    if (!isClientDocked(ptIsland, nFd)) {
+        sendError(&tMsg, nFd, "NOT_DOCKED");
+        return;
+    }
+    if (FLAG_NONE != tMsg.flag || 0 != tMsg.dataLength) {
+        sendError(&tMsg, nFd, ERROR_MESSAGE_FORMAT);
+        return;
+    }
+
+    ptIsland->client[nIndex].state = CLIENT_LEFT;
+    ptIsland->numDocked--;
+    buildMessage(&tMsg, FLAG_RESPONSE, OK_MESSAGE);
+    sendMessage(&tMsg, nFd);
+
+    if (-1 != asprintf(&psBuff, ">>> %s has left.",
+                       ptIsland->client[nIndex].psName)) {
+        println(psBuff);
+        free(psBuff);
+    }
+    admitNextShips(ptIsland);
+}
+
 void choseOption(Island *island, Message msg, int fd_client) {
     switch (msg.type) {
         case MSG_ARRIVAL_ISLAND:
@@ -412,7 +451,7 @@ void choseOption(Island *island, Message msg, int fd_client) {
             // DELIVER (RESPONSE)
             break;
         case MSG_DEPARTURE_ISLAND:
-            // DEPARTURE FROM AN ISLAND (RESPONSE)
+            departure(island, msg, fd_client);
             break;
         default:
             break;
