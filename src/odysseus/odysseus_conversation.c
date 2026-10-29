@@ -367,7 +367,6 @@ OdysseusStatus waitingAtPort(Odysseus *ptOdysseus, int *pnArrival) {
                         &tTimeout);
 
         if (-1 == nReady) {
-            // SIGINT: stop waiting quietly, the menu loop will quit
             return EINTR == errno ? ODY_OK : ODY_ERR_IO;
         }
 
@@ -541,40 +540,6 @@ static int parseMessageTrade(char *psData, int nLength, char **ppsProduct,
     return 0;
 }
 
-static int addSupply(Cargo *ptCargo, const char *psName, int nAmount) {
-    Supply *atTmp = NULL;
-    char *psCopy = NULL;
-    int i = 0;
-
-    for (i = 0; i < ptCargo->numSupplies; i++) {
-        if (0 == strcasecmp(ptCargo->supplies[i].name, psName)) {
-            ptCargo->supplies[i].amount += nAmount;
-            ptCargo->totalAmount += nAmount;
-            return 0;
-        }
-    }
-
-    psCopy = strdup(psName);
-    if (NULL == psCopy) {
-        return -1;
-    }
-
-    atTmp =
-        realloc(ptCargo->supplies, sizeof(Supply) * (ptCargo->numSupplies + 1));
-    if (NULL == atTmp) {
-        free(psCopy);
-        return -1;
-    }
-
-    ptCargo->supplies = atTmp;
-    ptCargo->supplies[ptCargo->numSupplies].name = psCopy;
-    ptCargo->supplies[ptCargo->numSupplies].amount = nAmount;
-    ptCargo->numSupplies++;
-    ptCargo->totalAmount += nAmount;
-
-    return 0;
-}
-
 OdysseusStatus buyProducts(Odysseus *tOdysseus, const char *psProduct,
                            const char *psAmount) {
     Message tMessage;
@@ -613,7 +578,6 @@ OdysseusStatus buyProducts(Odysseus *tOdysseus, const char *psProduct,
         return ODY_ERR_ISLAND_PROTOCOL;
     }
 
-    // Store the goods first: if that fails nothing has been charged locally
     if (0 != addSupply(&tOdysseus->cargo, psBought, nAmount)) {
         return ODY_ERR_IO;
     }
@@ -621,6 +585,56 @@ OdysseusStatus buyProducts(Odysseus *tOdysseus, const char *psProduct,
 
     if (-1 != asprintf(&psBuffer, "Bought %d kg of %s for %d gold.", nAmount,
                        psBought, nCost)) {
+        println(psBuffer);
+        free(psBuffer);
+    }
+
+    return ODY_OK;
+}
+
+OdysseusStatus sellProduct(Odysseus *tOdysseus, const char *psProduct, int nAmount) {
+    Message tMessage;
+    char *psBuffer;
+    int nIncome = 0;
+
+    memset(&tMessage, 0, sizeof(tMessage));
+    tMessage.type = MSG_SELL;
+
+    if (-1 == asprintf(&psBuffer, "%s&%d", psProduct, nAmount)) {
+        return ODY_ERR_IO;
+    }
+    buildMessage(&tMessage, FLAG_NONE, psBuffer);
+    free(psBuffer);
+
+    if (-1 == sendMessage(&tMessage, tOdysseus->island_socket)) {
+        return ODY_ERR_IO;
+    }
+    
+    if (0 != receiveMessage(&tMessage, tOdysseus->island_socket)) {
+        return ODY_ERR_IO;
+    }
+
+    if (MSG_SELL != tMessage.type) {
+        return ODY_ERR_ISLAND_PROTOCOL;
+    }
+    if (tMessage.flag & FLAG_ERROR) {
+        odysseusSetRemoteError(tOdysseus, tMessage.data, tMessage.dataLength);
+        return ODY_ERR_REMOTE;
+    }
+
+    
+    if (0 != parseMessageTrade(tMessage.data, tMessage.dataLength, &psBuffer,
+                               &nAmount, &nIncome)) {
+        return ODY_ERR_ISLAND_PROTOCOL;
+    }
+
+    if (0 != removeSuplies(&tOdysseus->cargo, psProduct, nAmount)) {
+        return ODY_ERR_IO;
+    }
+    tOdysseus->cargo.nGold += nIncome;
+
+    if (-1 != asprintf(&psBuffer, "Sold %d kg of %s for %d gold.", nAmount,
+                       psProduct, nIncome)) {
         println(psBuffer);
         free(psBuffer);
     }

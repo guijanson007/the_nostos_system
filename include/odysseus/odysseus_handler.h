@@ -26,7 +26,7 @@ OdysseusStatus odysseusListVoyages(Odysseus *tOdysseus);
 OdysseusStatus odysseusAcceptVoyage(Odysseus *tOdysseus,
                                     const char *psVoyageId);
 OdysseusStatus odysseusSail(Odysseus *tOdysseus, const char *psDestination);
-void odysseusSell(Odysseus *tOdysseus, const char *psProduct,
+OdysseusStatus odysseusSell(Odysseus *tOdysseus, const char *psProduct,
                   const char *psAmount);
 
 #endif // !#ifndef __ODYSSEUS_HANDLER_H__

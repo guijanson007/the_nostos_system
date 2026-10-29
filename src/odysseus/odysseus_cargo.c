@@ -34,3 +34,66 @@ void calculateTotalGold(Cargo *ptCargo) {
         ptCargo->totalAmount += ptCargo->supplies[i].amount;
     }
 }
+
+int addSupply(Cargo *ptCargo, const char *psName, int nAmount) {
+    Supply *atTmp = NULL;
+    char *psCopy = NULL;
+    int i = 0;
+
+    for (i = 0; i < ptCargo->numSupplies; i++) {
+        if (0 == strcasecmp(ptCargo->supplies[i].name, psName)) {
+            ptCargo->supplies[i].amount += nAmount;
+            ptCargo->totalAmount += nAmount;
+            return 0;
+        }
+    }
+
+    psCopy = strdup(psName);
+    if (NULL == psCopy) {
+        return -1;
+    }
+
+    atTmp =
+        realloc(ptCargo->supplies, sizeof(Supply) * (ptCargo->numSupplies + 1));
+    if (NULL == atTmp) {
+        free(psCopy);
+        return -1;
+    }
+
+    ptCargo->supplies = atTmp;
+    ptCargo->supplies[ptCargo->numSupplies].name = psCopy;
+    ptCargo->supplies[ptCargo->numSupplies].amount = nAmount;
+    ptCargo->numSupplies++;
+    ptCargo->totalAmount += nAmount;
+
+    return 0;
+}
+
+
+int removeSuplies(Cargo *ptCargo, const char *psName, int nAmount) {
+    int i;
+    
+    for (i = 0; i < ptCargo->numSupplies; i++) {
+        if (0 == strcasecmp(ptCargo->supplies[i].name, psName)) {
+            if (i == ptCargo->numSupplies) {
+                return -1
+            }
+
+            if (ptCargo->supplies[i].amount < nAmount) {
+                return -1;
+            }
+            
+            ptCargo->supplies[i].amount -= nAmount;
+            ptCargo->totalAmount -= nAmount;
+
+            if (0 == ptCargo->supplies[i].amount) {
+                    free(ptCargo->supplies[i].name);
+            for (j = i; j < ptCargo->numSupplies - 1; j++) {
+                ptCargo->supplies[j] = ptCargo->supplies[j + 1];
+            }
+            ptCargo->numSupplies--;
+        }
+    }
+
+    return 0;
+}
