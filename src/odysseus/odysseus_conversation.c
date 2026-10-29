@@ -12,12 +12,19 @@
 #include "odysseus/odysseus_conversation.h"
 
 // own headers
+#include "odysseus/odysseus_map.h"
 #include "odysseus/odysseus_parser.h"
 #include "utils/utils_communication.h"
 
 #define WAIT "WAIT"
 #define DOCKED "DOCKED"
+#define OK_RESPONSE "OK"
+#define MAP_FIELDS_EMPTY 3
+#define MAP_FIELDS_ROUTE 7
+#define MAX_MAP_ROUTES 20
+#define MAX_PORT 65535
 #define NO_PRICE -1
+#define NO_TOTAL -1
 
 OdysseusStatus connectToIthaca(Odysseus *tOdysseus) {
     struct sockaddr_in sAddr;
@@ -661,6 +668,137 @@ OdysseusStatus buyProducts(Odysseus *tOdysseus, const char *psProduct,
         println(psBuffer);
         free(psBuffer);
     }
+
+    return ODY_OK;
+}
+
+/***********************************************
+ *
+ * @Name : parseMapRoute
+ * @Def : Parses one frame of a BUY MAP response and checks it is the next one
+ *        expected. The first frame sets the total.
+ * @Arg : In/Out: psData = payload, split in place
+ *        In: nReceived = routes received before this frame
+ *        In/Out: pnTotal = routes announced by the island, NO_TOTAL until the
+ *                first frame
+ *        Out: ptRoute = route found (strings are duplicated), if any
+ *        Out: pnIsRoute = 1 if the frame carried a route, 0 for the empty map
+ * @Ret : 0 if the frame is valid, -1 otherwise.
+ *
+ ************************************************/
+static int parseMapRoute(char *psData, int nReceived, int *pnTotal,
+                         MapRoute *ptRoute, int *pnIsRoute) {
+    char *apsFields[MAP_FIELDS_ROUTE];
+    int nFields = splitFields(psData, apsFields, MAP_FIELDS_ROUTE);
+
+    *pnIsRoute = 0;
+    if (nFields < MAP_FIELDS_EMPTY || 0 != strcmp(apsFields[0], OK_RESPONSE) ||
+        !isPositiveInteger(apsFields[1]) || MAP_PRICE != atoi(apsFields[1])) {
+        return -1;
+    }
+
+    if (MAP_FIELDS_EMPTY == nFields) {
+        if (NO_TOTAL != *pnTotal || 0 != strcmp(apsFields[2], "0")) {
+            return -1;
+        }
+        *pnTotal = 0;
+        return 0;
+    }
+
+    // OK&50&<Index>&<Total>&<Name>&<IP>&<Port>
+    if (MAP_FIELDS_ROUTE != nFields || !isPositiveInteger(apsFields[2]) ||
+        !isPositiveInteger(apsFields[3]) || '\0' == *apsFields[4] ||
+        '\0' == *apsFields[5] || !isPositiveInteger(apsFields[6]) ||
+        atoi(apsFields[6]) > MAX_PORT) {
+        return -1;
+    }
+    if (atoi(apsFields[2]) != nReceived + 1 || atoi(apsFields[3]) < 1 ||
+        atoi(apsFields[3]) > MAX_MAP_ROUTES ||
+        (NO_TOTAL != *pnTotal && atoi(apsFields[3]) != *pnTotal)) {
+        return -1;
+    }
+    *pnTotal = atoi(apsFields[3]);
+
+    ptRoute->name = strdup(apsFields[4]);
+    ptRoute->ip = strdup(apsFields[5]);
+    ptRoute->port = atoi(apsFields[6]);
+    if (NULL == ptRoute->name || NULL == ptRoute->ip) {
+        free(ptRoute->name);
+        free(ptRoute->ip);
+        return -1;
+    }
+    *pnIsRoute = 1;
+    return 0;
+}
+
+OdysseusStatus buyMap(Odysseus *tOdysseus) {
+    Message tMessage;
+    OdysseusStatus eStatus = ODY_OK;
+    MapRoute *atRoutes = NULL;
+    MapRoute *atTmp = NULL;
+    MapRoute tRoute;
+    char *psBuffer = NULL;
+    int nTotal = NO_TOTAL;
+    int nReceived = 0;
+    int nIsRoute = 0;
+
+    memset(&tMessage, 0, sizeof(tMessage));
+    tMessage.type = MSG_BUY_MAP;
+    if (-1 == asprintf(&psBuffer, "%d", MAP_AMOUNT)) {
+        return ODY_ERR_IO;
+    }
+    buildMessage(&tMessage, FLAG_NONE, psBuffer);
+    free(psBuffer);
+    psBuffer = NULL;
+    if (0 != sendMessage(&tMessage, tOdysseus->island_socket)) {
+        return ODY_ERR_IO;
+    }
+
+    // Receive everything first: nothing is charged or merged unless the whole
+    // response is valid
+    while (ODY_OK == eStatus && (NO_TOTAL == nTotal || nReceived < nTotal)) {
+        if (0 != receiveMessage(&tMessage, tOdysseus->island_socket)) {
+            eStatus = ODY_ERR_IO;
+        } else if (MSG_BUY_MAP != tMessage.type) {
+            eStatus = ODY_ERR_ISLAND_PROTOCOL;
+        } else if (tMessage.flag & FLAG_ERROR) {
+            odysseusSetRemoteError(tOdysseus, tMessage.data,
+                                   tMessage.dataLength);
+            eStatus = ODY_ERR_REMOTE;
+        } else if (FLAG_RESPONSE != tMessage.flag ||
+                   0 != parseMapRoute(tMessage.data, nReceived, &nTotal,
+                                      &tRoute, &nIsRoute)) {
+            eStatus = ODY_ERR_ISLAND_PROTOCOL;
+        } else if (nIsRoute) {
+            atTmp = realloc(atRoutes, sizeof(MapRoute) * (nReceived + 1));
+            if (NULL == atTmp) {
+                free(tRoute.name);
+                free(tRoute.ip);
+                eStatus = ODY_ERR_IO;
+            } else {
+                atRoutes = atTmp;
+                atRoutes[nReceived++] = tRoute;
+            }
+        }
+    }
+
+    if (ODY_OK == eStatus && 0 != mergeRoutes(tOdysseus, atRoutes, nReceived)) {
+        eStatus = ODY_ERR_IO;
+    }
+    freeMapRoutes(atRoutes, nReceived);
+    if (ODY_OK != eStatus) {
+        return eStatus;
+    }
+
+    tOdysseus->cargo.nGold -= MAP_PRICE;
+    if (-1 != asprintf(&psBuffer, "Bought the map of %s for %d gold.",
+                       tOdysseus->map.connections[tOdysseus->whereAmI].name,
+                       MAP_PRICE)) {
+        println(psBuffer);
+        free(psBuffer);
+    }
+    println(0 < nReceived ? "New routes have been charted."
+                          : "There were no routes to chart.");
 
     return ODY_OK;
 }

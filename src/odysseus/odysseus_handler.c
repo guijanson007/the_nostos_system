@@ -16,6 +16,7 @@
 #include "odysseus/odysseus_conversation.h"
 #include "odysseus/odysseus_map.h"
 #include "odysseus/odysseus_parser.h"
+#include "utils/utils_communication.h"
 
 int findDestination(Odysseus ptOdysseus, const char *psDestination) {
     const KnownIsland *ptHere = NULL;
@@ -287,7 +288,17 @@ OdysseusStatus odysseusBuy(Odysseus *tOdysseus, const char *psProduct,
         return ODY_ERR_NOT_AT_ISLAND;
     }
 
-    eStatus = buyProducts(tOdysseus, psProduct, psAmount);
+    if (0 == strcasecmp(psProduct, MAP_PRODUCT)) {
+        if (MAP_AMOUNT != atoi(psAmount)) {
+            return ODY_ERR_MAP_AMOUNT;
+        }
+        if (tOdysseus->cargo.nGold < MAP_PRICE) {
+            return ODY_ERR_NOT_ENOUGH_GOLD;
+        }
+        eStatus = buyMap(tOdysseus);
+    } else {
+        eStatus = buyProducts(tOdysseus, psProduct, psAmount);
+    }
 
     if (ODY_OK != eStatus && ODY_ERR_REMOTE != eStatus &&
         ODY_ERR_NOT_ENOUGH_GOLD != eStatus) {
