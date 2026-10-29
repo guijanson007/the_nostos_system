@@ -14,7 +14,9 @@
 
 // own headers
 #include "odysseus/odysseus_conversation.h"
+#include "odysseus/odysseus_map.h"
 #include "odysseus/odysseus_parser.h"
+#include "utils/utils_communication.h"
 
 int findDestination(Odysseus ptOdysseus, const char *psDestination) {
     const KnownIsland *ptHere = NULL;
@@ -66,7 +68,7 @@ OdysseusStatus odysseusConnect(Odysseus *tOdysseus) {
     return eStatus;
 }
 
-void odysseusMap(Odysseus *tOdysseus) { (void)tOdysseus; }
+void odysseusMap(Odysseus *tOdysseus) { displayMap(tOdysseus); }
 
 void odysseusStatus(Odysseus *ptOdysseus) {
     char *psBuffer = NULL;
@@ -201,7 +203,7 @@ OdysseusStatus odysseusSail(Odysseus *tOdysseus, const char *psDestination) {
     int nArrival = ARRIVAL_NONE;
 
     if (nDestinationIndex == -1) {
-        if (-1 != asprintf(&psBuffer, "We can't sail to %s from here",
+        if (-1 != asprintf(&psBuffer, "We can't sail to %s from here...",
                            psDestination)) {
             println(psBuffer);
             free(psBuffer);
@@ -224,8 +226,13 @@ OdysseusStatus odysseusSail(Odysseus *tOdysseus, const char *psDestination) {
             println(psBuffer);
             free(psBuffer);
         }
-        close(tOdysseus->island_socket);
-        tOdysseus->island_socket = -1;
+        if (-1 != tOdysseus->island_socket) {
+            // Closing the socket frees the berth anyway, so a failed
+            // departure doesn't stop us from sailing
+            departFromIsland(tOdysseus);
+            close(tOdysseus->island_socket);
+            tOdysseus->island_socket = -1;
+        }
     }
 
     if (-1 != asprintf(&psBuffer, "Sailing to %s...",
@@ -280,11 +287,32 @@ OdysseusStatus odysseusSail(Odysseus *tOdysseus, const char *psDestination) {
 
 OdysseusStatus odysseusBuy(Odysseus *tOdysseus, const char *psProduct,
                            const char *psAmount) {
+    OdysseusStatus eStatus = ODY_OK;
+
     if (-1 == tOdysseus->island_socket || -1 == tOdysseus->whereAmI) {
         return ODY_ERR_NOT_AT_ISLAND;
     }
 
-    return buyProducts(tOdysseus, psProduct, psAmount);
+    if (0 == strcasecmp(psProduct, MAP_PRODUCT)) {
+        if (MAP_AMOUNT != atoi(psAmount)) {
+            return ODY_ERR_MAP_AMOUNT;
+        }
+        if (tOdysseus->cargo.nGold < MAP_PRICE) {
+            return ODY_ERR_NOT_ENOUGH_GOLD;
+        }
+        eStatus = buyMap(tOdysseus);
+    } else {
+        eStatus = buyProducts(tOdysseus, psProduct, psAmount);
+    }
+
+    if (ODY_OK != eStatus && ODY_ERR_REMOTE != eStatus &&
+        ODY_ERR_NOT_ENOUGH_GOLD != eStatus) {
+        // The island conversation is out of sync, drop it
+        close(tOdysseus->island_socket);
+        tOdysseus->island_socket = -1;
+    }
+
+    return eStatus;
 }
 
 void odysseusSell(Odysseus *tOdysseus, const char *psProduct,

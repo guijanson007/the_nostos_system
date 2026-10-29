@@ -98,6 +98,10 @@ const char *odysseusStatusMessage(const Odysseus *ptOdysseus,
             return "ERROR: Unexpected response from the island";
         case ODY_ERR_NOT_AT_ISLAND:
             return "ERROR: You are not docked at an island";
+        case ODY_ERR_NOT_ENOUGH_GOLD:
+            return "ERROR: You don't have enough gold";
+        case ODY_ERR_MAP_AMOUNT:
+            return "ERROR: Only one map can be bought at a time";
         case ODY_ERR_ALREADY_CONNECTED:
             return "ERROR: Already connected to Ithaca";
         case ODY_ERR_INVALID_COMMAND:

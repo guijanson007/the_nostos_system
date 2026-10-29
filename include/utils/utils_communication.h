@@ -14,6 +14,11 @@
 
 #define MESSAGE_SIZE 256
 
+// Maps are not in stock.db: fixed product, quantity and price
+#define MAP_PRODUCT "MAP"
+#define MAP_AMOUNT 1
+#define MAP_PRICE 50
+
 #define FLAG_NONE 0x00
 #define FLAG_RESPONSE 0x80
 #define FLAG_ERROR 0x40
