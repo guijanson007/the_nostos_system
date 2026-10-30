@@ -217,6 +217,8 @@ CommandValidationResult validateOdysseusCommand(const OdysseusCommand *ptCommand
         case COMMAND_SELL:
             if (0 == hasExactlyTwoArguments(ptCommand)) {
                 *ppsErrorMessage = USAGE_SELL;
+            } else if (NULL != strchr(ptCommand->argv[0], FIELD_SEPARATOR)) {
+                *ppsErrorMessage = ERROR_PRODUCT;
             } else if (0 == isPositiveInteger(ptCommand->argv[1])) {
                 *ppsErrorMessage = ERROR_AMOUNT;
             }
@@ -274,8 +276,7 @@ OdysseusStatus executeOdysseusCommand(Odysseus *tOdysseus,
             return odysseusBuy(tOdysseus, ptCommand->argv[0],
                                ptCommand->argv[1]);
         case COMMAND_SELL:
-            odysseusSell(tOdysseus, ptCommand->argv[0], ptCommand->argv[1]);
-            break;
+            return odysseusSell(tOdysseus, ptCommand->argv[0], ptCommand->argv[1]);
         case COMMAND_UNKNOWN:
             break;
         default:

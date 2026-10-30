@@ -258,35 +258,32 @@ OdysseusStatus requestAcceptVoyage(Odysseus *tOdysseus, int nVoyageId) {
 
 OdysseusStatus disconnectFromIthaca(Odysseus *tOdysseus) {
     Message tMessage;
+    OdysseusStatus eStatus = ODY_OK;
+
     memset(&tMessage, 0, sizeof(tMessage));
     tMessage.type = MSG_DISCONNECT_ITHACA;
     tMessage.flag = FLAG_NONE;
-    tMessage.dataLength = 0;
-    tMessage.data[0] = '\0';
 
-    if (sendMessage(&tMessage, tOdysseus->ithaca_socket) != 0) {
+    if (0 != sendMessage(&tMessage, tOdysseus->ithaca_socket)) {
+        close(tOdysseus->ithaca_socket);
+        tOdysseus->ithaca_socket = -1;
         return ODY_ERR_IO;
     }
-
-    // Wait for the response from Ithaca
-    if (receiveMessage(&tMessage, tOdysseus->ithaca_socket) != 0) {
-        return ODY_ERR_IO;
+    
+    if (0 != receiveMessage(&tMessage, tOdysseus->ithaca_socket)) {
+        eStatus = ODY_ERR_IO;
     }
-
-    if (tMessage.type != MSG_DISCONNECT_ITHACA) {
-        return ODY_ERR_PROTOCOL;
+    else if (MSG_DISCONNECT_ITHACA != tMessage.type ||!(tMessage.flag & FLAG_RESPONSE)) {
+        eStatus = ODY_ERR_PROTOCOL;
     }
-
-    if (tMessage.flag & FLAG_ERROR) {
+    else if (tMessage.flag & FLAG_ERROR) {
         odysseusSetRemoteError(tOdysseus, tMessage.data, tMessage.dataLength);
-        return ODY_ERR_REMOTE;
-    } else if (!(tMessage.flag & FLAG_RESPONSE)) {
-        return ODY_ERR_PROTOCOL;
+        eStatus = ODY_ERR_REMOTE;
     }
 
     close(tOdysseus->ithaca_socket);
     tOdysseus->ithaca_socket = -1;
-    return ODY_OK;
+    return eStatus;
 }
 
 OdysseusStatus arriveAtIsland(Odysseus *tOdysseus, int *pnArrival) {

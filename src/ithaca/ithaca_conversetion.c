@@ -264,14 +264,14 @@ void choseOption(Ithaca *ithaca, Message msg, int fd_client) {
             break;
         case MSG_CLAIM:
             // CLAIM (REQUEST)
+            sendNack(fd_client, NACK_INVALID_TYPE)
             break;
         case MSG_DISCONNECT_ITHACA:
             // DISCONNECT FROM ITHACA (REQUEST)
             disconectIthaca(fd_client, ithaca, msg);
             break;
         default:
-            msg.flag = FLAG_ERROR;
-            sendMessage(&msg, fd_client);
+            sendNack(fd_client, NACK_INVALID_TYPE)
             break;
     }
 }

@@ -19,10 +19,17 @@
 #define MAP_AMOUNT 1
 #define MAP_PRICE 50
 
+#define MESSAGE_DATA_MAX 253
+
 #define FLAG_NONE 0x00
 #define FLAG_RESPONSE 0x80
 #define FLAG_ERROR 0x40
 #define FLAG_BINARY 0x20
+#define FLAG_RESERVED_MASK 0x1F
+
+#define NACK_INVALID_TYPE "INVALID_TYPE"
+#define NACK_INVALID_LENGTH "INVALID_LENGTH"
+#define NACK_INVALID_FLAGS "INVALID_FLAGS"
 
 typedef enum {
     MSG_CONNECT_ITHACA = 0x01,
@@ -37,6 +44,7 @@ typedef enum {
     MSG_BUY_MAP = 0x14,
     MSG_DELIVER = 0x15,
     MSG_DEPARTURE_ISLAND = 0x16,
+    MSG_NACK = 0x7F;
 } MessageType;
 
 typedef struct {
@@ -49,5 +57,6 @@ typedef struct {
 void buildMessage(Message *msg, const char flags, const char *data);
 int sendMessage(const Message *msg, int fd);
 int receiveMessage(Message *msg, int fd);
+void sendNack(int fd, const char *psReason);
 
 #endif

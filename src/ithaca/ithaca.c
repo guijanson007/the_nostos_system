@@ -276,8 +276,16 @@ int main(int argc, char *argv[]) {
                     tIthaca.max_fd = nFdClient;
             } else {
                 Message msg;
-                if (receiveMessage(&msg, fd) != 0) {
-                    printErr(ERROR_RECEIVE_MESSAGE);
+                 int nResult = receiveMessage(&msg, fd);
+                if (-2 == nResult) {
+                    sendNack(fd, NACK_INVALID_LENGTH);
+                    continue;
+                }
+                if (-3 == nResult) {
+                    sendNack(fd, NACK_INVALID_FLAGS);
+                    continue;
+                }
+                if (0 != nResult) {
                     if (0 != removeClient(&tIthaca, fd)) {
                         // Never registered: drop the socket anyway
                         close(fd);
@@ -285,8 +293,7 @@ int main(int argc, char *argv[]) {
                     }
                     continue;
                 }
-                // receiveMessage(&msg, fd);
-                //  Option to handel the options
+
                 choseOption(&tIthaca, msg, fd);
             }
         }

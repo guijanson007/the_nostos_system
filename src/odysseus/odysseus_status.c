@@ -113,6 +113,10 @@ const char *odysseusStatusMessage(const Odysseus *ptOdysseus,
         case ODY_ERR_NOT_LISTED:
             return "ERROR: That voyage is not in the last listing, use LIST "
                    "VOYAGES";
+        case ODY_ERR_NOT_ENOUGH_CARGO:
+            return "ERROR: Not enough cargo in the odysseus";
+        case ODY_ERR_NOT_IN_CARGO:
+            return "ERROR: The odysseus dosn't have the product"
         default:
             return "ERROR: Unknown error";
     }

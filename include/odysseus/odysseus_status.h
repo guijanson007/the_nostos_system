@@ -33,7 +33,9 @@ typedef enum {
     ODY_ERR_NOT_AT_ISLAND,
     ODY_LOST_AT_SEA,
     ODY_ERR_NOT_ENOUGH_GOLD,
-    ODY_ERR_MAP_AMOUNT
+    ODY_ERR_MAP_AMOUNT,
+    ODY_ERR_NOT_IN_CARGO,
+    ODY_ERR_NOT_ENOUGH_CARGO
 } OdysseusStatus;
 
 struct Odysseus;

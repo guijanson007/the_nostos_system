@@ -45,8 +45,11 @@ int receiveMessage(Message *msg, int fd) {
         return -1;
     }
 
-    if (buffer[2] > 253) {
-        return -1;
+    if (buffer[2] > MESSAGE_DATA_MAX) {
+        return -2;
+    }
+    if (0 != (buffer[1] & FLAG_RESERVED_MASK)) {
+        return -3;
     }
     
     msg->type = buffer[0];
@@ -56,4 +59,13 @@ int receiveMessage(Message *msg, int fd) {
     msg->data[msg->dataLength] = '\0';
     
     return 0;
+}
+
+void sendNack(int fd, const char *psReason) {
+    Message tMsg;
+
+    memset(&tMsg, 0, sizeof(tMsg));
+    tMsg.type = MSG_NACK;
+    buildMessage(&tMsg, FLAG_RESPONSE | FLAG_ERROR, psReason);
+    sendMessage(&tMsg, fd);
 }

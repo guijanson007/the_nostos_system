@@ -341,9 +341,15 @@ int main(int argc, char *argv[]) {
             close(fd);
     }
 
+    for (size_t i = 0; i < tIsland.numClients; i++) {
+        free(tIsland.client[i].psName);
+    }
+    free(tIsland.client);
+
     closeFiles(&nFdConfig, &tIsland.nFdStock);
     freeStock(&tIsland.atStock);
     freeIsland(&tIsland, &tSphragis);
     println("\nIsland process finished.");
+
     return EXIT_SUCCESS;
 }

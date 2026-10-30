@@ -10,6 +10,7 @@
 // own headers
 #include "odysseus/odysseus.h"
 #include "odysseus/odysseus_menu.h"
+#include "odysseus/odysseus_conversation.h"
 
 // event flag to indicate when to quit the program
 volatile sig_atomic_t nEv_quit = 0;
@@ -134,6 +135,12 @@ int main(int argc, char *argv[]) {
             break;
     }
 
+    if (-1 != tOdysseus.ithaca_socket) {
+        disconnectFromIthaca(&tOdysseus);
+    }
+    if (-1 != tOdysseus.island_socket) {
+        departFromIsland(&tOdysseus);
+    }
     freeOdysseus(&tOdysseus);
     return EXIT_SUCCESS;
 }

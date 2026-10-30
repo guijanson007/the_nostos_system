@@ -14,6 +14,7 @@
 #include "odysseus/odysseus.h"
 
 // Functions
+int findDestinationFromIsland(Odysseus *ptOdysseus, const char *psDestination);
 int mergeRoutes(Odysseus *ptOdysseus, const MapRoute *atRoutes, int nRoutes);
 void freeMapRoutes(MapRoute *atRoutes, int nRoutes);
 void displayMap(const Odysseus *ptOdysseus);
