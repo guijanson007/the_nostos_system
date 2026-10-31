@@ -24,7 +24,7 @@
 void odysseusStartMenu(Odysseus tOdysseus) {
     char *psBuffer = NULL;
 
-    if (-1 != asprintf(&psBuffer, MSG_START_MENU, tOdysseus.name)) {
+    if (-1 != asprintf(&psBuffer, MSG_START_MENU, tOdysseus.psName)) {
         println(psBuffer);
         free(psBuffer);
     }

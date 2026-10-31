@@ -27,26 +27,30 @@
 #define INITIAL_ELEMENT_CAPACITY 100
 #define INITIAL_LINES_CAPACITY 1
 #define INITIAL_BINARY_CAPACITY 1
-#define ERROR_SOCKET "ERROR: the socket could not be created\n"
-#define ERR_CONNECT "ERROR: Could not connect to the server\n"
-#define MAX_CONN 10
 #define MAX_INT_DIGITS 9
+#define UPPER_CASE_OFFSET 32
+#define NEW_LINE "\n"
+
+
+#define ERROR_MALLOC "Malloc error"
+#define ERROR_REALLOC "Realloc error"
+#define ERROR_READ "Read error"
+
+#include "utils.h"
 
 // Functions
 void freeLines(char **apsLines, size_t tCount);
 void writeToFileAndStdOut(int nFd, const char *psMessage);
 void println(const char *psMessage);
+void print(const char *psMessage);
 void printErr(const char *psMessage);
 void strToUpper(char *psString);
+char *readUntil(int nFd, char cEnd);
 void *readUntilEmpty(int nFd, size_t tElementSize, size_t *ptOutCount);
 int readLine(int nFd, char **ppsBuffer);
 char **readLines(int nFd, size_t *ptOutCount);
 void *readBinary(int nFd, size_t tElementSize, size_t *ptOutCount);
 int isAllDigits(const char *psString);
 int isPositiveInteger(const char *psString);
-int openListenConn(char *ip, int port);
-int openClientConn(char *ip, int port);
-char *readUntil(int fd, char cEnd);
-void print(const char *psMessage);
 
 #endif // __UTILS_H__

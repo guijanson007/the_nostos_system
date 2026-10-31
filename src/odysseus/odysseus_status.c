@@ -19,105 +19,107 @@
 #include <stdlib.h>
 #include <string.h>
 
-/*************************************************
+/***********************************************
  *
  * @Name : odysseusSetErrnoError
  * @Def : Stores "<prefix><strerror(errno)>" as the detail message of the
- * Odysseus instance, to be read later by odysseusStatusMessage. Replaces (and
- * frees) any previous message. The message is freed by the next call or by
- * freeOdysseus.
+ *        Odysseus instance, to be read later by odysseusStatusMessage.
+ *        Replaces (and frees) any previous message. The message is freed
+ *        by the next call or by freeOdysseus.
  * @Arg : In/Out: ptOdysseus = Odysseus instance that keeps the message
  *        In: psPrefix = text that goes before the error description
  *        In: nErrno = errno value to describe
  * @Ret : None. If the allocation fails the message is left NULL.
  *
- **************************************************/
+ ************************************************/
 void odysseusSetErrnoError(Odysseus *ptOdysseus, const char *psPrefix,
                            int nErrno) {
-    free(ptOdysseus->lastError);
-    ptOdysseus->lastError = NULL;
-
-    if (-1 ==
-        asprintf(&ptOdysseus->lastError, "%s%s", psPrefix, strerror(nErrno))) {
-        ptOdysseus->lastError = NULL;
+    free(ptOdysseus->psLastError);
+    ptOdysseus->psLastError = NULL;
+ 
+    if (-1 == asprintf(&ptOdysseus->psLastError, ERRNO_ERROR_FORMAT, psPrefix,
+                       strerror(nErrno))) {
+        ptOdysseus->psLastError = NULL;
     }
 }
 
-/*************************************************
+/***********************************************
  *
  * @Name : odysseusSetRemoteError
- * @Def : Stores the error text sent by the remote side as the detail message
- * of the Odysseus instance. The text is copied with its length, so it does not
- * need to be NUL terminated. Replaces (and frees) any previous message.
+ * @Def : Stores the error text sent by the remote side as the detail
+ *        message of the Odysseus instance. The text is copied with its
+ *        length, so it does not need to be NUL terminated. Replaces (and
+ *        frees) any previous message.
  * @Arg : In/Out: ptOdysseus = Odysseus instance that keeps the message
  *        In: psData = text received in the message
  *        In: tDataLength = number of bytes of psData to copy
  * @Ret : None. If the allocation fails the message is left NULL.
  *
- **************************************************/
+ ************************************************/
 void odysseusSetRemoteError(Odysseus *ptOdysseus, const char *psData,
                             size_t tDataLength) {
-    free(ptOdysseus->lastError);
-    ptOdysseus->lastError = NULL;
-
-    if (-1 ==
-        asprintf(&ptOdysseus->lastError, "%.*s", (int)tDataLength, psData)) {
-        ptOdysseus->lastError = NULL;
+    free(ptOdysseus->psLastError);
+    ptOdysseus->psLastError = NULL;
+ 
+    if (-1 == asprintf(&ptOdysseus->psLastError, REMOTE_ERROR_FORMAT,
+                       (int)tDataLength, psData)) {
+        ptOdysseus->psLastError = NULL;
     }
 }
 
-/*************************************************
+/***********************************************
  *
  * @Name : odysseusStatusMessage
  * @Def : Returns the text to print for a status code. Codes that carry a
- * detail (socket, connect, remote) return the message stored in the Odysseus
- * instance.
+ *        detail (socket, connect, remote) return the message stored in the
+ *        Odysseus instance.
  * @Arg : In: ptOdysseus = Odysseus instance holding the detail message
  *        In: eStatus = status code to describe
  * @Ret : Message for the status code, never NULL.
  *
- **************************************************/
+ ************************************************/
 const char *odysseusStatusMessage(const Odysseus *ptOdysseus,
                                   OdysseusStatus eStatus) {
     switch (eStatus) {
         case ODY_OK:
-            return "";
+            return STATUS_OK_MESSAGE;
         case ODY_ERR_SOCKET:
         case ODY_ERR_CONNECT:
         case ODY_ERR_REMOTE:
             // The detail may be missing if its allocation failed
-            return NULL != ptOdysseus->lastError ? ptOdysseus->lastError
-                                                 : "ERROR: Unknown error";
+            if (NULL != ptOdysseus->psLastError) {
+                return ptOdysseus->psLastError;
+            }
+            return STATUS_ERROR_UNKNOWN;
         case ODY_ERR_IP:
-            return "ERROR: Could not convert IP address";
+            return STATUS_ERROR_IP;
         case ODY_ERR_IO:
-            return "ERROR: Could not communicate with the server";
+            return STATUS_ERROR_IO;
         case ODY_ERR_PROTOCOL:
-            return "ERROR: Unexpected response from Ithaca";
+            return STATUS_ERROR_PROTOCOL;
         case ODY_ERR_ISLAND_PROTOCOL:
-            return "ERROR: Unexpected response from the island";
+            return STATUS_ERROR_ISLAND_PROTOCOL;
         case ODY_ERR_NOT_AT_ISLAND:
-            return "ERROR: You are not docked at an island";
+            return STATUS_ERROR_NOT_AT_ISLAND;
         case ODY_ERR_NOT_ENOUGH_GOLD:
-            return "ERROR: You don't have enough gold";
+            return STATUS_ERROR_NOT_ENOUGH_GOLD;
         case ODY_ERR_MAP_AMOUNT:
-            return "ERROR: Only one map can be bought at a time";
+            return STATUS_ERROR_MAP_AMOUNT;
         case ODY_ERR_ALREADY_CONNECTED:
-            return "ERROR: Already connected to Ithaca";
+            return STATUS_ERROR_ALREADY_CONNECTED;
         case ODY_ERR_INVALID_COMMAND:
-            return "ERROR: Invalid request from your current position";
+            return STATUS_ERROR_INVALID_COMMAND;
         case ODY_ERR_NOT_CONNECTED:
-            return "ERROR: You are not connected to Ithaca";
+            return STATUS_ERROR_NOT_CONNECTED;
         case ODY_ERR_ACTIVE_VOYAGE:
-            return "ERROR: You already have an active voyage";
+            return STATUS_ERROR_ACTIVE_VOYAGE;
         case ODY_ERR_NOT_LISTED:
-            return "ERROR: That voyage is not in the last listing, use LIST "
-                   "VOYAGES";
+            return STATUS_ERROR_NOT_LISTED;
         case ODY_ERR_NOT_ENOUGH_CARGO:
-            return "ERROR: Not enough cargo in the odysseus";
+            return STATUS_ERROR_NOT_ENOUGH_CARGO;
         case ODY_ERR_NOT_IN_CARGO:
-            return "ERROR: The odysseus dosn't have the product";
+            return STATUS_ERROR_NOT_IN_CARGO;
         default:
-            return "ERROR: Unknown error";
+            return STATUS_ERROR_UNKNOWN;
     }
 }
