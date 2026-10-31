@@ -14,24 +14,25 @@
 #include "ithaca/ithaca.h"
 
 // own headers
+#include "ithaca/ithaca.h"
 #include "ithaca/ithaca_conversetion.h"
 #include "ithaca/ithaca_parser.h"
 #include "utils/utils.h"
 
-int nEv_quit = 0;
+int nEvQuit = 0;
 
 /***********************************************
  *
  * @Name : onSigint
- * @Def : SIGINT handler. Only sets the quit flag; printing and freeing are done
- * in main, outside the handler.
+ * @Def : SIGINT handler. Only sets the quit flag; printing and freeing are
+ *        done in main, outside the handler.
  * @Arg : In: nSignum = signal number (unused)
  * @Ret : None.
  *
  ************************************************/
 static void onSigint(int nSignum) {
     (void)nSignum;
-    nEv_quit = 1;
+    nEvQuit = 1;
 }
 
 /***********************************************
@@ -43,17 +44,19 @@ static void onSigint(int nSignum) {
  *
  ************************************************/
 void freeIthaca(Ithaca *ptIthaca) {
+    size_t i = 0;
+ 
     if (NULL == ptIthaca) {
         return;
     }
     free(ptIthaca->psName);
     free(ptIthaca->psMission);
     free(ptIthaca->psIp);
-
-    for (size_t i = 0; i < ptIthaca->numClients; i++) {
-        free(ptIthaca->clients[i].psName);
+ 
+    for (i = 0; i < ptIthaca->tNumClients; i++) {
+        free(ptIthaca->atClients[i].psName);
     }
-    free(ptIthaca->clients);
+    free(ptIthaca->atClients);
     memset(ptIthaca, 0, sizeof(*ptIthaca));
 }
 
@@ -68,7 +71,7 @@ void freeIthaca(Ithaca *ptIthaca) {
  ************************************************/
 void freeVoyage(Voyage **patVoyages, size_t *ptNumVoyages) {
     size_t i = 0;
-
+ 
     if (NULL == patVoyages || NULL == *patVoyages) {
         return;
     }
@@ -192,6 +195,195 @@ int checkArgcIthaca(int argc, char *argv[]) {
 
 /***********************************************
  *
+ * @Name : openFiles
+ * @Def : Opens the ithaca and voyages files. If the voyages file fails,
+ *        the ithaca file is closed.
+ * @Arg : In: argv = arguments (ithaca file and voyages file)
+ *        Out: pnFdIthaca = ithaca file descriptor
+ *        Out: pnFdVoyage = voyages file descriptor
+ * @Ret : 0 if both files were opened, -1 otherwise.
+ *
+ ************************************************/
+static int openFiles(char *argv[], int *pnFdIthaca, int *pnFdVoyage) {
+    *pnFdIthaca = open(argv[1], O_RDONLY);
+    if (-1 == *pnFdIthaca) {
+        printErr(ERROR_FILE_ITHACA);
+        return -1;
+    }
+ 
+    *pnFdVoyage = open(argv[2], O_RDONLY);
+    if (-1 == *pnFdVoyage) {
+        printErr(ERROR_FILE_VOYAGE);
+        close(*pnFdIthaca);
+        return -1;
+    }
+ 
+    return 0;
+}
+
+/***********************************************
+ *
+ * @Name : startServer
+ * @Def : Opens the listening socket, gives the voyages to ithaca, prepares
+ *        the set of descriptors and prints the welcome message. If the
+ *        socket fails, it frees ithaca and the voyages.
+ * @Arg : In/Out: ptIthaca = ithaca that will listen for connections
+ *        In/Out: patVoyages = pointer to the voyages array
+ *        In/Out: ptNumVoyages = number of voyages
+ * @Ret : 0 if the server is ready, -1 otherwise.
+ *
+ ************************************************/
+static int startServer(Ithaca *ptIthaca, Voyage **patVoyages, size_t *ptNumVoyages) {
+    char *psBuff = NULL;
+ 
+    ptIthaca->nServerFd = openListenConn(ptIthaca->psIp, ptIthaca->nPort);
+    if (0 > ptIthaca->nServerFd) {
+        printErr(ERROR_SOCKET);
+        freeIthaca(ptIthaca);
+        freeVoyage(patVoyages, ptNumVoyages);
+        return -1;
+    }
+ 
+    ptIthaca->atVoyages = *patVoyages;
+    ptIthaca->tNumVoyages = *ptNumVoyages;
+ 
+    FD_ZERO(&ptIthaca->tFdsClients);
+    FD_SET(ptIthaca->nServerFd, &ptIthaca->tFdsClients);
+ 
+    ptIthaca->nMaxFd = ptIthaca->nServerFd;
+ 
+    if (-1 == asprintf(&psBuff, WELCOME, (int)ptIthaca->tNumVoyages)) {
+        return -1;
+    }
+    println(psBuff);
+    free(psBuff);
+ 
+    return 0;
+}
+
+/***********************************************
+ *
+ * @Name : acceptClient
+ * @Def : Accepts a new connection and adds it to the set of descriptors.
+ * @Arg : In/Out: ptIthaca = ithaca that receives the connection
+ * @Ret : None.
+ *
+ ************************************************/
+static void acceptClient(Ithaca *ptIthaca) {
+    int nFdClient = -1;
+ 
+    nFdClient = accept(ptIthaca->nServerFd, NULL, NULL);
+    if (0 > nFdClient) {
+        printErr(ERROR_ACCEPT);
+        return;
+    }
+    FD_SET(nFdClient, &ptIthaca->tFdsClients);
+    if (nFdClient > ptIthaca->nMaxFd) {
+        ptIthaca->nMaxFd = nFdClient;
+    }
+}
+
+/***********************************************
+ *
+ * @Name : handleClient
+ * @Def : Reads a message from a client and executes the matching option.
+ *        Invalid messages get a NACK and closed connections are removed.
+ * @Arg : In/Out: ptIthaca = ithaca that handles the client
+ *        In: nFd = descriptor of the client
+ * @Ret : None.
+ *
+ ************************************************/
+static void handleClient(Ithaca *ptIthaca, int nFd) {
+    int nResult = 0;
+    Message tMsg = {0};
+ 
+    nResult = receiveMessage(&tMsg, nFd);
+    if (-2 == nResult) {
+        sendNack(nFd, NACK_INVALID_LENGTH);
+        return;
+    }
+    if (-3 == nResult) {
+        sendNack(nFd, NACK_INVALID_FLAGS);
+        return;
+    }
+    if (0 != nResult) {
+        if (0 != removeClient(ptIthaca, nFd)) {
+            // Never registered: drop the socket anyway
+            close(nFd);
+            FD_CLR(nFd, &ptIthaca->tFdsClients);
+        }
+        return;
+    }
+ 
+    choseOption(ptIthaca, tMsg, nFd);
+}
+
+
+/***********************************************
+ *
+ * @Name : runServer
+ * @Def : Main loop of ithaca. Waits with select for new connections and
+ *        messages until SIGINT is received.
+ * @Arg : In/Out: ptIthaca = ithaca that runs the server
+ * @Ret : None.
+ *
+ ************************************************/
+static void runServer(Ithaca *ptIthaca) {
+    int nFd = 0;
+    fd_set tReadFds = {0};
+ 
+    while (0 == nEvQuit) {
+        // Only the server socket is in the set
+        if (ptIthaca->nMaxFd == ptIthaca->nServerFd) {
+            println(WAITING_FOR_CLIENTS);
+        }
+ 
+        tReadFds = ptIthaca->tFdsClients;
+        if (-1 == select(ptIthaca->nMaxFd + 1, &tReadFds, NULL, NULL, NULL)) {
+            break;
+        }
+ 
+        for (nFd = 0; nFd <= ptIthaca->nMaxFd; nFd++) {
+            if (0 == FD_ISSET(nFd, &tReadFds)) {
+                continue;
+            }
+ 
+            if (nFd == ptIthaca->nServerFd) {
+                acceptClient(ptIthaca);
+            } else {
+                handleClient(ptIthaca, nFd);
+            }
+        }
+    }
+}
+
+/***********************************************
+ *
+ * @Name : closeIthaca
+ * @Def : Closes every open descriptor and frees ithaca and the voyages.
+ * @Arg : In/Out: ptIthaca = ithaca to close
+ *        In/Out: patVoyages = pointer to the voyages array
+ *        In/Out: ptNumVoyages = number of voyages
+ * @Ret : None.
+ *
+ ************************************************/
+void closeIthaca(Ithaca *ptIthaca, Voyage **patVoyages, size_t *ptNumVoyages) {
+    int nFd = 0;
+ 
+    for (nFd = 0; nFd <= ptIthaca->nMaxFd; nFd++) {
+        if (0 != FD_ISSET(nFd, &ptIthaca->tFdsClients)) {
+            close(nFd);
+        }
+    }
+ 
+    freeIthaca(ptIthaca);
+    freeVoyage(patVoyages, ptNumVoyages);
+    println(FAREWELL);
+}
+
+
+/***********************************************
+ *
  * @Name : main
  * @Def : Manages the general flow of the ithaca process.
  * @Arg : In: argc = number of arguments
@@ -205,113 +397,34 @@ int main(int argc, char *argv[]) {
     Ithaca tIthaca = {0};
     Voyage *atVoyages = NULL;
     size_t tNumVoyages = 0;
-    char *sBuff;
-
+ 
     if (0 != checkArgcIthaca(argc, argv)) {
         return EXIT_FAILURE;
     }
-
-    nFdIthaca = open(argv[1], O_RDONLY);
-    if (-1 == nFdIthaca) {
-        printErr(ERROR_FILE_ITHACA);
+ 
+    if (-1 == openFiles(argv, &nFdIthaca, &nFdVoyage)) {
         return EXIT_FAILURE;
     }
-
-    nFdVoyage = open(argv[2], O_RDONLY);
-    if (-1 == nFdVoyage) {
-        printErr(ERROR_FILE_VOYAGE);
-        close(nFdIthaca);
-        return EXIT_FAILURE;
-    }
-
-    if (-1 == loadData(&nFdIthaca, &nFdVoyage, &tIthaca, &atVoyages, &tNumVoyages)) {
+ 
+    if (-1 == loadData(&nFdIthaca, &nFdVoyage, &tIthaca, &atVoyages,
+                       &tNumVoyages)) {
         return EXIT_FAILURE;
     }
     closeFiles(&nFdIthaca, &nFdVoyage);
-
+ 
     // DEBUGGING
     // printData(&tIthaca, atVoyages, tNumVoyages);
-
+ 
     signal(SIGINT, onSigint);
     signal(SIGPIPE, SIG_IGN);
-
-    tIthaca.nServerFd = openListenConn(tIthaca.psIp, tIthaca.nPort);
-    if (tIthaca.nServerFd < 0) {
-        printErr(ERROR_SOCKET);
-        freeIthaca(&tIthaca);
-        freeVoyage(&atVoyages, &tNumVoyages);
+ 
+    if (-1 == startServer(&tIthaca, &atVoyages, &tNumVoyages)) {
         return EXIT_FAILURE;
     }
-
-    tIthaca.atVoyages = atVoyages;
-    tIthaca.tNumVoyages = tNumVoyages;
-
-    FD_ZERO(&tIthaca.fds_clients);
-    FD_SET(tIthaca.nServerFd, &tIthaca.fds_clients);
-
-    tIthaca.max_fd = tIthaca.nServerFd;
-
-    if(-1 == asprintf(&sBuff, WELCOME, (int)tIthaca.tNumVoyages)) {
-        return EXIT_FAILURE;
-    }
-    println(sBuff);
-    free(sBuff);
-
-    while (!nEv_quit) {
-        if (tIthaca.max_fd == tIthaca.nServerFd) { // Only the server socket is in the set
-            println(WAITING_FOR_CLIENTS);
-        }
-
-        fd_set tReadFds = tIthaca.fds_clients;
-        if (select(tIthaca.max_fd + 1, &tReadFds, NULL, NULL, NULL) == -1)
-            break;
-
-        for (int fd = 0; fd <= tIthaca.max_fd; fd++) {
-            if (!FD_ISSET(fd, &tReadFds))
-                continue;
-
-            if (fd == tIthaca.nServerFd) {
-                int nFdClient = accept(tIthaca.nServerFd, NULL, NULL);
-                if (nFdClient < 0) {
-                    printErr(ERROR_ACCEPT);
-                    continue;
-                }
-                FD_SET(nFdClient, &tIthaca.fds_clients);
-                if (nFdClient > tIthaca.max_fd)
-                    tIthaca.max_fd = nFdClient;
-            } else {
-                Message msg;
-                 int nResult = receiveMessage(&msg, fd);
-                if (-2 == nResult) {
-                    sendNack(fd, NACK_INVALID_LENGTH);
-                    continue;
-                }
-                if (-3 == nResult) {
-                    sendNack(fd, NACK_INVALID_FLAGS);
-                    continue;
-                }
-                if (0 != nResult) {
-                    if (0 != removeClient(&tIthaca, fd)) {
-                        // Never registered: drop the socket anyway
-                        close(fd);
-                        FD_CLR(fd, &tIthaca.fds_clients);
-                    }
-                    continue;
-                }
-
-                choseOption(&tIthaca, msg, fd);
-            }
-        }
-    }
-
-    for (int fd = 0; fd <= tIthaca.max_fd; fd++) {
-        if (FD_ISSET(fd, &tIthaca.fds_clients))
-            close(fd);
-    }
-
-    freeIthaca(&tIthaca);
-    freeVoyage(&atVoyages, &tNumVoyages);
-    println(FAREWELL);
-
+ 
+    runServer(&tIthaca);
+ 
+    closeIthaca(&tIthaca, &atVoyages, &tNumVoyages);
+ 
     return EXIT_SUCCESS;
 }

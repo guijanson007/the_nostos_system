@@ -6,7 +6,7 @@
  * @File : ithaca.h
  * @Purpose : declarations for the ithaca process
  * @Author : Axel Boleda Callizo
- * @Date : 20/09/2026
+ * @Date : 30/10/2026
  *
  ************************************************/
 
@@ -26,29 +26,21 @@
 #define ITHACA_NUM_LINES 3
 #define ITHACA_FILE "ithaca.dat"
 #define VOYAGES_FILE "voyages.dat"
-
+ 
 #define WELCOME "Ithaca initialized. %d voyages loaded."
 #define FAREWELL "\nIthaca closes the harbor"
-
+ 
 #define ERROR_ARGC "Usage: ./ithaca <ithaca.dat> <voyages.dat>"
 #define ERROR_FILE_ITHACA "ERROR ITHACA: the file couldn't be opened"
 #define ERROR_FILE_VOYAGE "ERROR VOYAGE: the file couldn't be opened"
-#define ERROR_LOAD_ITHACA                                                      \
-    "ERROR ITHACA: the data couldn't be loaded from the file"
-#define ERROR_LOAD_VOYAGE                                                      \
-    "ERROR VOYAGE: the data couldn't be loaded from the file"
+#define ERROR_LOAD_ITHACA "ERROR ITHACA: the data couldn't be loaded from the file"
+#define ERROR_LOAD_VOYAGE "ERROR VOYAGE: the data couldn't be loaded from the file"
 #define ERROR_SOCKET "ERROR: the socket could not be created\n"
 #define ERROR_ACCEPT "ERROR: The conection to the socket\n"
-#define ERROR_RECEIVE_MESSAGE                                                  \
-    "ERROR: There was an error receiving the message from the client\n"
+#define ERROR_RECEIVE_MESSAGE "ERROR: There was an error receiving the message from the client\n"
 #define WAITING_FOR_CLIENTS "Waiting for Odysseus...\n"
 
-// Structs
-typedef struct {
-    int nFd;
-    char *psName;
-} Client;
-
+// Custom type
 typedef enum {
     VOYAGE_AVAILABLE = 0,
     VOYAGE_ASSIGNED,
@@ -56,26 +48,32 @@ typedef enum {
 } VoyageState;
 
 typedef struct {
+    int nFd;
+    char *psName;
+} Client;
+ 
+ 
+typedef struct {
     int nId;
     char *psObject;
     char *psFile;
     char *psDestination;
     int nReward;
     VoyageState eState;
-    char *psOwner; // Odysseus name; kept after it disconnects
+    char *psOwner;
 } Voyage;
-
+ 
 typedef struct {
     char *psName;
     char *psMission;
     char *psIp;
     int nPort;
-    fd_set fds_clients;
-    int max_fd;
+    fd_set tFdsClients;
+    int nMaxFd;
     int nServerFd;
-    Client *clients;
-    size_t numClients;
-    Voyage *atVoyages; // Not owned: main frees it with freeVoyage
+    Client *atClients;
+    size_t tNumClients;
+    Voyage *atVoyages;
     size_t tNumVoyages;
 } Ithaca;
 

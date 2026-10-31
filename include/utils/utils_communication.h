@@ -1,6 +1,17 @@
 #ifndef _UTILS_COMMUNICATION_H
 #define _UTILS_COMMUNICATION_H
 
+/***********************************************
+ *
+ * @File : utils_communication.h
+ * @Purpose : messages of the communication protocol between the processes
+ *            and the functions to open connections and send / receive
+ *            messages
+ * @Author : Axel Boleda Callizo
+ * @Date : 31/10/2026
+ *
+ ************************************************/
+
 // System includes
 #include <errno.h>
 #include <fcntl.h>
@@ -12,14 +23,23 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+// Project includes
+#include "utils/utils.h"
+
+// Constant declarations
 #define MESSAGE_SIZE 256
+#define MESSAGE_DATA_MAX 253
+
+// Position of each field inside the frame sent through the socket
+#define FRAME_TYPE_POS 0
+#define FRAME_FLAG_POS 1
+#define FRAME_LENGTH_POS 2
+#define FRAME_DATA_POS 3
 
 // Maps are not in stock.db: fixed product, quantity and price
 #define MAP_PRODUCT "MAP"
 #define MAP_AMOUNT 1
 #define MAP_PRICE 50
-
-#define MESSAGE_DATA_MAX 253
 
 #define FLAG_NONE 0x00
 #define FLAG_RESPONSE 0x80
@@ -31,10 +51,16 @@
 #define NACK_INVALID_LENGTH "INVALID_LENGTH"
 #define NACK_INVALID_FLAGS "INVALID_FLAGS"
 
+#define MAX_CONN 10
+#define ERROR_SOCKET "ERROR: the socket could not be created\n"
+#define ERR_CONNECT "ERROR: Could not connect to the server\n"
+#define ERROR_CONVERT_IP "ERROR: Could not convert IP address\n"
+
+// Custom type definitions
 typedef enum {
     MSG_CONNECT_ITHACA = 0x01,
     MSG_LIST_VOYAGES = 0x02,
-    MSG_ACCEPT = 0x03,              
+    MSG_ACCEPT = 0x03,
     MSG_CLAIM = 0x04,
     MSG_DISCONNECT_ITHACA = 0x05,
     MSG_ARRIVAL_ISLAND = 0x10,
@@ -51,12 +77,15 @@ typedef struct {
     unsigned char type;
     unsigned char flag;
     unsigned char dataLength;
-    char data[254];
+    char data[MESSAGE_DATA_MAX + 1];
 } Message;
 
-void buildMessage(Message *msg, const char flags, const char *data);
-int sendMessage(const Message *msg, int fd);
-int receiveMessage(Message *msg, int fd);
-void sendNack(int fd, const char *psReason);
+//Functions
+void buildMessage(Message *ptMsg, const char cFlags, const char *psData);
+int sendMessage(const Message *ptMsg, int nFd);
+int receiveMessage(Message *ptMsg, int nFd);
+void sendNack(int nFd, const char *psReason);
+int openListenConn(char *psIp, int nPort);
+int openClientConn(char *psIp, int nPort);
 
 #endif
