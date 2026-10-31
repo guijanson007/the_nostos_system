@@ -119,7 +119,8 @@ void odysseusStatus(Odysseus *ptOdysseus) {
         }
     }
 
-    if (-1 != asprintf(&psBuffer, MSG_TOTAL_PROVISIONS, ptOdysseus->tCargo.nTotalAmount)) {
+    if (-1 != asprintf(&psBuffer, MSG_TOTAL_PROVISIONS,
+                       ptOdysseus->tCargo.nTotalAmount)) {
         println(psBuffer);
         free(psBuffer);
     }
@@ -151,10 +152,8 @@ void odysseusStatus(Odysseus *ptOdysseus) {
  * @Ret : None.
  *
  ************************************************/
-void odysseusDeliver(Odysseus *ptOdysseus) {
-    (void)ptOdysseus;
-}
- 
+void odysseusDeliver(Odysseus *ptOdysseus) { (void)ptOdysseus; }
+
 /***********************************************
  *
  * @Name : odysseusClaim
@@ -163,10 +162,7 @@ void odysseusDeliver(Odysseus *ptOdysseus) {
  * @Ret : None.
  *
  ************************************************/
-void odysseusClaim(Odysseus *ptOdysseus) {
-    (void)ptOdysseus;
-}
-
+void odysseusClaim(Odysseus *ptOdysseus) { (void)ptOdysseus; }
 
 /***********************************************
  *
@@ -181,19 +177,24 @@ OdysseusStatus odysseusListVoyages(Odysseus *ptOdysseus) {
     const OdysseusVoyage *ptVoyage = NULL;
     char *psBuffer = NULL;
     int i = 0;
- 
+
     if (NO_SOCKET == ptOdysseus->nIthacaSocket) {
         return ODY_ERR_NOT_CONNECTED;
     }
     if (0 != ptOdysseus->tActiveVoyage.nId) {
         return ODY_ERR_ACTIVE_VOYAGE;
     }
- 
+
     eStatus = requestListOfVoyages(ptOdysseus);
     if (ODY_OK != eStatus) {
+        if (ODY_ERR_REMOTE != eStatus) {
+            // The Ithaca conversation is out of sync, drop it
+            close(ptOdysseus->nIthacaSocket);
+            ptOdysseus->nIthacaSocket = NO_SOCKET;
+        }
         return eStatus;
     }
- 
+
     println(MSG_VOYAGES_HEADER);
     for (i = 0; i < ptOdysseus->nNumListedVoyages; i++) {
         ptVoyage = &ptOdysseus->atListedVoyages[i];
@@ -207,7 +208,6 @@ OdysseusStatus odysseusListVoyages(Odysseus *ptOdysseus) {
     return ODY_OK;
 }
 
-
 /***********************************************
  *
  * @Name : odysseusListMarket
@@ -218,22 +218,21 @@ OdysseusStatus odysseusListVoyages(Odysseus *ptOdysseus) {
  ************************************************/
 OdysseusStatus odysseusListMarket(Odysseus *ptOdysseus) {
     OdysseusStatus eStatus = ODY_OK;
- 
+
     if (NO_SOCKET == ptOdysseus->nIslandSocket ||
         AT_ITHACA == ptOdysseus->nWhereAmI) {
         return ODY_ERR_NOT_AT_ISLAND;
     }
- 
+
     eStatus = getListMarket(ptOdysseus);
     if (ODY_OK != eStatus && ODY_ERR_REMOTE != eStatus) {
-        // The island conversation is out of sync, drop it
+        // The island conversation is off
         close(ptOdysseus->nIslandSocket);
         ptOdysseus->nIslandSocket = NO_SOCKET;
     }
- 
+
     return eStatus;
 }
-
 
 /***********************************************
  *
@@ -251,7 +250,7 @@ OdysseusStatus odysseusAcceptVoyage(Odysseus *ptOdysseus,
     int nVoyageId = atoi(psVoyageId);
     int nListed = 0;
     int i = 0;
- 
+
     if (NO_SOCKET == ptOdysseus->nIthacaSocket) {
         return ODY_ERR_NOT_CONNECTED;
     }
@@ -266,12 +265,17 @@ OdysseusStatus odysseusAcceptVoyage(Odysseus *ptOdysseus,
     if (0 == nListed) {
         return ODY_ERR_NOT_LISTED;
     }
- 
+
     eStatus = requestAcceptVoyage(ptOdysseus, nVoyageId);
     if (ODY_OK != eStatus) {
+        if (ODY_ERR_REMOTE != eStatus) {
+            // The Ithaca conversation is out of sync, drop it
+            close(ptOdysseus->nIthacaSocket);
+            ptOdysseus->nIthacaSocket = NO_SOCKET;
+        }
         return eStatus;
     }
- 
+
     if (-1 != asprintf(&psBuffer, MSG_VOYAGE_ACCEPTED,
                        ptOdysseus->tActiveVoyage.nId,
                        ptOdysseus->tActiveVoyage.psDestination)) {
@@ -280,7 +284,6 @@ OdysseusStatus odysseusAcceptVoyage(Odysseus *ptOdysseus,
     }
     return ODY_OK;
 }
-
 
 /***********************************************
  *
@@ -296,13 +299,12 @@ static void leaveCurrentPlace(Odysseus *ptOdysseus) {
         println(MSG_LEAVING_ITHACA);
         disconnectFromIthaca(ptOdysseus);
     } else {
-        printWithName(MSG_LEAVING,
-                      ptOdysseus->tMap.atConnections[ptOdysseus->nWhereAmI]
-                          .psName);
+        printWithName(
+            MSG_LEAVING,
+            ptOdysseus->tMap.atConnections[ptOdysseus->nWhereAmI].psName);
         departFromIsland(ptOdysseus);
     }
 }
-
 
 /***********************************************
  *
@@ -317,7 +319,7 @@ static void leaveCurrentPlace(Odysseus *ptOdysseus) {
  ************************************************/
 static OdysseusStatus dockAtIsland(Odysseus *ptOdysseus, int *pnArrival) {
     OdysseusStatus eStatus = ODY_OK;
- 
+
     eStatus = arriveAtIsland(ptOdysseus, pnArrival);
     if (ODY_OK == eStatus && ARRIVAL_WAIT == *pnArrival) {
         println(MSG_HARBOR_FULL);
@@ -329,7 +331,6 @@ static OdysseusStatus dockAtIsland(Odysseus *ptOdysseus, int *pnArrival) {
     }
     return eStatus;
 }
-
 
 /***********************************************
  *
@@ -359,9 +360,9 @@ static OdysseusStatus lostAtSea(Odysseus *ptOdysseus) {
  ************************************************/
 static void printArrival(Odysseus *ptOdysseus, KnownIsland *ptDestination) {
     char *psBuffer = NULL;
- 
+
     printWithName(MSG_GRANTED_ACCESS, ptDestination->psName);
- 
+
     if (0 != ptOdysseus->tActiveVoyage.nId &&
         0 == strcasecmp(ptOdysseus->tActiveVoyage.psDestination,
                         ptDestination->psName)) {
@@ -373,7 +374,6 @@ static void printArrival(Odysseus *ptOdysseus, KnownIsland *ptDestination) {
         }
     }
 }
-
 
 /***********************************************
  *
@@ -390,41 +390,40 @@ OdysseusStatus odysseusSail(Odysseus *ptOdysseus, const char *psDestination) {
     KnownIsland *ptDestination = NULL;
     int nDestinationIndex = -1;
     int nArrival = ARRIVAL_NONE;
- 
+
     nDestinationIndex = findDestinationFromIsland(ptOdysseus, psDestination);
- 
+
     if (-1 == nDestinationIndex) {
         printWithName(MSG_CANT_SAIL, psDestination);
         return ODY_OK;
     }
     ptDestination = &ptOdysseus->tMap.atConnections[nDestinationIndex];
- 
+
     leaveCurrentPlace(ptOdysseus);
     printWithName(MSG_SAILING_TO, ptDestination->psName);
- 
-    ptOdysseus->nIslandSocket = openClientConn(ptDestination->psIp,
-                                               ptDestination->nPort);
+
+    ptOdysseus->nIslandSocket =
+        openClientConn(ptDestination->psIp, ptDestination->nPort);
     if (0 > ptOdysseus->nIslandSocket) {
         ptOdysseus->nIslandSocket = NO_SOCKET;
         return ODY_OK;
     }
     printWithName(MSG_CONNECTED_TO, ptDestination->psName);
- 
+
     eStatus = dockAtIsland(ptOdysseus, &nArrival);
     if (ODY_OK != eStatus || ARRIVAL_NONE == nArrival) {
         return eStatus;
     }
- 
+
     if (ARRIVAL_LOST_AT_SEA == nArrival) {
         return lostAtSea(ptOdysseus);
     }
- 
+
     ptOdysseus->nWhereAmI = nDestinationIndex;
     printArrival(ptOdysseus, ptDestination);
- 
+
     return ODY_OK;
 }
-
 
 /***********************************************
  *
@@ -439,12 +438,12 @@ OdysseusStatus odysseusSail(Odysseus *ptOdysseus, const char *psDestination) {
 OdysseusStatus odysseusBuy(Odysseus *ptOdysseus, const char *psProduct,
                            const char *psAmount) {
     OdysseusStatus eStatus = ODY_OK;
- 
+
     if (NO_SOCKET == ptOdysseus->nIslandSocket ||
         AT_ITHACA == ptOdysseus->nWhereAmI) {
         return ODY_ERR_NOT_AT_ISLAND;
     }
- 
+
     if (0 == strcasecmp(psProduct, MAP_PRODUCT)) {
         if (MAP_AMOUNT != atoi(psAmount)) {
             return ODY_ERR_MAP_AMOUNT;
@@ -456,17 +455,16 @@ OdysseusStatus odysseusBuy(Odysseus *ptOdysseus, const char *psProduct,
     } else {
         eStatus = buyProducts(ptOdysseus, psProduct, psAmount);
     }
- 
+
     if (ODY_OK != eStatus && ODY_ERR_REMOTE != eStatus &&
         ODY_ERR_NOT_ENOUGH_GOLD != eStatus) {
         // The island conversation is out of sync, drop it
         close(ptOdysseus->nIslandSocket);
         ptOdysseus->nIslandSocket = NO_SOCKET;
     }
- 
+
     return eStatus;
 }
-
 
 /***********************************************
  *
@@ -482,21 +480,21 @@ OdysseusStatus odysseusSell(Odysseus *ptOdysseus, const char *psProduct,
                             const char *psAmount) {
     int nAmount = atoi(psAmount);
     int i = 0;
- 
+
     if (NO_SOCKET == ptOdysseus->nIslandSocket ||
         AT_ITHACA == ptOdysseus->nWhereAmI) {
         return ODY_ERR_NOT_AT_ISLAND;
     }
- 
+
     for (i = 0; i < ptOdysseus->tCargo.nNumSupplies; i++) {
-        if (0 == strcasecmp(ptOdysseus->tCargo.atSupplies[i].psName,
-                            psProduct)) {
+        if (0 ==
+            strcasecmp(ptOdysseus->tCargo.atSupplies[i].psName, psProduct)) {
             if (nAmount <= ptOdysseus->tCargo.atSupplies[i].nAmount) {
                 return sellProduct(ptOdysseus, psProduct, nAmount);
             }
             return ODY_ERR_NOT_ENOUGH_CARGO;
         }
     }
- 
+
     return ODY_ERR_NOT_IN_CARGO;
 }

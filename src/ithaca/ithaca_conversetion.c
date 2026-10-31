@@ -43,24 +43,20 @@ static int findClientIndex(Ithaca *ptIthaca, int nFd) {
  *
  ************************************************/
 static void disconectIthaca(int nFdClient, Ithaca *ptIthaca, Message tMsg) {
-    int nRemove = 0;
+    int nIndex = findClientIndex(ptIthaca, nFdClient);
 
     tMsg.type = MSG_DISCONNECT_ITHACA;
 
     if (FLAG_NONE != tMsg.flag || 0 != tMsg.dataLength) {
         buildMessage(&tMsg, FLAG_RESPONSE | FLAG_ERROR, ERROR_MESSAGE_FORMAT);
+        sendMessage(&tMsg, nFdClient);
     } else if (-1 == findClientIndex(ptIthaca, nFdClient)) {
         buildMessage(&tMsg, FLAG_RESPONSE | FLAG_ERROR, ERROR_DISCONECTING);
+        sendMessage(&tMsg, nFdClient);
     } else {
         buildMessage(&tMsg, FLAG_RESPONSE, OK_MESSAGE);
-        nRemove = 1;
-    }
-
-    // Reply before removeClient, which closes the socket
-    sendMessage(&tMsg, nFdClient);
-    consoleLog(ptIthaca->atClients[findClientIndex(ptIthaca, nFdClient)].psName,
-               LOG_LEFT_ITHACA);
-    if (0 != nRemove) {
+        sendMessage(&tMsg, nFdClient);
+        consoleLog(ptIthaca->atClients[nIndex].psName, LOG_LEFT_ITHACA);
         removeClient(ptIthaca, nFdClient);
     }
 }
@@ -421,7 +417,6 @@ int removeClient(Ithaca *ptIthaca, int nFd) {
 
     return 0;
 }
-
 
 /***********************************************
  *

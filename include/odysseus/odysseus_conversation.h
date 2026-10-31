@@ -51,6 +51,7 @@
 #define MSG_BOUGHT_MAP "Bought the map of %s for %d gold."
 #define MSG_NEW_ROUTES "New routes have been charted."
 #define MSG_NO_ROUTES "There were no routes to chart."
+#define ERROR_NOT_DOCKED_YET "ERROR: You are not docked yet. Only STATUS and MAP are available"
 
 // Functions
 OdysseusStatus connectToIthaca(Odysseus *ptOdysseus);

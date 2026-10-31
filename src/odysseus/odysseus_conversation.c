@@ -12,6 +12,7 @@
 #include "odysseus/odysseus_conversation.h"
 
 // Own
+#include "odysseus/odysseus_command.h"
 #include "odysseus/odysseus_conversation.h"
 #include "odysseus/odysseus_map.h"
 #include "odysseus/odysseus_parser.h"
@@ -549,6 +550,48 @@ static OdysseusStatus readPortMessage(Odysseus *ptOdysseus, int *pnArrival) {
 
 /***********************************************
  *
+ * @Name : handelWaitingInputs
+ * @Def : While waiting, it checks the comand stated buy the user
+ * @Arg : In: ptOdysseus = Odysseus instance
+ * @Ret : 0 on success, otherwise it returns a -1.
+ *
+ ************************************************/
+static int handleWaitingInputs(Odysseus *ptOdysseus) {
+    OdysseusCommand tCommand;
+    const char *psErrorMessage = NULL;
+    char *psInput = NULL;
+
+    memset(&tCommand, 0, sizeof(tCommand));
+
+    if (-1 == readLine(STDIN_FILENO, &psInput)) {
+        return -1;
+    }
+    if (NULL == psInput) {
+        return 1;
+    }
+
+    if (0 == parseOdysseusCommand(psInput, &tCommand)) {
+        free(psInput);
+        return 0;
+    }
+
+    if (COMMAND_VALID != validateOdysseusCommand(&tCommand, &psErrorMessage)) {
+        printErr(psErrorMessage);
+    } else if (COMMAND_STATUS == tCommand.type) {
+        odysseusStatus(ptOdysseus);
+    } else if (COMMAND_MAP == tCommand.type) {
+        odysseusMap(ptOdysseus);
+    } else {
+        printErr(ERROR_NOT_DOCKED_YET);
+    }
+    println("");
+    free(psInput);
+
+    return 0;
+}
+
+/***********************************************
+ *
  * @Name : waitingAtPort
  * @Def : Waits offshore until the island sends DOCKED. Every
  *        RATION_SECONDS the crew consumes a ration; if the provisions run
@@ -564,6 +607,8 @@ OdysseusStatus waitingAtPort(Odysseus *ptOdysseus, int *pnArrival) {
     struct timeval stTimeout = {0};
     OdysseusStatus eStatus = ODY_OK;
     int nReady = 0;
+    int nResult = 0;
+    int nWatchInputs = 1;
 
     *pnArrival = ARRIVAL_NONE;
     resetTimeout(&stTimeout);
@@ -571,8 +616,10 @@ OdysseusStatus waitingAtPort(Odysseus *ptOdysseus, int *pnArrival) {
     while (1) {
         FD_ZERO(&tReadFds);
         FD_SET(ptOdysseus->nIslandSocket, &tReadFds);
-        nReady = select(ptOdysseus->nIslandSocket + 1, &tReadFds, NULL, NULL,
-                        &stTimeout);
+        if (0 != nWatchInputs) {
+            FD_SET(STDIN_FILENO, &tReadFds);
+        }
+        nReady = select(ptOdysseus->nIslandSocket + 1, &tReadFds, NULL, NULL, &stTimeout);
 
         if (-1 == nReady) {
             if (EINTR == errno) {
@@ -580,7 +627,6 @@ OdysseusStatus waitingAtPort(Odysseus *ptOdysseus, int *pnArrival) {
             }
             return ODY_ERR_IO;
         }
-
         if (0 == nReady) {
             if (0 != consumeRation(ptOdysseus)) {
                 *pnArrival = ARRIVAL_LOST_AT_SEA;
@@ -590,9 +636,21 @@ OdysseusStatus waitingAtPort(Odysseus *ptOdysseus, int *pnArrival) {
             continue;
         }
 
-        eStatus = readPortMessage(ptOdysseus, pnArrival);
-        if (ODY_OK != eStatus || ARRIVAL_DOCKED == *pnArrival) {
-            return eStatus;
+        if (FD_ISSET(ptOdysseus->nIslandSocket, &tReadFds)) {
+            eStatus = readPortMessage(ptOdysseus, pnArrival);
+            if (ODY_OK != eStatus || ARRIVAL_DOCKED == *pnArrival) {
+                return eStatus;
+            }
+        }
+
+        if (0 != nWatchInputs && FD_ISSET(STDIN_FILENO, &tReadFds)) {
+            nResult = handleWaitingInputs(ptOdysseus);
+            if (-1 == nResult) {
+                return (EINTR == errno) ? ODY_OK : ODY_ERR_IO;
+            }
+            if (1 == nResult) {
+                nWatchInputs = 0;
+            }
         }
     }
 }
@@ -632,8 +690,7 @@ static int parseMessageMarket(char *psData, int nLength, int *pnIndex,
     psPrice = strtok(NULL, "&");
 
     if (NULL == psIndex || NULL == psTotal || NULL == *ppsProduct ||
-        NULL == psAmount || NULL == psPrice ||
-        NULL != strtok(NULL, "&")) {
+        NULL == psAmount || NULL == psPrice || NULL != strtok(NULL, "&")) {
         return -1;
     }
     if (0 == isAllDigits(psIndex) || 0 == isAllDigits(psTotal) ||
@@ -718,21 +775,20 @@ static void useMarketLine(const char *psProduct, int nAmount, int nPrice,
     }
 }
 
-
-    /***********************************************
-     *
-     * @Name : queryMarket
-     * @Def : Asks the island for its market. It can print it and/or look for
-     *        the price of one product.
-     * @Arg : In/Out: ptOdysseus = odysseus docked at the island
-     *        In: nPrint = 1 to print the market, 0 to stay silent
-     *        In: psWanted = product whose price is wanted, or NULL
-     *        Out: pnPrice = price of psWanted when the island sells it
-     * @Ret : ODY_OK if everything went well, the error status otherwise.
-     *
-     ************************************************/
-    static OdysseusStatus queryMarket(Odysseus *ptOdysseus, int nPrint,
-                                      const char *psWanted, int *pnPrice) {
+/***********************************************
+ *
+ * @Name : queryMarket
+ * @Def : Asks the island for its market. It can print it and/or look for
+ *        the price of one product.
+ * @Arg : In/Out: ptOdysseus = odysseus docked at the island
+ *        In: nPrint = 1 to print the market, 0 to stay silent
+ *        In: psWanted = product whose price is wanted, or NULL
+ *        Out: pnPrice = price of psWanted when the island sells it
+ * @Ret : ODY_OK if everything went well, the error status otherwise.
+ *
+ ************************************************/
+static OdysseusStatus queryMarket(Odysseus *ptOdysseus, int nPrint,
+                                  const char *psWanted, int *pnPrice) {
     Message tMessage = {0};
     OdysseusStatus eStatus = ODY_OK;
     char *psProduct = NULL;
@@ -1145,7 +1201,6 @@ OdysseusStatus buyMap(Odysseus *ptOdysseus) {
     return ODY_OK;
 }
 
-
 /***********************************************
  *
  * @Name : departFromIsland
@@ -1157,29 +1212,29 @@ OdysseusStatus buyMap(Odysseus *ptOdysseus) {
 OdysseusStatus departFromIsland(Odysseus *ptOdysseus) {
     Message tMessage = {0};
     OdysseusStatus eStatus = ODY_OK;
- 
+
     if (NO_SOCKET == ptOdysseus->nIslandSocket) {
         return ODY_OK;
     }
- 
+
     tMessage.type = MSG_DEPARTURE_ISLAND;
     tMessage.flag = FLAG_NONE;
- 
+
     if (0 != sendMessage(&tMessage, ptOdysseus->nIslandSocket)) {
         return ODY_ERR_IO;
     }
-    eStatus = receiveIslandResponse(ptOdysseus, &tMessage,
-                                    MSG_DEPARTURE_ISLAND);
+    eStatus =
+        receiveIslandResponse(ptOdysseus, &tMessage, MSG_DEPARTURE_ISLAND);
     if (ODY_OK != eStatus) {
         return eStatus;
     }
     if (0 != strcmp(tMessage.data, OK_RESPONSE)) {
         return ODY_ERR_ISLAND_PROTOCOL;
     }
- 
+
     close(ptOdysseus->nIslandSocket);
     ptOdysseus->nIslandSocket = NO_SOCKET;
- 
+
     return ODY_OK;
 }
 
@@ -1201,20 +1256,20 @@ OdysseusStatus sellProduct(Odysseus *ptOdysseus, const char *psProduct,
     char *psBuffer = NULL;
     char *psSold = NULL;
     int nIncome = 0;
- 
+
     tMessage.type = MSG_SELL;
- 
+
     if (-1 == asprintf(&psBuffer, TRADE_SELL_FORMAT, psProduct, nAmount)) {
         return ODY_ERR_IO;
     }
     buildMessage(&tMessage, FLAG_NONE, psBuffer);
     free(psBuffer);
     psBuffer = NULL;
- 
+
     if (-1 == sendMessage(&tMessage, ptOdysseus->nIslandSocket)) {
         return ODY_ERR_IO;
     }
- 
+
     eStatus = receiveIslandResponse(ptOdysseus, &tMessage, MSG_SELL);
     if (ODY_OK != eStatus) {
         return eStatus;
@@ -1223,16 +1278,16 @@ OdysseusStatus sellProduct(Odysseus *ptOdysseus, const char *psProduct,
                                &nAmount, &nIncome)) {
         return ODY_ERR_ISLAND_PROTOCOL;
     }
- 
+
     if (0 != removeSuplies(&ptOdysseus->tCargo, psSold, nAmount)) {
         return ODY_ERR_ISLAND_PROTOCOL;
     }
     ptOdysseus->tCargo.nGold += nIncome;
- 
+
     if (-1 != asprintf(&psBuffer, MSG_SOLD, nAmount, psSold, nIncome)) {
         println(psBuffer);
         free(psBuffer);
     }
- 
+
     return ODY_OK;
 }

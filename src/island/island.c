@@ -299,7 +299,7 @@ static int openFiles(char *argv[], int *pnFdConfig, int *pnFdStock) {
  *
  ************************************************/
 static int startServer(Island *ptIsland, int *pnFdConfig,
-                SPHRAGIS_Island *ptSphragis) {
+                       SPHRAGIS_Island *ptSphragis) {
     char *psBuff = NULL;
 
     ptIsland->nServerFd = openListenConn(ptIsland->psIp, ptIsland->nPort);
@@ -368,6 +368,10 @@ static void handleClient(Island *ptIsland, int nFd) {
         clientLeaves(ptIsland, nFd);
         return;
     } else if (-2 == nResult) {
+        sendNack(nFd, NACK_INVALID_LENGTH);
+        return;
+    } else if (-3 == nResult) {
+        sendNack(nFd, NACK_INVALID_FLAGS);
         return;
     }
 
@@ -420,7 +424,7 @@ static void runServer(Island *ptIsland) {
  *
  ************************************************/
 static void closeIsland(Island *ptIsland, int *pnFdConfig,
-                 SPHRAGIS_Island *ptSphragis) {
+                        SPHRAGIS_Island *ptSphragis) {
     int nFd = 0;
     size_t i = 0;
 
