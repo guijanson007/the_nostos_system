@@ -479,13 +479,13 @@ void choseOption(Island *island, Message msg, int fd_client) {
             break;
         case MSG_DELIVER:
             // DELIVER (RESPONSE)
-            sendNack(fd_client, NACK_INVALID_TYPE)
+            sendNack(fd_client, NACK_INVALID_TYPE);
             break;
         case MSG_DEPARTURE_ISLAND:
             departure(island, msg, fd_client);
             break;
         default:
-            sendNack(fd_client, NACK_INVALID_TYPE)
+            sendNack(fd_client, NACK_INVALID_TYPE);
             break;
     }
 }

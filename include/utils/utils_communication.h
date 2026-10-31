@@ -44,7 +44,7 @@ typedef enum {
     MSG_BUY_MAP = 0x14,
     MSG_DELIVER = 0x15,
     MSG_DEPARTURE_ISLAND = 0x16,
-    MSG_NACK = 0x7F;
+    MSG_NACK = 0x7F
 } MessageType;
 
 typedef struct {

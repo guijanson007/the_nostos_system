@@ -168,8 +168,6 @@ void freeListedVoyages(Odysseus *ptOdysseus) {
  *
  **************************************************/
 void freeOdysseus(Odysseus *ptOdysseus) {
-    int i = 0;
-
     if (NULL == ptOdysseus) {
         return;
     }
@@ -191,7 +189,7 @@ void freeOdysseus(Odysseus *ptOdysseus) {
     freeOdysseusVoyage(&ptOdysseus->activeVoyage);
 
     if (NULL != ptOdysseus->cargo.supplies) {
-        for (i = 0; i < ptOdysseus->cargo.numSupplies; ++i) {
+        for (int i = 0; i < ptOdysseus->cargo.numSupplies; ++i) {
             free(ptOdysseus->cargo.supplies[i].name);
             ptOdysseus->cargo.supplies[i].name = NULL;
         }

@@ -26,6 +26,10 @@
 #define ITHACA_NUM_LINES 3
 #define ITHACA_FILE "ithaca.dat"
 #define VOYAGES_FILE "voyages.dat"
+
+#define WELCOME "Ithaca initialized. %d voyages loaded."
+#define FAREWELL "\nIthaca closes the harbor"
+
 #define ERROR_ARGC "Usage: ./ithaca <ithaca.dat> <voyages.dat>"
 #define ERROR_FILE_ITHACA "ERROR ITHACA: the file couldn't be opened"
 #define ERROR_FILE_VOYAGE "ERROR VOYAGE: the file couldn't be opened"
@@ -35,7 +39,6 @@
     "ERROR VOYAGE: the data couldn't be loaded from the file"
 #define ERROR_SOCKET "ERROR: the socket could not be created\n"
 #define ERROR_ACCEPT "ERROR: The conection to the socket\n"
-#define FAREWELL "\nFinishing the Ithaca process"
 #define ERROR_RECEIVE_MESSAGE                                                  \
     "ERROR: There was an error receiving the message from the client\n"
 #define WAITING_FOR_CLIENTS "Waiting for Odysseus...\n"

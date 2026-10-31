@@ -153,6 +153,10 @@ OdysseusStatus requestListOfVoyages(Odysseus *tOdysseus) {
             break;
         }
 
+        if (0 == nTotal && 0 == strcmp(tMessage.data, "0")) {
+            break;
+        }
+
         // <Index>&<Total>&<VoyageID>&<Object>&<Destination>&<Reward>
         if (6 != splitFields(tMessage.data, apsFields, 6) ||
             !isPositiveInteger(apsFields[0]) ||
@@ -160,7 +164,7 @@ OdysseusStatus requestListOfVoyages(Odysseus *tOdysseus) {
             !isPositiveInteger(apsFields[2])) {
             eStatus = ODY_ERR_PROTOCOL;
             if (0 == nTotal) {
-                break; // Without a total we can't know how many to drain
+                break;
             }
             continue;
         }
@@ -169,7 +173,6 @@ OdysseusStatus requestListOfVoyages(Odysseus *tOdysseus) {
         if (0 == nTotal) {
             nTotal = atoi(apsFields[1]);
             if (nTotal > MAX_LISTED_VOYAGES) {
-                // A frame count we won't allocate for, and can't drain
                 nTotal = 0;
                 eStatus = ODY_ERR_PROTOCOL;
                 break;
@@ -177,7 +180,7 @@ OdysseusStatus requestListOfVoyages(Odysseus *tOdysseus) {
             atVoyages = calloc((size_t)nTotal, sizeof(OdysseusVoyage));
         }
         if (NULL == atVoyages) {
-            eStatus = ODY_ERR_PROTOCOL; // Keep draining the remaining frames
+            eStatus = ODY_ERR_PROTOCOL;
             continue;
         }
         if (ODY_OK == eStatus &&
@@ -259,6 +262,10 @@ OdysseusStatus requestAcceptVoyage(Odysseus *tOdysseus, int nVoyageId) {
 OdysseusStatus disconnectFromIthaca(Odysseus *tOdysseus) {
     Message tMessage;
     OdysseusStatus eStatus = ODY_OK;
+
+    if (-1 == tOdysseus->ithaca_socket) {
+        return ODY_OK;
+    }
 
     memset(&tMessage, 0, sizeof(tMessage));
     tMessage.type = MSG_DISCONNECT_ITHACA;
@@ -461,8 +468,7 @@ static int parseMessageMarket(char *psData, int nLength, int *pnIndex,
  * @Ret : ODY_OK if everything went well, the error status otherwise.
  *
  ************************************************/
-static OdysseusStatus queryMarket(Odysseus *tOdysseus, int nPrint,
-                                  const char *psWanted, int *pnPrice) {
+static OdysseusStatus queryMarket(Odysseus *tOdysseus, int nPrint, const char *psWanted, int *pnPrice) {
     int nIndex = 0;
     int nTotal = 0;
     int nExpected = 1;
@@ -480,9 +486,7 @@ static OdysseusStatus queryMarket(Odysseus *tOdysseus, int nPrint,
         return ODY_ERR_IO;
     }
 
-    if (nPrint &&
-        -1 != asprintf(&psBuffer, "--- %s MARKET ---",
-                       tOdysseus->map.connections[tOdysseus->whereAmI].name)) {
+    if (nPrint &&-1 != asprintf(&psBuffer, "--- %s MARKET ---", tOdysseus->map.connections[tOdysseus->whereAmI].name)) {
         println(psBuffer);
         free(psBuffer);
     }
@@ -508,18 +512,6 @@ static OdysseusStatus queryMarket(Odysseus *tOdysseus, int nPrint,
         }
         nExpected++;
 
-        if (nIndex == nTotal) { // MAP
-            if (nPrint) {
-                println("...");
-                if (-1 !=
-                    asprintf(&psBuffer, "%s\t\t\t%d gold", psProduct, nPrice)) {
-                    println(psBuffer);
-                    free(psBuffer);
-                }
-            }
-            break;
-        }
-
         if (NULL != psWanted && 0 == strcasecmp(psProduct, psWanted)) {
             *pnPrice = nPrice;
         }
@@ -528,6 +520,18 @@ static OdysseusStatus queryMarket(Odysseus *tOdysseus, int nPrint,
             println(psBuffer);
             free(psBuffer);
         }
+
+        if (nIndex == nTotal) { // MAP
+            if (nPrint) {
+                println("...");
+                if (-1 != asprintf(&psBuffer, "%s\t\t\t%d gold", "Map", nPrice)) {
+                    println(psBuffer);
+                    free(psBuffer);
+                }
+            }
+            break;
+        }
+
     }
 
     return ODY_OK;
@@ -769,6 +773,10 @@ OdysseusStatus buyMap(Odysseus *tOdysseus) {
 OdysseusStatus departFromIsland(Odysseus *tOdysseus) {
     Message tMessage;
 
+    if (-1 == tOdysseus->island_socket) {
+        return ODY_OK;
+    }
+
     memset(&tMessage, 0, sizeof(tMessage));
     tMessage.type = MSG_DEPARTURE_ISLAND;
     tMessage.flag = FLAG_NONE;
@@ -790,6 +798,10 @@ OdysseusStatus departFromIsland(Odysseus *tOdysseus) {
     if (0 != strcmp(tMessage.data, OK_RESPONSE)) {
         return ODY_ERR_ISLAND_PROTOCOL;
     }
+
+    close(tOdysseus->island_socket);
+    tOdysseus->island_socket = -1;
+
     return ODY_OK;
 }
 
@@ -797,6 +809,7 @@ OdysseusStatus sellProduct(Odysseus *tOdysseus, const char *psProduct,
                            int nAmount) {
     Message tMessage;
     char *psBuffer;
+    char *psSold;
     int nIncome = 0;
 
     memset(&tMessage, 0, sizeof(tMessage));
@@ -824,18 +837,18 @@ OdysseusStatus sellProduct(Odysseus *tOdysseus, const char *psProduct,
         return ODY_ERR_REMOTE;
     }
 
-    if (0 != parseMessageTrade(tMessage.data, tMessage.dataLength, &psBuffer,
+    if (0 != parseMessageTrade(tMessage.data, tMessage.dataLength, &psSold,
                                &nAmount, &nIncome)) {
         return ODY_ERR_ISLAND_PROTOCOL;
     }
 
-    if (0 != removeSuplies(&tOdysseus->cargo, psProduct, nAmount)) {
-        return ODY_ERR_IO;
+    if (0 != removeSuplies(&tOdysseus->cargo, psSold, nAmount)) {
+        return ODY_ERR_ISLAND_PROTOCOL;
     }
     tOdysseus->cargo.nGold += nIncome;
 
     if (-1 != asprintf(&psBuffer, "Sold %d kg of %s for %d gold.", nAmount,
-                       psProduct, nIncome)) {
+                       psSold, nIncome)) {
         println(psBuffer);
         free(psBuffer);
     }

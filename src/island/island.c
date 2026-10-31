@@ -257,6 +257,7 @@ int main(int argc, char *argv[]) {
     int nResult = -1;
     Island tIsland = {0};
     SPHRAGIS_Island tSphragis = {0};
+    char *sBuff;
 
     tIsland.nFdStock = -1;
 
@@ -284,7 +285,8 @@ int main(int argc, char *argv[]) {
     }
 
     // DEBUGGING
-    printData(tIsland, tIsland.atStock, tIsland.tNumStock);
+    //printData(tIsland, tIsland.atStock, tIsland.tNumStock);
+
     signal(SIGINT, onSigint);
     signal(SIGPIPE, SIG_IGN);
 
@@ -301,6 +303,13 @@ int main(int argc, char *argv[]) {
     FD_SET(tIsland.nServerFd, &tIsland.fds_clients);
 
     tIsland.max_fd = tIsland.nServerFd;
+
+    if(-1 == asprintf(&sBuff, WELCOME, tIsland.psName, tIsland.nCapacity, (int)tIsland.tNumRoutes, (int)tIsland.tNumStock)) {
+        return EXIT_FAILURE;
+    }
+    println(sBuff);
+    free(sBuff);
+
 
     while (!nEv_quit) {
         fd_set read_fds = tIsland.fds_clients;

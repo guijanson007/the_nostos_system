@@ -205,6 +205,7 @@ int main(int argc, char *argv[]) {
     Ithaca tIthaca = {0};
     Voyage *atVoyages = NULL;
     size_t tNumVoyages = 0;
+    char *sBuff;
 
     if (0 != checkArgcIthaca(argc, argv)) {
         return EXIT_FAILURE;
@@ -223,8 +224,7 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
     }
 
-    if (-1 ==
-        loadData(&nFdIthaca, &nFdVoyage, &tIthaca, &atVoyages, &tNumVoyages)) {
+    if (-1 == loadData(&nFdIthaca, &nFdVoyage, &tIthaca, &atVoyages, &tNumVoyages)) {
         return EXIT_FAILURE;
     }
     closeFiles(&nFdIthaca, &nFdVoyage);
@@ -251,9 +251,14 @@ int main(int argc, char *argv[]) {
 
     tIthaca.max_fd = tIthaca.nServerFd;
 
+    if(-1 == asprintf(&sBuff, WELCOME, (int)tIthaca.tNumVoyages)) {
+        return EXIT_FAILURE;
+    }
+    println(sBuff);
+    free(sBuff);
+
     while (!nEv_quit) {
-        if (tIthaca.max_fd ==
-            tIthaca.nServerFd) { // Only the server socket is in the set
+        if (tIthaca.max_fd == tIthaca.nServerFd) { // Only the server socket is in the set
             println(WAITING_FOR_CLIENTS);
         }
 

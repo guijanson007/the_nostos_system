@@ -37,6 +37,7 @@ static void disconectIthaca(int fd_client, Ithaca *ithaca, Message msg) {
 
     // Reply before removeClient, which closes the socket
     sendMessage(&msg, fd_client);
+    consoleLog(ithaca->clients[findClientIndex(ithaca, fd_client)].psName, " has left Ithaca. Fair winds!");
     if (nRemove) {
         removeClient(ithaca, fd_client);
     }
@@ -150,7 +151,8 @@ static void listVoyages(int fd_client, Ithaca *ithaca, Message msg) {
         }
     }
     if (0 == nTotal) {
-        replyError(fd_client, &msg, ERROR_NO_VOYAGES);
+       buildMessage(&msg, FLAG_RESPONSE, "0");
+        sendMessage(&msg, fd_client);
         return;
     }
 
@@ -264,14 +266,14 @@ void choseOption(Ithaca *ithaca, Message msg, int fd_client) {
             break;
         case MSG_CLAIM:
             // CLAIM (REQUEST)
-            sendNack(fd_client, NACK_INVALID_TYPE)
+            sendNack(fd_client, NACK_INVALID_TYPE);
             break;
         case MSG_DISCONNECT_ITHACA:
             // DISCONNECT FROM ITHACA (REQUEST)
             disconectIthaca(fd_client, ithaca, msg);
             break;
         default:
-            sendNack(fd_client, NACK_INVALID_TYPE)
+            sendNack(fd_client, NACK_INVALID_TYPE);
             break;
     }
 }

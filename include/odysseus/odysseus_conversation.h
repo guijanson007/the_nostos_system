@@ -21,5 +21,6 @@ OdysseusStatus sellProduct(Odysseus *tOdysseus, const  char *psProduct, const in
 OdysseusStatus buyMap(Odysseus *tOdysseus);
 OdysseusStatus departFromIsland(Odysseus *tOdysseus);
 OdysseusStatus waitingAtPort(Odysseus *ptOdysseus, int *pnArrival);
+OdysseusStatus leaveIsland(Odysseus *tOdysseus);
 
 #endif

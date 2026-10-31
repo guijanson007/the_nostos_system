@@ -20,9 +20,20 @@
 
 OdysseusStatus odysseusConnect(Odysseus *tOdysseus) {
     OdysseusStatus eStatus = ODY_OK;
+    char *psBuffer;
 
     if (-1 != tOdysseus->ithaca_socket) {
         return ODY_ERR_ALREADY_CONNECTED;
+    }
+
+    if (-1 != tOdysseus->whereAmI) {
+        if (-1 != asprintf(&psBuffer, "Leaving %s...", tOdysseus->map.connections[tOdysseus->whereAmI].name)) {
+            println(psBuffer);
+            free(psBuffer);
+        }
+        departFromIsland(tOdysseus);
+        tOdysseus->whereAmI = -1;
+        println("Returning directly to Ithaca...");
     }
 
     eStatus = connectToIthaca(tOdysseus);
@@ -73,11 +84,14 @@ void odysseusStatus(Odysseus *ptOdysseus) {
         free(psBuffer);
     }
 
-    // TO IMPLEMENT WHEN THE VOYAGE IS DONE (Current voyage: None)
+    if (0 == ptOdysseus->activeVoyage.id) {
+        println("Current voyage: None");
+    } else if (-1 != asprintf(&psBuffer, "Current voyage: %s -> %s\nReward: %d",ptOdysseus->activeVoyage.object, ptOdysseus->activeVoyage.destination,   ptOdysseus->activeVoyage.reward)) {
+        println(psBuffer);
+        free(psBuffer);
+    }
 
-    psLocation = (-1 == ptOdysseus->whereAmI)
-                     ? "Ithaca"
-                     : ptOdysseus->map.connections[ptOdysseus->whereAmI].name;
+    psLocation = (-1 == ptOdysseus->whereAmI)  ? "Ithaca" : ptOdysseus->map.connections[ptOdysseus->whereAmI].name;
     if (-1 != asprintf(&psBuffer, "Current location: %s", psLocation)) {
         println(psBuffer);
         free(psBuffer);
@@ -178,7 +192,6 @@ OdysseusStatus odysseusSail(Odysseus *tOdysseus, const char *psDestination) {
     char *psBuffer = NULL;
     int nDestinationIndex;
     int nArrival = ARRIVAL_NONE;
-    int nWaited = 0;
 
     nDestinationIndex = findDestinationFromIsland(tOdysseus, psDestination);
 
@@ -193,19 +206,13 @@ OdysseusStatus odysseusSail(Odysseus *tOdysseus, const char *psDestination) {
 
     if (-1 == tOdysseus->whereAmI) {
         println("Leaving Ithaca...");
-        if (-1 != tOdysseus->ithaca_socket) {
-            disconnectFromIthaca(tOdysseus);
-        }
-    } else {
+        disconnectFromIthaca(tOdysseus);
+    } else{
         if (-1 != asprintf(&psBuffer, "Leaving %s...", tOdysseus->map.connections[tOdysseus->whereAmI].name)) {
             println(psBuffer);
             free(psBuffer);
         }
-        if (-1 != tOdysseus->island_socket) {
-            departFromIsland(tOdysseus);
-            close(tOdysseus->island_socket);
-            tOdysseus->island_socket = -1;
-        }
+        departFromIsland(tOdysseus);
     }
 
     if (-1 != asprintf(&psBuffer, "Sailing to %s...", ptDestination->name)) {
@@ -226,7 +233,6 @@ OdysseusStatus odysseusSail(Odysseus *tOdysseus, const char *psDestination) {
     eStatus = arriveAtIsland(tOdysseus, &nArrival);
     if (ODY_OK == eStatus && ARRIVAL_WAIT == nArrival) {
         println("The harbor is full. We drop anchor and wait.");
-        nWaited = 1;
         eStatus = waitingAtPort(tOdysseus, &nArrival);
     }
     if (ODY_OK != eStatus || ARRIVAL_NONE == nArrival) {
@@ -246,7 +252,7 @@ OdysseusStatus odysseusSail(Odysseus *tOdysseus, const char *psDestination) {
     }
 
     tOdysseus->whereAmI = nDestinationIndex;
-    if (-1 != asprintf(&psBuffer, "%s%s has granted access to the port.", ptDestination->name)) {
+    if (-1 != asprintf(&psBuffer, "%s has granted access to the port.", ptDestination->name)) {
         println(psBuffer);
         free(psBuffer);
     }

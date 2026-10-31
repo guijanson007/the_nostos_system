@@ -67,7 +67,6 @@ typedef struct Odysseus {
     char *port;
     char *initialInfo;
     int ithaca_socket;
-    Supply *supplies;
     Map map;
     int whereAmI; // index of the current island in the connections array If
                   // Ithaca -1
