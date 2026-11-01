@@ -15,18 +15,18 @@
  ************************************************/
 void buildMessage(Message *ptMsg, const char cFlags, const char *psData) {
     size_t tLength = strlen(psData);
- 
+
     // Truncate so a too long payload never leaves stale data in the message
     if (MESSAGE_DATA_MAX < tLength) {
         tLength = MESSAGE_DATA_MAX;
     }
- 
+
     ptMsg->flag = cFlags;
     ptMsg->dataLength = (unsigned char)tLength;
     memcpy(ptMsg->data, psData, tLength);
     ptMsg->data[tLength] = '\0';
 }
- 
+
 /***********************************************
  *
  * @Name : sendMessage
@@ -39,34 +39,35 @@ void buildMessage(Message *ptMsg, const char cFlags, const char *psData) {
  ************************************************/
 int sendMessage(const Message *ptMsg, int nFd) {
     unsigned char *pbyBuffer = NULL;
- 
+
     if (NULL == ptMsg || 0 > nFd || MESSAGE_DATA_MAX < ptMsg->dataLength) {
         return -1;
     }
- 
+
     pbyBuffer = calloc(MESSAGE_SIZE, sizeof(unsigned char));
     if (NULL == pbyBuffer) {
         return -1;
     }
- 
+
     pbyBuffer[FRAME_TYPE_POS] = ptMsg->type;
     pbyBuffer[FRAME_FLAG_POS] = ptMsg->flag;
     pbyBuffer[FRAME_LENGTH_POS] = ptMsg->dataLength;
     memcpy(pbyBuffer + FRAME_DATA_POS, ptMsg->data, ptMsg->dataLength);
- 
+
     if (MESSAGE_SIZE != write(nFd, pbyBuffer, MESSAGE_SIZE)) {
         free(pbyBuffer);
         return -1;
     }
- 
+
     free(pbyBuffer);
     return 0;
 }
- 
+
 /***********************************************
  *
  * @Name : receiveMessage
- * @Def : Reads one frame of MESSAGE_SIZE bytes from a socket and checks
+ * @Def : Reads one frame of MESSAGE_SIZE bytes from a socket (looping until
+ *        the whole frame has arrived) and checks
  *        its data length and flags.
  * @Arg : Out: ptMsg = message received
  *        In: nFd = socket to read from
@@ -76,21 +77,28 @@ int sendMessage(const Message *ptMsg, int nFd) {
  ************************************************/
 int receiveMessage(Message *ptMsg, int nFd) {
     unsigned char *pbyBuffer = NULL;
- 
+    size_t tRead = 0;
+    ssize_t nBytes = 0;
+
     if (0 > nFd || NULL == ptMsg) {
         return -1;
     }
- 
+
     pbyBuffer = calloc(MESSAGE_SIZE, sizeof(unsigned char));
     if (NULL == pbyBuffer) {
         return -1;
     }
- 
-    if (MESSAGE_SIZE != read(nFd, pbyBuffer, MESSAGE_SIZE)) {
-        free(pbyBuffer);
-        return -1;
+
+    // TCP is a byte stream: a frame can arrive split in several reads
+    while (tRead < MESSAGE_SIZE) {
+        nBytes = read(nFd, pbyBuffer + tRead, MESSAGE_SIZE - tRead);
+        if (0 >= nBytes) {
+            free(pbyBuffer);
+            return -1;
+        }
+        tRead += (size_t)nBytes;
     }
- 
+
     if (MESSAGE_DATA_MAX < pbyBuffer[FRAME_LENGTH_POS]) {
         free(pbyBuffer);
         return -2;
@@ -99,17 +107,17 @@ int receiveMessage(Message *ptMsg, int nFd) {
         free(pbyBuffer);
         return -3;
     }
- 
+
     ptMsg->type = pbyBuffer[FRAME_TYPE_POS];
     ptMsg->flag = pbyBuffer[FRAME_FLAG_POS];
     ptMsg->dataLength = pbyBuffer[FRAME_LENGTH_POS];
     memcpy(ptMsg->data, pbyBuffer + FRAME_DATA_POS, ptMsg->dataLength);
     ptMsg->data[ptMsg->dataLength] = '\0';
- 
+
     free(pbyBuffer);
     return 0;
 }
- 
+
 /***********************************************
  *
  * @Name : sendNack
@@ -121,12 +129,12 @@ int receiveMessage(Message *ptMsg, int nFd) {
  ************************************************/
 void sendNack(int nFd, const char *psReason) {
     Message tMsg = {0};
- 
+
     tMsg.type = MSG_NACK;
     buildMessage(&tMsg, FLAG_RESPONSE | FLAG_ERROR, psReason);
     sendMessage(&tMsg, nFd);
 }
- 
+
 /***********************************************
  *
  * @Name : openListenConn
@@ -143,38 +151,38 @@ int openListenConn(char *psIp, int nPort) {
     struct hostent *pstHost = NULL;
     int nSocketFd = -1;
     int nReuse = 1;
- 
+
     nSocketFd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
- 
+
     if (0 > nSocketFd) {
         return -1;
     }
- 
+
     setsockopt(nSocketFd, SOL_SOCKET, SO_REUSEADDR, &nReuse, sizeof(nReuse));
- 
+
     stAddr.sin_family = AF_INET;
     stAddr.sin_port = htons(nPort);
- 
+
     pstHost = gethostbyname(psIp);
     if (NULL == pstHost) {
         close(nSocketFd);
         return -2;
     }
     memcpy(&stAddr.sin_addr, pstHost->h_addr_list[0], pstHost->h_length);
- 
+
     if (0 > bind(nSocketFd, (void *)&stAddr, sizeof(stAddr))) {
         close(nSocketFd);
         return -3;
     }
- 
+
     if (0 > listen(nSocketFd, MAX_CONN)) {
         close(nSocketFd);
         return -1;
     }
- 
+
     return nSocketFd;
 }
- 
+
 /***********************************************
  *
  * @Name : openClientConn
@@ -188,13 +196,13 @@ int openListenConn(char *psIp, int nPort) {
 int openClientConn(char *psIp, int nPort) {
     struct sockaddr_in stAddr = {0};
     int nSocketFd = -1;
- 
+
     nSocketFd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (0 > nSocketFd) {
         printErr(ERROR_SOCKET);
         return -1;
     }
- 
+
     stAddr.sin_family = AF_INET;
     stAddr.sin_port = htons(nPort);
     if (1 != inet_pton(AF_INET, psIp, &stAddr.sin_addr)) {
@@ -202,12 +210,12 @@ int openClientConn(char *psIp, int nPort) {
         close(nSocketFd);
         return -1;
     }
- 
+
     if (0 > connect(nSocketFd, (struct sockaddr *)&stAddr, sizeof(stAddr))) {
         printErr(ERR_CONNECT);
         close(nSocketFd);
         return -1;
     }
- 
+
     return nSocketFd;
 }
