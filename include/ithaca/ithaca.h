@@ -28,7 +28,7 @@
 #define VOYAGES_FILE "voyages.dat"
  
 #define WELCOME "Ithaca initialized. %d voyages loaded."
-#define FAREWELL "\nIthaca closes the harbor"
+#define FAREWELL "\nIthaca closes the harbor."
  
 #define ERROR_ARGC "Usage: ./ithaca <ithaca.dat> <voyages.dat>"
 #define ERROR_FILE_ITHACA "ERROR ITHACA: the file couldn't be opened"

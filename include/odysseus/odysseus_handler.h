@@ -34,7 +34,7 @@
 #define MSG_CONNECTED_TO "\nConnected to %s."
 #define MSG_HARBOR_FULL "The harbor is full. We drop anchor and wait."
 #define MSG_LOST_AT_SEA "\nThe crew has run out of provisions.\nOdysseus %s has been lost at sea."
-#define MSG_GRANTED_ACCESS "%s has granted access to the port."
+#define MSG_GRANTED_ACCESS ">>> %s has granted access to the port."
 #define MSG_VOYAGE_DESTINATION "%s is the destination of your voyage (%s)."
 
 // Functions

@@ -37,7 +37,7 @@
 #define MSG_ISLAND_FINISHED "\nIsland process finished."
  
 #define WELCOME "Island %s initialized.\nPort capacity: %d ships.\n%d sea routes loaded.\n%d products available."
-#define FAREWELL "\%s closes its port."
+#define FAREWELL "\n%s closes its port."
  
 // Custom type definitions
 typedef enum {

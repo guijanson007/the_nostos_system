@@ -43,7 +43,6 @@
 #define MSG_RATION "\n>>> The crew consumes another ration.\nProvisions remaining: %d kg"
 #define MSG_MARKET_HEADER "--- %s MARKET ---"
 #define MSG_MARKET_LINE "%s\t%d kg\t %d gold / kg"
-#define MSG_MARKET_MORE "..."
 #define MSG_MARKET_MAP "%s\t\t\t%d gold"
 #define MAP_LABEL "Map"
 #define MSG_BOUGHT "Bought %d kg of %s for %d gold."
