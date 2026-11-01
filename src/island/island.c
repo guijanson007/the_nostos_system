@@ -13,7 +13,7 @@
 
 #include "island/island.h"
 
-volatile int nEvQuit = 0;
+static volatile int nEvQuit = 0;
 
 /***********************************************
  *
@@ -318,6 +318,10 @@ static int startServer(Island *ptIsland, int *pnFdConfig,
 
     if (-1 == asprintf(&psBuff, WELCOME, ptIsland->psName, ptIsland->nCapacity,
                        (int)ptIsland->tNumRoutes, (int)ptIsland->tNumStock)) {
+        close(ptIsland->nServerFd);
+        closeFiles(pnFdConfig, &ptIsland->nFdStock);
+        freeStock(&ptIsland->atStock);
+        freeIsland(ptIsland, ptSphragis);
         return -1;
     }
     println(psBuff);
@@ -427,6 +431,7 @@ static void closeIsland(Island *ptIsland, int *pnFdConfig,
                         SPHRAGIS_Island *ptSphragis) {
     int nFd = 0;
     size_t i = 0;
+    char *psFarewell = NULL;
 
     for (nFd = 0; nFd <= ptIsland->nMaxFd; nFd++) {
         if (0 != FD_ISSET(nFd, &ptIsland->tFdsClients)) {
@@ -441,8 +446,11 @@ static void closeIsland(Island *ptIsland, int *pnFdConfig,
 
     closeFiles(pnFdConfig, &ptIsland->nFdStock);
     freeStock(&ptIsland->atStock);
+    if (-1 != asprintf(&psFarewell, FAREWELL, ptIsland->psName)) {
+        println(psFarewell);
+        free(psFarewell);
+    }
     freeIsland(ptIsland, ptSphragis);
-    println(MSG_ISLAND_FINISHED);
 }
 
 /***********************************************
