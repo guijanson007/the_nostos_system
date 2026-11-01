@@ -211,9 +211,10 @@ static void arravalIsland(Island *ptIsland, Message tMsg, int nFdClient) {
     ptIsland->atClients[ptIsland->tNumClients].eState = CLIENT_NEW;
     ptIsland->atClients[ptIsland->tNumClients].tQueued = 0;
  
-    asprintf(&psBuffer, MSG_APPROACHING, psName, ptIsland->psName);
-    println(psBuffer);
-    free(psBuffer);
+    if (-1 != asprintf(&psBuffer, MSG_APPROACHING, psName, ptIsland->psName)) {
+        println(psBuffer);
+        free(psBuffer);
+    }
     ptIsland->tNumClients++;
     decideState(ptIsland, ptIsland->tNumClients - 1);
 }

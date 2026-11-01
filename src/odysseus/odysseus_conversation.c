@@ -720,7 +720,6 @@ static int parseMessageMarket(char *psData, int nLength, int *pnIndex,
 static void printMarketMap(int nPrice) {
     char *psBuffer = NULL;
 
-    println(MSG_MARKET_MORE);
     if (-1 != asprintf(&psBuffer, MSG_MARKET_MAP, MAP_LABEL, nPrice)) {
         println(psBuffer);
         free(psBuffer);
@@ -737,14 +736,18 @@ static void printMarketMap(int nPrice) {
  ************************************************/
 static void printMarketHeader(Odysseus *ptOdysseus) {
     char *psBuffer = NULL;
+    char *psUpperName = strdup(
+        ptOdysseus->tMap.atConnections[ptOdysseus->nWhereAmI].psName);
 
-    if (-1 !=
-        asprintf(
-            &psBuffer, MSG_MARKET_HEADER,
-            ptOdysseus->tMap.atConnections[ptOdysseus->nWhereAmI].psName)) {
+    if (NULL == psUpperName) {
+        return;
+    }
+    strToUpper(psUpperName);
+    if (-1 != asprintf(&psBuffer, MSG_MARKET_HEADER, psUpperName)) {
         println(psBuffer);
         free(psBuffer);
     }
+    free(psUpperName);
 }
 
 /***********************************************
@@ -821,10 +824,11 @@ static OdysseusStatus queryMarket(Odysseus *ptOdysseus, int nPrint,
         }
         nExpected++;
 
-        useMarketLine(psProduct, nAmount, nPrice, nPrint, psWanted, pnPrice);
-
-        // The last frame is the MAP
-        if (nIndex == nTotal) {
+        // The last frame is the MAP: it is shown by printMarketMap
+        if (nIndex != nTotal) {
+            useMarketLine(psProduct, nAmount, nPrice, nPrint, psWanted,
+                          pnPrice);
+        } else {
             if (0 != nPrint) {
                 printMarketMap(nPrice);
             }
@@ -1221,21 +1225,21 @@ OdysseusStatus departFromIsland(Odysseus *ptOdysseus) {
     tMessage.flag = FLAG_NONE;
 
     if (0 != sendMessage(&tMessage, ptOdysseus->nIslandSocket)) {
-        return ODY_ERR_IO;
-    }
-    eStatus =
-        receiveIslandResponse(ptOdysseus, &tMessage, MSG_DEPARTURE_ISLAND);
-    if (ODY_OK != eStatus) {
-        return eStatus;
-    }
-    if (0 != strcmp(tMessage.data, OK_RESPONSE)) {
-        return ODY_ERR_ISLAND_PROTOCOL;
+        eStatus = ODY_ERR_IO;
+    } else {
+        eStatus =
+            receiveIslandResponse(ptOdysseus, &tMessage, MSG_DEPARTURE_ISLAND);
+        if (ODY_OK == eStatus && 0 != strcmp(tMessage.data, OK_RESPONSE)) {
+            eStatus = ODY_ERR_ISLAND_PROTOCOL;
+        }
     }
 
+    // Whatever the answer was, the ship leaves: closing the socket frees the
+    // berth and avoids leaking the descriptor
     close(ptOdysseus->nIslandSocket);
     ptOdysseus->nIslandSocket = NO_SOCKET;
 
-    return ODY_OK;
+    return eStatus;
 }
 
 /***********************************************

@@ -100,13 +100,19 @@ void odysseusMap(Odysseus *ptOdysseus) { displayMap(ptOdysseus); }
  ************************************************/
 void odysseusStatus(Odysseus *ptOdysseus) {
     char *psBuffer = NULL;
+    char *psUpperName = NULL;
     const char *psLocation = NULL;
     int i = 0;
 
-    if (-1 != asprintf(&psBuffer, MSG_STATUS_HEADER, ptOdysseus->psName,
-                       ptOdysseus->tCargo.nGold)) {
-        println(psBuffer);
-        free(psBuffer);
+    psUpperName = strdup(ptOdysseus->psName);
+    if (NULL != psUpperName) {
+        strToUpper(psUpperName);
+        if (-1 != asprintf(&psBuffer, MSG_STATUS_HEADER, psUpperName,
+                           ptOdysseus->tCargo.nGold)) {
+            println(psBuffer);
+            free(psBuffer);
+        }
+        free(psUpperName);
     }
 
     for (i = 0; i < ptOdysseus->tCargo.nNumSupplies; i++) {
