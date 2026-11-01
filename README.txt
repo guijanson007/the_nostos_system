@@ -42,3 +42,27 @@ Same arguments, with valgrind in front:
   valgrind --leak-check=full --show-leak-kinds=all --track-fds=yes ./odysseus odysseus.dat
 
 Stop the process with CTRL+C to see the valgrind summary.
+
+
+4. NETWORK AND PORTS
+--------------------
+Every process is configured only through its .dat file (IP and port); nothing
+is hardcoded, and nothing assumes that two processes share a machine.
+
+Lab layout (all machines are in 172.16.214.0/24, ports 8625-8629):
+
+  Machine          Process     Port
+  172.16.214.18    Ithaca      8625
+  172.16.214.18    Aeolia      8628
+  172.16.214.20    Aeaea       8626
+  172.16.214.20    Scheria     8627
+  172.16.214.21    Ismarus     8629
+  172.16.214.21    Thrinacia   8625
+  172.16.214.21    Ogygia      8626
+
+- Ithaca and Aeaea are on different machines, as required.
+- There are 7 servers and only 5 ports. A port is only unique per machine, so
+  Thrinacia and Ogygia reuse 8625 and 8626 on a machine where they are free.
+- Each server listens on the IP and port of its own .dat file, so it must be
+  started on the machine whose IP it lists (or use 0.0.0.0 to listen anywhere).
+- Odysseus connects with plain IP addresses (no host names).
