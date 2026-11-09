@@ -5,7 +5,7 @@
  *            Arguments: argv[1] = config file
  *                       argv[2] = stock file
  * @Author : Axel Boleda Callizo
- * @Date : 24/09/2026
+ * @Date : 31/10/2026
  *
  ************************************************/
 
@@ -13,11 +13,19 @@
 
 #include "island/island.h"
 
-int nEv_quit = 0;
+static volatile int nEvQuit = 0;
 
+/***********************************************
+ *
+ * @Name : onSigint
+ * @Def : SIGINT handler. Sets the quit flag so the main loop ends.
+ * @Arg : In: nSignum = number of the signal received (unused)
+ * @Ret : None.
+ *
+ ************************************************/
 static void onSigint(int nSignum) {
     (void)nSignum;
-    nEv_quit = 1;
+    nEvQuit = 1;
 }
 
 /***********************************************
@@ -124,27 +132,27 @@ void errorLoadingHandler(const char *psError, int *pnFdConfig, int *pnFdStock) {
  *
  * @Name : printData
  * @Def : Prints the island info, its routes and its stock (debugging).
- * @Arg : In: ptIsland = copy of the island struct
+ * @Arg : In: tIsland = copy of the island struct
  *        In: atStock = dynamic array of stock items
  *        In: tNumStock = number of elements in atStock
  * @Ret : None.
  *
  ************************************************/
-void printData(Island ptIsland, Stock *atStock, size_t tNumStock) {
+void printData(Island tIsland, Stock *atStock, size_t tNumStock) {
     char *psBuffer = NULL;
     size_t i = 0;
 
-    if (-1 != asprintf(&psBuffer, "%s - %s - %s %d - %d", ptIsland.psName,
-                       ptIsland.psFile, ptIsland.psIp, ptIsland.nPort,
-                       ptIsland.nCapacity)) {
+    if (-1 != asprintf(&psBuffer, "%s - %s - %s %d - %d", tIsland.psName,
+                       tIsland.psFile, tIsland.psIp, tIsland.nPort,
+                       tIsland.nCapacity)) {
         println(psBuffer);
         free(psBuffer);
     }
 
-    for (i = 0; i < ptIsland.tNumRoutes; i++) {
-        if (-1 !=
-            asprintf(&psBuffer, "\t%s - %s - %d", ptIsland.atRoutes[i].psName,
-                     ptIsland.atRoutes[i].psIp, ptIsland.atRoutes[i].nPort)) {
+    for (i = 0; i < tIsland.tNumRoutes; i++) {
+        if (-1 != asprintf(&psBuffer, "\t%s - %s - %d",
+                           tIsland.atRoutes[i].psName, tIsland.atRoutes[i].psIp,
+                           tIsland.atRoutes[i].nPort)) {
             println(psBuffer);
             free(psBuffer);
         }
@@ -162,8 +170,8 @@ void printData(Island ptIsland, Stock *atStock, size_t tNumStock) {
 /***********************************************
  *
  * @Name : loadData
- * @Def : Loads the island (config file) and the stock (stock file).  On error
- * it prints the message, closes both files and frees.
+ * @Def : Loads the island (config file) and the stock (stock file). On
+ *        error it prints the message, closes both files and frees.
  * @Arg : In/Out: pnFdConfig = pointer to the config file descriptor
  *        In/Out: pnFdStock = pointer to the stock file descriptor
  *        Out: ptIsland = island to fill
@@ -198,49 +206,251 @@ int loadData(int *pnFdConfig, int *pnFdStock, Island *ptIsland,
  * @Def : Checks the number and validity of command-line arguments.
  * @Arg : In: argc = number of arguments
  *        In: argv = arguments (island config file and stock file)
- * @Ret : 0 if arguments are valid return 0, -1 otherwise.
+ * @Ret : 0 if the arguments are valid, -1 otherwise.
  *
  ************************************************/
 int checkArgcIsland(int argc, char *argv[]) {
+    char *psConfigAux = NULL;
+    char *psStockAux = NULL;
+    char *psIslandConfigFile = NULL;
+    char *psStockFolder = NULL;
+    char *psAux = NULL;
+    char *psIslandStockFile = NULL;
+
     if (EXPECTED_ARGC != argc) {
         return -1;
     }
 
-    char *configAux = strdup(argv[1]);
-    char *stockAux = strdup(argv[2]);
+    psConfigAux = strdup(argv[1]);
+    psStockAux = strdup(argv[2]);
 
-    if (configAux == NULL || stockAux == NULL) {
-        free(configAux);
-        free(stockAux);
+    if (NULL == psConfigAux || NULL == psStockAux) {
+        free(psConfigAux);
+        free(psStockAux);
         return -1;
     }
 
-    char *islandConfigFile = strtok(configAux, ".");
-    char *stockFoler = strtok(stockAux, "/");
-    char *aux = strtok(NULL, "/");
-    if (NULL == islandConfigFile || NULL == stockFoler || NULL == aux) {
-        free(configAux);
-        free(stockAux);
+    psIslandConfigFile = strtok(psConfigAux, EXTENSION_DELIMITER);
+    psStockFolder = strtok(psStockAux, PATH_DELIMITER);
+    psAux = strtok(NULL, PATH_DELIMITER);
+    if (NULL == psIslandConfigFile || NULL == psStockFolder || NULL == psAux) {
+        free(psConfigAux);
+        free(psStockAux);
         return -1;
     }
-    char *islandStockFile = strtok(aux, ".");
-    if (NULL == islandStockFile) {
-        free(configAux);
-        free(stockAux);
-        return -1;
-    }
-
-    if (0 != strcasecmp(islandConfigFile, islandStockFile) ||
-        0 != strcmp(stockFoler, "stocks")) {
-        free(configAux);
-        free(stockAux);
+    psIslandStockFile = strtok(psAux, EXTENSION_DELIMITER);
+    if (NULL == psIslandStockFile) {
+        free(psConfigAux);
+        free(psStockAux);
         return -1;
     }
 
-    free(configAux);
-    free(stockAux);
+    if (0 != strcasecmp(psIslandConfigFile, psIslandStockFile) ||
+        0 != strcmp(psStockFolder, STOCKS_FOLDER)) {
+        free(psConfigAux);
+        free(psStockAux);
+        return -1;
+    }
+
+    free(psConfigAux);
+    free(psStockAux);
 
     return 0;
+}
+
+/***********************************************
+ *
+ * @Name : openFiles
+ * @Def : Opens the config file (read only) and the stock file (read and
+ *        write). If the stock file fails, the config file is closed.
+ * @Arg : In: argv = arguments (config file and stock file)
+ *        Out: pnFdConfig = config file descriptor
+ *        Out: pnFdStock = stock file descriptor
+ * @Ret : 0 if both files were opened, -1 otherwise.
+ *
+ ************************************************/
+static int openFiles(char *argv[], int *pnFdConfig, int *pnFdStock) {
+    *pnFdConfig = open(argv[1], O_RDONLY);
+    if (-1 == *pnFdConfig) {
+        printErr(ERROR_FILE_CONFIG);
+        return -1;
+    }
+
+    *pnFdStock = open(argv[2], O_RDWR);
+    if (-1 == *pnFdStock) {
+        printErr(ERROR_FILE_STOCK);
+        close(*pnFdConfig);
+        return -1;
+    }
+
+    return 0;
+}
+
+/***********************************************
+ *
+ * @Name : startServer
+ * @Def : Opens the listening socket, prepares the set of descriptors and
+ *        prints the welcome message. If the socket fails, it closes the
+ *        files and frees the island.
+ * @Arg : In/Out: ptIsland = island that will listen for connections
+ *        In/Out: pnFdConfig = pointer to the config file descriptor
+ *        In/Out: ptSphragis = sphragis island to free on error
+ * @Ret : 0 if the server is ready, -1 otherwise.
+ *
+ ************************************************/
+static int startServer(Island *ptIsland, int *pnFdConfig,
+                       SPHRAGIS_Island *ptSphragis) {
+    char *psBuff = NULL;
+
+    ptIsland->nServerFd = openListenConn(ptIsland->psIp, ptIsland->nPort);
+    if (0 > ptIsland->nServerFd) {
+        write(STDOUT_FILENO, ERROR_SOCKET, strlen(ERROR_SOCKET));
+        closeFiles(pnFdConfig, &ptIsland->nFdStock);
+        freeStock(&ptIsland->atStock);
+        freeIsland(ptIsland, ptSphragis);
+        return -1;
+    }
+
+    FD_ZERO(&ptIsland->tFdsClients);
+    FD_SET(ptIsland->nServerFd, &ptIsland->tFdsClients);
+
+    ptIsland->nMaxFd = ptIsland->nServerFd;
+
+    if (-1 == asprintf(&psBuff, WELCOME, ptIsland->psName, ptIsland->nCapacity,
+                       (int)ptIsland->tNumRoutes, (int)ptIsland->tNumStock)) {
+        close(ptIsland->nServerFd);
+        closeFiles(pnFdConfig, &ptIsland->nFdStock);
+        freeStock(&ptIsland->atStock);
+        freeIsland(ptIsland, ptSphragis);
+        return -1;
+    }
+    println(psBuff);
+    free(psBuff);
+
+    return 0;
+}
+
+/***********************************************
+ *
+ * @Name : acceptClient
+ * @Def : Accepts a new connection and adds it to the set of descriptors.
+ * @Arg : In/Out: ptIsland = island that receives the connection
+ * @Ret : None.
+ *
+ ************************************************/
+static void acceptClient(Island *ptIsland) {
+    int nFdClient = -1;
+
+    nFdClient = accept(ptIsland->nServerFd, NULL, NULL);
+    if (0 > nFdClient) {
+        write(STDOUT_FILENO, ERROR_SOCKET, strlen(ERROR_SOCKET));
+        return;
+    }
+    FD_SET(nFdClient, &ptIsland->tFdsClients);
+    if (nFdClient > ptIsland->nMaxFd) {
+        ptIsland->nMaxFd = nFdClient;
+    }
+}
+
+/***********************************************
+ *
+ * @Name : handleClient
+ * @Def : Reads a message from a client and executes the matching option.
+ *        If the client disconnected, it is removed.
+ * @Arg : In/Out: ptIsland = island that handles the client
+ *        In: nFd = descriptor of the client
+ * @Ret : None.
+ *
+ ************************************************/
+static void handleClient(Island *ptIsland, int nFd) {
+    int nResult = -1;
+    Message tMsg = {0};
+
+    nResult = receiveMessage(&tMsg, nFd);
+
+    if (-1 == nResult) {
+        clientLeaves(ptIsland, nFd);
+        return;
+    } else if (-2 == nResult) {
+        sendNack(nFd, NACK_INVALID_LENGTH);
+        return;
+    } else if (-3 == nResult) {
+        sendNack(nFd, NACK_INVALID_FLAGS);
+        return;
+    }
+
+    choseOption(ptIsland, tMsg, nFd);
+}
+
+/***********************************************
+ *
+ * @Name : runServer
+ * @Def : Main loop of the island. Waits with select for new connections
+ *        and messages until SIGINT is received.
+ * @Arg : In/Out: ptIsland = island that runs the server
+ * @Ret : None.
+ *
+ ************************************************/
+static void runServer(Island *ptIsland) {
+    int nFd = 0;
+    fd_set tReadFds = {0};
+
+    while (0 == nEvQuit) {
+        tReadFds = ptIsland->tFdsClients;
+        if (-1 == select(ptIsland->nMaxFd + 1, &tReadFds, NULL, NULL, NULL)) {
+            break;
+        }
+
+        for (nFd = 0; nFd <= ptIsland->nMaxFd; nFd++) {
+            if (0 == FD_ISSET(nFd, &tReadFds) ||
+                0 == FD_ISSET(nFd, &ptIsland->tFdsClients)) {
+                continue;
+            }
+
+            if (nFd == ptIsland->nServerFd) {
+                acceptClient(ptIsland);
+            } else {
+                handleClient(ptIsland, nFd);
+            }
+        }
+    }
+}
+
+/***********************************************
+ *
+ * @Name : closeIsland
+ * @Def : Closes every open descriptor, frees the clients, closes the files
+ *        and frees the island and its stock.
+ * @Arg : In/Out: ptIsland = island to close
+ *        In/Out: pnFdConfig = pointer to the config file descriptor
+ *        In/Out: ptSphragis = sphragis island to free
+ * @Ret : None.
+ *
+ ************************************************/
+static void closeIsland(Island *ptIsland, int *pnFdConfig,
+                        SPHRAGIS_Island *ptSphragis) {
+    int nFd = 0;
+    size_t i = 0;
+    char *psFarewell = NULL;
+
+    for (nFd = 0; nFd <= ptIsland->nMaxFd; nFd++) {
+        if (0 != FD_ISSET(nFd, &ptIsland->tFdsClients)) {
+            close(nFd);
+        }
+    }
+
+    for (i = 0; i < ptIsland->tNumClients; i++) {
+        free(ptIsland->atClients[i].psName);
+    }
+    free(ptIsland->atClients);
+
+    closeFiles(pnFdConfig, &ptIsland->nFdStock);
+    freeStock(&ptIsland->atStock);
+    if (-1 != asprintf(&psFarewell, FAREWELL, ptIsland->psName)) {
+        println(psFarewell);
+        free(psFarewell);
+    }
+    freeIsland(ptIsland, ptSphragis);
 }
 
 /***********************************************
@@ -254,93 +464,38 @@ int checkArgcIsland(int argc, char *argv[]) {
  ************************************************/
 int main(int argc, char *argv[]) {
     int nFdConfig = -1;
-    int nFdStock = -1;
     Island tIsland = {0};
-    Stock *atStock = NULL;
-    size_t tNumStock = 0;
     SPHRAGIS_Island tSphragis = {0};
+
+    tIsland.nFdStock = -1;
 
     if (0 != checkArgcIsland(argc, argv)) {
         printErr(ERROR_ARGC);
         return EXIT_FAILURE;
     }
 
-    nFdConfig = open(argv[1], O_RDONLY);
-    if (-1 == nFdConfig) {
-        printErr(ERROR_FILE_CONFIG);
+    if (-1 == openFiles(argv, &nFdConfig, &tIsland.nFdStock)) {
         return EXIT_FAILURE;
     }
 
-    nFdStock = open(argv[2], O_RDONLY);
-    if (-1 == nFdStock) {
-        printErr(ERROR_FILE_STOCK);
-        close(nFdConfig);
-        return EXIT_FAILURE;
-    }
-
-    if (-1 == loadData(&nFdConfig, &nFdStock, &tIsland, &tSphragis, &atStock,
-                       &tNumStock)) {
+    if (-1 == loadData(&nFdConfig, &tIsland.nFdStock, &tIsland, &tSphragis,
+                       &tIsland.atStock, &tIsland.tNumStock)) {
         return EXIT_FAILURE;
     }
 
     // DEBUGGING
-    printData(tIsland, atStock, tNumStock);
-    signal(SIGINT, onSigint);
+    // printData(tIsland, tIsland.atStock, tIsland.tNumStock);
 
-    int fd_socket = openListenConn(tIsland.psIp, tIsland.nPort);
-    if (fd_socket < 0) {
-        write(STDOUT_FILENO, ERROR_SOCKET, strlen(ERROR_SOCKET));
-        closeFiles(&nFdConfig, &nFdStock);
-        freeIsland(&tIsland, &tSphragis);
-        freeStock(&atStock);
+    signal(SIGINT, onSigint);
+    signal(SIGPIPE, SIG_IGN);
+
+    if (-1 == startServer(&tIsland, &nFdConfig, &tSphragis)) {
         return EXIT_FAILURE;
     }
 
-    fd_set fds_clients;
-    FD_ZERO(&fds_clients);
-    FD_SET(fd_socket, &fds_clients);
+    runServer(&tIsland);
 
-    int max_fd = fd_socket;
+    closeIsland(&tIsland, &nFdConfig, &tSphragis);
 
-    while (!nEv_quit) {
-        fd_set read_fds = fds_clients;
-        if (select(max_fd + 1, &read_fds, NULL, NULL, NULL) == -1)
-            break;
-
-        for (int fd = 0; fd <= max_fd; fd++) {
-            if (!FD_ISSET(fd, &read_fds))
-                continue;
-
-            if (fd == fd_socket) {
-                int fd_client = accept(fd_socket, NULL, NULL);
-                if (fd_client < 0) {
-                    write(STDOUT_FILENO, ERROR_ACCEPT, strlen(ERROR_ACCEPT));
-                    continue;
-                }
-                FD_SET(fd_client, &fds_clients);
-                if (fd_client > max_fd)
-                    max_fd = fd_client;
-            } else {
-                char *buffer = readUntil(fd, '\n');
-                if (buffer == NULL) {
-                    close(fd);
-                    FD_CLR(fd, &fds_clients);
-                    continue;
-                }
-                // The function that handdels the option send
-                free(buffer);
-            }
-        }
-    }
-
-    for (int fd = 0; fd <= max_fd; fd++) {
-        if (FD_ISSET(fd, &fds_clients))
-            close(fd);
-    }
-
-    closeFiles(&nFdConfig, &nFdStock);
-    freeIsland(&tIsland, &tSphragis);
-    freeStock(&atStock);
-    println("\nIsland process finished.");
     return EXIT_SUCCESS;
 }

@@ -207,6 +207,8 @@ CommandValidationResult validateOdysseusCommand(const OdysseusCommand *ptCommand
         case COMMAND_BUY:
             if (0 == hasExactlyTwoArguments(ptCommand)) {
                 *ppsErrorMessage = USAGE_BUY;
+            } else if (NULL != strchr(ptCommand->argv[0], FIELD_SEPARATOR)) {
+                *ppsErrorMessage = ERROR_PRODUCT;
             } else if (0 == isPositiveInteger(ptCommand->argv[1])) {
                 *ppsErrorMessage = ERROR_AMOUNT;
             }
@@ -215,6 +217,8 @@ CommandValidationResult validateOdysseusCommand(const OdysseusCommand *ptCommand
         case COMMAND_SELL:
             if (0 == hasExactlyTwoArguments(ptCommand)) {
                 *ppsErrorMessage = USAGE_SELL;
+            } else if (NULL != strchr(ptCommand->argv[0], FIELD_SEPARATOR)) {
+                *ppsErrorMessage = ERROR_PRODUCT;
             } else if (0 == isPositiveInteger(ptCommand->argv[1])) {
                 *ppsErrorMessage = ERROR_AMOUNT;
             }
@@ -237,10 +241,11 @@ CommandValidationResult validateOdysseusCommand(const OdysseusCommand *ptCommand
  * instance.
  * @Arg : In: tOdysseus = Odysseus instance to use for command execution
  *        In: ptCommand = pointer to OdysseusCommand structure to execute
- * @Ret : None.
+ * @Ret : ODY_OK on success, otherwise the status code of the failed handler.
  *
  **************************************************/
-void executeOdysseusCommand(Odysseus tOdysseus, const OdysseusCommand *ptCommand) {
+OdysseusStatus executeOdysseusCommand(Odysseus *tOdysseus,
+                                      const OdysseusCommand *ptCommand) {
     switch (ptCommand->type) {
         case COMMAND_MAP:
             odysseusMap(tOdysseus);
@@ -255,30 +260,27 @@ void executeOdysseusCommand(Odysseus tOdysseus, const OdysseusCommand *ptCommand
             odysseusClaim(tOdysseus);
             break;
         case COMMAND_CONNECT:
-            odysseusConnect(tOdysseus, ptCommand->argv[0]);
-            break;
+            return odysseusConnect(tOdysseus);
         case COMMAND_LIST:
             if (0 == strcmp(ptCommand->argv[0], ARG_VOYAGES)) {
-                odysseusListVoyages(tOdysseus);
+                return odysseusListVoyages(tOdysseus);
             } else {
-                odysseusListMarket(tOdysseus);
+                return odysseusListMarket(tOdysseus);
             }
             break;
         case COMMAND_ACCEPT:
-            odysseusAcceptVoyage(tOdysseus, ptCommand->argv[0]);
-            break;
+            return odysseusAcceptVoyage(tOdysseus, ptCommand->argv[0]);
         case COMMAND_SAIL:
-            odysseusSail(tOdysseus, ptCommand->argv[0]);
-            break;
+            return odysseusSail(tOdysseus, ptCommand->argv[0]);
         case COMMAND_BUY:
-            odysseusBuy(tOdysseus, ptCommand->argv[0], ptCommand->argv[1]);
-            break;
+            return odysseusBuy(tOdysseus, ptCommand->argv[0],
+                               ptCommand->argv[1]);
         case COMMAND_SELL:
-            odysseusSell(tOdysseus, ptCommand->argv[0], ptCommand->argv[1]);
-            break;
+            return odysseusSell(tOdysseus, ptCommand->argv[0], ptCommand->argv[1]);
         case COMMAND_UNKNOWN:
             break;
         default:
             break;
     }
+    return ODY_OK;
 }

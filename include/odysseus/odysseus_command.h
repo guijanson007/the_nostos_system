@@ -50,6 +50,8 @@
 #define USAGE_SELL "Usage: SELL <PRODUCT> <AMOUNT>"
 #define ERROR_VOYAGE_ID "Voyage ID must be a positive integer"
 #define ERROR_AMOUNT "Amount must be a positive integer"
+#define ERROR_PRODUCT "Product name cannot contain '&'"
+#define FIELD_SEPARATOR '&'
 
 
 //Enumerations
@@ -83,6 +85,6 @@ typedef enum {
 //Functions
 int parseOdysseusCommand(char *psLine, OdysseusCommand *ptCommand);
 CommandValidationResult validateOdysseusCommand(const OdysseusCommand *ptCommand, const char **ppsErrorMessage);
-void executeOdysseusCommand(Odysseus tOdysseus, const OdysseusCommand *ptCommand);
+OdysseusStatus executeOdysseusCommand(Odysseus *tOdysseus, const OdysseusCommand *ptCommand);
 
 #endif // ODYSSEUS_COMMAND_H
