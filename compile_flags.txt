@@ -1,0 +1,5 @@
+-Iinclude
+-Ilib/sphragis
+-std=c99
+-Wall
+-Wextra
