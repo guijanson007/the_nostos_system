@@ -116,13 +116,9 @@ int openConfigFile(char *psPath) {
  *
  ************************************************/
 void setupSignals(void) {
-    struct sigaction stAction = {0};
-
-    // No SA_RESTART: a blocking read() must return EINTR when SIGINT arrives
-    sigemptyset(&stAction.sa_mask);
-    stAction.sa_handler = quitProgram;
-    stAction.sa_flags = 0;
-    sigaction(SIGINT, &stAction, NULL);
+    // signal() restarts read(), so stdin is waited on with select() instead
+    // (see waitReadable), which always returns when a signal arrives
+    signal(SIGINT, quitProgram);
     signal(SIGPIPE, SIG_IGN);
 }
 
@@ -213,7 +209,7 @@ int main(int argc, char *argv[]) {
     odysseusStartMenu(tOdysseus);
 
     while (0 == gtEvQuit) {
-        if (1 != odysseusShowMenu(&tOdysseus)) {
+        if (1 != odysseusShowMenu(&tOdysseus, &gtEvQuit)) {
             break;
         }
     }
