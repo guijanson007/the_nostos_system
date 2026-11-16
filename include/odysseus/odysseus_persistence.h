@@ -16,8 +16,9 @@
 #include "odysseus/odysseus.h"
 
 /*
- * File layout (all integers are 32 bit, little endian, written byte by byte
- * so the struct padding of the compiler never reaches the file):
+ * File layout (all integers are 32 bit, in the byte order of the machine,
+ * copied field by field into a byte buffer so the struct padding of the
+ * compiler never reaches the file):
  *
  *   offset 0                 magic        (STATE_MAGIC)
  *   offset 4                 version      (STATE_VERSION)
@@ -37,8 +38,6 @@
 #define STATE_MAGIC 0x4E4F5354u
 #define STATE_VERSION 1u
 #define STATE_FIELD_SIZE 4
-#define STATE_BYTE_BITS 8
-#define STATE_BYTE_MASK 0xFFu
 #define STATE_HEADER_FIELDS 4
 #define STATE_HEADER_SIZE (STATE_HEADER_FIELDS * STATE_FIELD_SIZE)
 #define STATE_MAX_SUPPLIES 32

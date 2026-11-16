@@ -23,36 +23,30 @@
 /***********************************************
  *
  * @Name : putField
- * @Def : Writes a 32 bit integer in little endian at the given position.
+ * @Def : Writes a 32 bit integer at the given position, in the byte order
+ *        of the machine.
  * @Arg : Out: pcBuffer = position to write at
  *        In: nValue = value to write
  * @Ret : None.
  *
  ************************************************/
 static void putField(unsigned char *pcBuffer, uint32_t nValue) {
-    int i = 0;
-
-    for (i = 0; i < STATE_FIELD_SIZE; i++) {
-        pcBuffer[i] = (unsigned char)((nValue >> (i * STATE_BYTE_BITS)) &
-                                      STATE_BYTE_MASK);
-    }
+    memcpy(pcBuffer, &nValue, STATE_FIELD_SIZE);
 }
 
 /***********************************************
  *
  * @Name : getField
- * @Def : Reads a 32 bit little endian integer from the given position.
+ * @Def : Reads a 32 bit integer from the given position, in the byte order
+ *        of the machine.
  * @Arg : In: pcBuffer = position to read from
  * @Ret : The value read.
  *
  ************************************************/
 static uint32_t getField(const unsigned char *pcBuffer) {
     uint32_t nValue = 0;
-    int i = 0;
 
-    for (i = 0; i < STATE_FIELD_SIZE; i++) {
-        nValue |= (uint32_t)pcBuffer[i] << (i * STATE_BYTE_BITS);
-    }
+    memcpy(&nValue, pcBuffer, STATE_FIELD_SIZE);
     return nValue;
 }
 
