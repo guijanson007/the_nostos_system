@@ -219,6 +219,10 @@ int main(int argc, char *argv[]) {
         }
     }
 
+    // Final save on SIGINT / clean exit. A ship with no gold and no cargo
+    // (lost at sea or dead end, 6.8) resets the saved state instead
+    odysseusSaveOnExit(&tOdysseus);
+
     closeConnections(&tOdysseus);
     freeOdysseus(&tOdysseus);
     return EXIT_SUCCESS;
