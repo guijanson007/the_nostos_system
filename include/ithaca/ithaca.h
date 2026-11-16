@@ -21,6 +21,9 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+// Local includes needed by the types below
+#include "utils/utils_pool.h"
+
 // Constants
 #define EXPECTED_ARGC 3
 #define ITHACA_NUM_LINES 3
@@ -38,6 +41,7 @@
 #define ERROR_SOCKET "ERROR: the socket could not be created\n"
 #define ERROR_ACCEPT "ERROR: The conection to the socket\n"
 #define ERROR_RECEIVE_MESSAGE "ERROR: There was an error receiving the message from the client\n"
+#define ERROR_POOL "ERROR: the worker pool could not be created\n"
 #define WAITING_FOR_CLIENTS "Waiting for Odysseus...\n"
 
 // Custom type
@@ -51,6 +55,8 @@ typedef enum {
 typedef struct {
     int nFd;
     char *psName;
+    PoolJob *ptJob;     // transfer a worker is running for this client, or NULL
+    int nClaimPending;  // 1 after a CLAIM request, until its HEADER arrives
 } Client;
  
  
@@ -76,13 +82,12 @@ typedef struct {
     size_t tNumClients;
     Voyage *atVoyages;
     size_t tNumVoyages;
+    ThreadPool tPool;
 } Ithaca;
 
 // Local includes
 #include "utils/utils.h"
 #include "utils/utils_communication.h"
-#include "utils/utils_pool.h"
-
 // Functions
 void freeVoyage(Voyage **voyages, size_t *numVoyage);
 void freeIthaca(Ithaca *ithaca);

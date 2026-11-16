@@ -61,6 +61,10 @@ static void disconectIthaca(int nFdClient, Ithaca *ptIthaca, Message tMsg) {
     }
 }
 
+static Voyage *findVoyage(Ithaca *ptIthaca, int nId);
+static Voyage *findActiveVoyage(Ithaca *ptIthaca, const char *psName);
+static void replyError(int nFdClient, Message *ptMsg, char *psReason);
+
 static void finishClaim(Ithaca *ptIthaca, int nClient, PoolJob *ptJob) {
     Message tMsg;
     Voyage *ptVoyage = NULL;
@@ -69,7 +73,7 @@ static void finishClaim(Ithaca *ptIthaca, int nClient, PoolJob *ptJob) {
 
     tMsg.type = MSG_CLAIM;
 
-    ptVoyage = findVoyage(ptIthaca, atoi(ptJob->psPath));
+    ptVoyage = findActiveVoyage(ptIthaca, psName);
     if (NULL == ptVoyage) {
         replyError(ptJob->nFd, &tMsg, ERROR_CLAIM_NO_VOYAGE);
         return;
@@ -77,7 +81,7 @@ static void finishClaim(Ithaca *ptIthaca, int nClient, PoolJob *ptJob) {
 
     switch (ptJob->nResult) {
         case TRANSFER_OK:
-            tVoyage->eState = VOYAGE_COMPLETED;
+            ptVoyage->eState = VOYAGE_COMPLETED;
 
             if (-1 == asprintf(&psText, CLAIM_OK_FORMAT, ptVoyage->nReward)) {
                 replyError(ptJob->nFd, &tMsg, ERROR_MEMORY_ALLOCATION);

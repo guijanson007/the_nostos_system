@@ -23,6 +23,27 @@
 #define TRANSFER_WRONG_FILE -6
 #define TRANSFER_GLYPH_ERROR -7
 
+// Format of the HEADER payload: <KIND>&<FileName>&<FileSize>&<MD5SUM>
+#define HEADER_FORMAT "%s&%s&%ld&%s"
+
+// Seconds to wait for each frame of a transfer before giving the peer up
+#define TRANSFER_TIMEOUT_SECONDS 10
+// Biggest size the HEADER can announce (9 digits, see isPositiveInteger)
+#define TRANSFER_MAX_SIZE 999999999L
+// Permissions of the files created by a receiver
+#define TRANSFER_FILE_MODE 0600
+
+// Payloads of READY and FINAL ACK (flags 0x80 on success, 0xC0 on error)
+#define REPLY_READY "READY"
+#define REPLY_OK "OK"
+#define REPLY_SIZE_ERROR "SIZE_ERROR"
+#define REPLY_MD5_ERROR "MD5_ERROR"
+#define REPLY_BAD_HEADER "INVALID_HEADER"
+#define REPLY_FILE_ERROR "FILE_ERROR"
+
+// Temp file of the island where the sealed image is written
+#define SIGNED_PATH_FORMAT "%s.signed"
+
 #define KIND_OBJECT "OBJECT"
 #define KIND_DELIVERY "DELIVERY"
 #define KIND_SIGNED "SIGNED"
@@ -43,5 +64,26 @@ typedef struct {
 
 int parseHeader(const Message *ptMsg, TransferType eType, FileInfo *ptInfo);
 void freeFileInfo(FileInfo *ptInfo);
+
+/*
+ * Transfer API. Every function returns one of the TRANSFER_* codes. READY and
+ * FINAL ACK are always sent by the receiver (0x80 ok / 0xC0 error); the
+ * HEADER and DATA flags depend on the kind (spec 8.4). All of them are
+ * reentrant, so a pool worker can call them.
+ *
+ * sendFile: HEADER -> wait READY -> N x DATA -> wait FINAL ACK. The file is
+ *   streamed in MESSAGE_DATA_MAX chunks. psFileName goes in the HEADER.
+ * receiveFile: waits for the HEADER, parses it, then does receiveBody.
+ *   Out ptInfo holds the header (free with freeFileInfo).
+ * receiveBody: for servers that already read the HEADER in their select()
+ *   loop and parsed it with parseHeader. Sends READY, receives the DATA into
+ *   psDestPath, checks size and MD5 and sends the FINAL ACK. On any failure
+ *   the partial file is deleted.
+ * rejectTransfer: tells the sender it cannot start (READY with 0xC0).
+ */
+int sendFile(int nFd, TransferType eType, const char *psPath, const char *psFileName);
+int receiveFile(int nFd, TransferType eType, const char *psDestPath, FileInfo *ptInfo);
+int receiveBody(int nFd, TransferType eType, const char *psDestPath, const FileInfo *ptInfo);
+int rejectTransfer(int nFd, const char *psReason);
 
 #endif
