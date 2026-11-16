@@ -262,8 +262,15 @@ static int startServer(Ithaca *ptIthaca, Voyage **patVoyages,
         return -1;
     }
 
+    // Finished jobs are announced through this pipe, so select() must watch it
+    FD_SET(poolNotifyFd(&ptIthaca->tPool), &ptIthaca->tFdsClients);
+    if (poolNotifyFd(&ptIthaca->tPool) > ptIthaca->nMaxFd) {
+        ptIthaca->nMaxFd = poolNotifyFd(&ptIthaca->tPool);
+    }
+
     if (-1 == asprintf(&psBuff, WELCOME, (int)ptIthaca->tNumVoyages)) {
         close(ptIthaca->nServerFd);
+        poolDestroy(&ptIthaca->tPool);
         ptIthaca->atVoyages = NULL;
         freeIthaca(ptIthaca);
         freeVoyage(patVoyages, ptNumVoyages);
@@ -347,8 +354,8 @@ static void runServer(Ithaca *ptIthaca) {
     fd_set tReadFds = {0};
 
     while (0 == nEvQuit) {
-        // Only the server socket is in the set
-        if (ptIthaca->nMaxFd == ptIthaca->nServerFd) {
+        // Nobody connected (the server socket and the pool pipe are always in the set)
+        if (0 == ptIthaca->tNumClients) {
             println(WAITING_FOR_CLIENTS);
         }
 
@@ -387,6 +394,22 @@ static void runServer(Ithaca *ptIthaca) {
  ************************************************/
 void closeIthaca(Ithaca *ptIthaca, Voyage **patVoyages, size_t *ptNumVoyages) {
     int nFd = 0;
+    size_t i = 0;
+
+    // The pool closes its own pipe; it also waits for the running jobs and
+    // joins the workers, so afterwards nobody else touches the job structs
+    FD_CLR(poolNotifyFd(&ptIthaca->tPool), &ptIthaca->tFdsClients);
+    poolDestroy(&ptIthaca->tPool);
+
+    // A client with a job is not in the select set, so its socket and its
+    // job (never collected) are released here
+    for (i = 0; i < ptIthaca->tNumClients; i++) {
+        if (NULL != ptIthaca->atClients[i].ptJob) {
+            close(ptIthaca->atClients[i].nFd);
+            freeJob(ptIthaca->atClients[i].ptJob);
+            ptIthaca->atClients[i].ptJob = NULL;
+        }
+    }
 
     for (nFd = 0; nFd <= ptIthaca->nMaxFd; nFd++) {
         if (0 != FD_ISSET(nFd, &ptIthaca->tFdsClients)) {
