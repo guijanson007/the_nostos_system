@@ -41,6 +41,9 @@
 #define REPLY_BAD_HEADER "INVALID_HEADER"
 #define REPLY_FILE_ERROR "FILE_ERROR"
 
+// Temp file of the island where the sealed image is written
+#define SIGNED_PATH_FORMAT "%s.signed"
+
 #define KIND_OBJECT "OBJECT"
 #define KIND_DELIVERY "DELIVERY"
 #define KIND_SIGNED "SIGNED"

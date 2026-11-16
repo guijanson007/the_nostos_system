@@ -4,6 +4,8 @@
 #include <strings.h>
 #include <sys/types.h>
 #include "utils/utils_transfer.h"
+#include "utils/utils_pool.h"
+#include "sphragis.h"
 
 /***********************************************
  *
@@ -530,4 +532,146 @@ int receiveFile(int nFd, TransferType eType, const char *psDestPath, FileInfo *p
         return TRANSFER_ERROR;
     }
     return receiveBody(nFd, eType, psDestPath, ptInfo);
+}
+
+/***********************************************
+ *
+ * @Name : jobHasArgs
+ * @Def : Checks that a job carries what its type needs.
+ * @Arg : In: ptJob = job to check
+ * @Ret : 1 if usable, 0 otherwise.
+ *
+ ************************************************/
+static int jobHasArgs(const PoolJob *ptJob) {
+    if (NULL == ptJob->psPath || 0 > ptJob->nFd) {
+        return 0;
+    }
+    switch (ptJob->eType) {
+        case JOB_SEND_FILE:
+            return NULL != ptJob->psFileName;
+        case JOB_RECEIVE_FILE:
+            return 1;
+        case JOB_SEAL_DELIVERY:
+        case JOB_VERIFY_CLAIM:
+            // The HEADER was read by the server loop and travels in tInfo
+            return NULL != ptJob->psOwner && NULL != ptJob->tInfo.psMd5 &&
+                   NULL != ptJob->tInfo.psFileName;
+    }
+    return 0;
+}
+
+/***********************************************
+ *
+ * @Name : verifyClaim
+ * @Def : Ithaca job: receives the CLAIM image (the HEADER is already in
+ *        tInfo), checks it is the object of the voyage and that it carries
+ *        the glyph of the destination island, and always deletes the
+ *        received file.
+ * @Arg : In/Out: ptJob = psPath temp file, psFileName expected object name,
+ *        psOwner destination island, tInfo the parsed HEADER
+ * @Ret : TRANSFER_OK, TRANSFER_WRONG_FILE (name differs from the mission
+ *        object), TRANSFER_GLYPH_ERROR (no glyph of the island, or the
+ *        image cannot be read), or any code of receiveBody.
+ *
+ ************************************************/
+static int verifyClaim(PoolJob *ptJob) {
+    int nRet = TRANSFER_OK;
+
+    if (NULL != ptJob->psFileName &&
+        0 != strcmp(ptJob->psFileName, ptJob->tInfo.psFileName)) {
+        rejectTransfer(ptJob->nFd, REPLY_BAD_HEADER);
+        return TRANSFER_WRONG_FILE;
+    }
+    nRet = receiveBody(ptJob->nFd, TRANSFER_CLAIM, ptJob->psPath, &ptJob->tInfo);
+    if (TRANSFER_OK != nRet) {
+        return nRet;
+    }
+    if (1 != SPHRAGIS_has_glyph(ptJob->psOwner, ptJob->psPath)) {
+        nRet = TRANSFER_GLYPH_ERROR;
+    }
+    unlink(ptJob->psPath);
+    return nRet;
+}
+
+/***********************************************
+ *
+ * @Name : sealDelivery
+ * @Def : Island job: receives the DELIVERY image (HEADER already in
+ *        tInfo), seals it with the glyph of psOwner (this island) into a
+ *        second temp file and sends it back as SIGNED. Both temp files are
+ *        deleted at the end, as the spec forbids extra storage.
+ * @Arg : In/Out: ptJob = psPath temp file for the received image, psOwner
+ *        island name, psFileName name used in the SIGNED HEADER (the
+ *        received name if NULL), tInfo the parsed HEADER
+ * @Ret : TRANSFER_OK, TRANSFER_GLYPH_ERROR if SPHRAGIS could not seal the
+ *        image, TRANSFER_ERROR if memory ran out, or any code of
+ *        receiveBody / sendFile.
+ *
+ ************************************************/
+static int sealDelivery(PoolJob *ptJob) {
+    char *psSignedPath = NULL;
+    const char *psName = NULL == ptJob->psFileName ? ptJob->tInfo.psFileName
+                                                   : ptJob->psFileName;
+    int nRet = receiveBody(ptJob->nFd, TRANSFER_DELIVERY, ptJob->psPath, &ptJob->tInfo);
+
+    if (TRANSFER_OK != nRet) {
+        return nRet;
+    }
+    if (-1 == asprintf(&psSignedPath, SIGNED_PATH_FORMAT, ptJob->psPath)) {
+        unlink(ptJob->psPath);
+        return TRANSFER_ERROR;
+    }
+    if (SPHRAGIS_OK != SPHRAGIS_sign_with_glyph(ptJob->psOwner, ptJob->psPath, psSignedPath)) {
+        nRet = TRANSFER_GLYPH_ERROR;
+    } else {
+        nRet = sendFile(ptJob->nFd, TRANSFER_SIGNED, psSignedPath, psName);
+    }
+    unlink(ptJob->psPath);
+    unlink(psSignedPath);
+    free(psSignedPath);
+    return nRet;
+}
+
+/***********************************************
+ *
+ * @Name : executeJob
+ * @Def : Runs one pool job on the worker thread and stores a TRANSFER_*
+ *        code in ptJob->nResult (TRANSFER_OK is JOB_RESULT_OK). Only this
+ *        worker touches ptJob->nFd meanwhile. Everything is reentrant: no
+ *        static buffers and no strtok.
+ *        JOB_SEND_FILE sends psPath as an OBJECT (Ithaca after ACCEPT);
+ *        JOB_RECEIVE_FILE waits for a CLAIM HEADER itself and stores the
+ *        file in psPath, keeping it (the caller owns it);
+ *        JOB_SEAL_DELIVERY and JOB_VERIFY_CLAIM are described above.
+ * @Arg : In/Out: ptJob = job to run
+ * @Ret : None.
+ *
+ ************************************************/
+void executeJob(PoolJob *ptJob) {
+    if (NULL == ptJob) {
+        return;
+    }
+    if (!jobHasArgs(ptJob)) {
+        ptJob->nResult = TRANSFER_ERROR;
+        return;
+    }
+
+    switch (ptJob->eType) {
+        case JOB_SEND_FILE:
+            ptJob->nResult = sendFile(ptJob->nFd, TRANSFER_OBJECT, ptJob->psPath, ptJob->psFileName);
+            break;
+        case JOB_RECEIVE_FILE:
+            freeFileInfo(&ptJob->tInfo);
+            ptJob->nResult = receiveFile(ptJob->nFd, TRANSFER_CLAIM, ptJob->psPath, &ptJob->tInfo);
+            break;
+        case JOB_SEAL_DELIVERY:
+            ptJob->nResult = sealDelivery(ptJob);
+            break;
+        case JOB_VERIFY_CLAIM:
+            ptJob->nResult = verifyClaim(ptJob);
+            break;
+        default:
+            ptJob->nResult = TRANSFER_ERROR;
+            break;
+    }
 }
