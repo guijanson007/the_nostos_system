@@ -16,6 +16,7 @@
 #include "odysseus/odysseus_conversation.h"
 #include "odysseus/odysseus_map.h"
 #include "odysseus/odysseus_parser.h"
+#include "odysseus/odysseus_persistence.h"
 #include "utils/utils_communication.h"
 
 /***********************************************
@@ -508,6 +509,7 @@ static int consumeRation(Odysseus *ptOdysseus) {
     char *psBuffer = NULL;
 
     consumeFood(&ptOdysseus->tCargo);
+    odysseusSaveState(ptOdysseus);
     if (-1 !=
         asprintf(&psBuffer, MSG_RATION, ptOdysseus->tCargo.nTotalAmount)) {
         println(psBuffer);
@@ -977,6 +979,7 @@ OdysseusStatus buyProducts(Odysseus *ptOdysseus, const char *psProduct,
         return ODY_ERR_IO;
     }
     ptOdysseus->tCargo.nGold -= nCost;
+    odysseusSaveState(ptOdysseus);
 
     if (-1 != asprintf(&psBuffer, MSG_BOUGHT, nAmount, psBought, nCost)) {
         println(psBuffer);
@@ -1189,6 +1192,7 @@ OdysseusStatus buyMap(Odysseus *ptOdysseus) {
     }
 
     ptOdysseus->tCargo.nGold -= MAP_PRICE;
+    odysseusSaveState(ptOdysseus);
     if (-1 !=
         asprintf(&psBuffer, MSG_BOUGHT_MAP,
                  ptOdysseus->tMap.atConnections[ptOdysseus->nWhereAmI].psName,
@@ -1287,6 +1291,7 @@ OdysseusStatus sellProduct(Odysseus *ptOdysseus, const char *psProduct,
         return ODY_ERR_ISLAND_PROTOCOL;
     }
     ptOdysseus->tCargo.nGold += nIncome;
+    odysseusSaveState(ptOdysseus);
 
     if (-1 != asprintf(&psBuffer, MSG_SOLD, nAmount, psSold, nIncome)) {
         println(psBuffer);

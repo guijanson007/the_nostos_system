@@ -11,6 +11,7 @@
 #include "odysseus/odysseus.h"
 #include "odysseus/odysseus_conversation.h"
 #include "odysseus/odysseus_menu.h"
+#include "odysseus/odysseus_persistence.h"
 
 // event flag to indicate when to quit the program
 volatile sig_atomic_t gtEvQuit = 0;
@@ -203,6 +204,10 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
     }
 
+    // Restore gold and cargo of a previous execution; if there is no usable
+    // saved state the initial resources of the config file are kept
+    odysseusLoadState(&tOdysseus);
+
     // odysseusPrintInfo(&tOdysseus);
 
     // Print the initial message
@@ -213,6 +218,10 @@ int main(int argc, char *argv[]) {
             break;
         }
     }
+
+    // Final save on SIGINT / clean exit. A ship with no gold and no cargo
+    // (lost at sea or dead end, 6.8) resets the saved state instead
+    odysseusSaveOnExit(&tOdysseus);
 
     closeConnections(&tOdysseus);
     freeOdysseus(&tOdysseus);
