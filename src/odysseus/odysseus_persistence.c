@@ -139,7 +139,9 @@ static int encodeState(const Cargo *ptCargo, unsigned char *pcBuffer) {
  *
  * @Name : odysseusSaveState
  * @Def : Writes the gold and the cargo of the odysseus to its state file,
- *        overwriting the previous record in place with one write.
+ *        overwriting the previous record in place with one write. The file
+ *        is cut to the record size afterwards, so a longer leftover file
+ *        (e.g. a damaged one) becomes a valid record again.
  * @Arg : In: ptOdysseus = odysseus to save
  * @Ret : 0 on success, -1 on failure (a warning is printed).
  *
@@ -157,7 +159,8 @@ int odysseusSaveState(const Odysseus *ptOdysseus) {
         nFd = open(psPath, O_WRONLY | O_CREAT, STATE_FILE_MODE);
         if (-1 != nFd) {
             if (-1 != lseek(nFd, 0, SEEK_SET) &&
-                STATE_RECORD_SIZE == write(nFd, pcBuffer, STATE_RECORD_SIZE)) {
+                STATE_RECORD_SIZE == write(nFd, pcBuffer, STATE_RECORD_SIZE) &&
+                0 == ftruncate(nFd, STATE_RECORD_SIZE)) {
                 nRet = 0;
             }
             close(nFd);
