@@ -298,6 +298,40 @@ void *readUntilEmpty(int nFd, size_t tElementSize, size_t *ptOutCount) {
  
 /***********************************************
  *
+ * @Name : waitReadable
+ * @Def : Waits until a file descriptor has data to read. It uses select()
+ *        with a short timeout, so a signal that sets the quit flag is
+ *        noticed even if it arrives just before select() starts.
+ * @Arg : In: nFd = file descriptor to wait on
+ *        In: pnQuit = flag set by the signal handler
+ * @Ret : 1 if nFd is readable, WAIT_QUIT if the quit flag was set,
+ *        -1 on a select error.
+ *
+ ************************************************/
+int waitReadable(int nFd, volatile sig_atomic_t *pnQuit) {
+    fd_set tReadFds;
+    struct timeval stTimeout;
+    int nReady = 0;
+
+    while (0 == *pnQuit) {
+        FD_ZERO(&tReadFds);
+        FD_SET(nFd, &tReadFds);
+        stTimeout.tv_sec = 0;
+        stTimeout.tv_usec = WAIT_POLL_USEC;
+
+        nReady = select(nFd + 1, &tReadFds, NULL, NULL, &stTimeout);
+        if (0 < nReady) {
+            return 1;
+        }
+        if (-1 == nReady && EINTR != errno) {
+            return -1;
+        }
+    }
+    return WAIT_QUIT;
+}
+
+/***********************************************
+ *
  * @Name : readLine
  * @Def : Reads one line from a file descriptor, removing the trailing '\n'
  *        (and '\r' if present).

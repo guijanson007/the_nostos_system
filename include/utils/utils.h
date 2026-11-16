@@ -15,10 +15,12 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <netdb.h>
+#include <signal.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/select.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
@@ -30,6 +32,8 @@
 #define MAX_INT_DIGITS 9
 #define UPPER_CASE_OFFSET 32
 #define NEW_LINE "\n"
+#define WAIT_POLL_USEC 200000
+#define WAIT_QUIT 0
 
 
 #define ERROR_MALLOC "Malloc error"
@@ -47,6 +51,7 @@ void printErr(const char *psMessage);
 void strToUpper(char *psString);
 char *readUntil(int nFd, char cEnd);
 void *readUntilEmpty(int nFd, size_t tElementSize, size_t *ptOutCount);
+int waitReadable(int nFd, volatile sig_atomic_t *pnQuit);
 int readLine(int nFd, char **ppsBuffer);
 char **readLines(int nFd, size_t *ptOutCount);
 void *readBinary(int nFd, size_t tElementSize, size_t *ptOutCount);

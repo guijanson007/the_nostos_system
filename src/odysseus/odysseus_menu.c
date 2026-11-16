@@ -62,29 +62,31 @@ void resetInputField() {
  * @Def : Displays the command prompt, reads user input, parses and validates
  * the command, and executes it if valid.
  * @Arg : In: tOdysseus = Odysseus instance to use for command execution
+ *        In: pnQuit = flag set by the SIGINT handler
  * @Ret : Returns 1 to continue the menu, 0 to exit.
  *
  **************************************************/
-int odysseusShowMenu(Odysseus *tOdysseus) {
+int odysseusShowMenu(Odysseus *tOdysseus, volatile sig_atomic_t *pnQuit) {
     OdysseusCommand tCommand;
     const char *psErrorMessage = NULL;
     OdysseusStatus eStatus = ODY_OK;
     char *psInput = NULL;
+    int nWait = 0;
 
     memset(&tCommand, 0, sizeof(tCommand));
     setupInputField();
 
-    if (-1 == readLine(STDIN_FILENO, &psInput)) {
-        if (EINTR == errno) {
-            // Interrupted by signal
-            resetInputField();
-            println("");
-            return 0;
-        } else {
-            // Error reading input
-            printErr(ERROR_READ_COMMAND);
-            return 0;
-        }
+    nWait = waitReadable(STDIN_FILENO, pnQuit);
+    if (WAIT_QUIT == nWait) {
+        // Interrupted by signal
+        resetInputField();
+        println("");
+        return 0;
+    }
+    if (-1 == nWait || -1 == readLine(STDIN_FILENO, &psInput)) {
+        // Error reading input
+        printErr(ERROR_READ_COMMAND);
+        return 0;
     }
 
     resetInputField();
