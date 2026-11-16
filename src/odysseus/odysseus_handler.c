@@ -16,6 +16,7 @@
 #include "odysseus/odysseus_handler.h"
 #include "odysseus/odysseus_map.h"
 #include "odysseus/odysseus_parser.h"
+#include "odysseus/odysseus_persistence.h"
 #include "utils/utils_communication.h"
 
 /***********************************************
@@ -341,14 +342,20 @@ static OdysseusStatus dockAtIsland(Odysseus *ptOdysseus, int *pnArrival) {
 /***********************************************
  *
  * @Name : lostAtSea
- * @Def : Prints that the crew ran out of provisions and closes the socket
- *        of the island.
+ * @Def : Prints that the crew ran out of provisions, forgets the saved
+ *        state (6.8: restart with the initial resources) and closes the
+ *        socket of the island.
  * @Arg : In/Out: ptOdysseus = Odysseus instance
  * @Ret : ODY_LOST_AT_SEA.
  *
  ************************************************/
 static OdysseusStatus lostAtSea(Odysseus *ptOdysseus) {
     printWithName(MSG_LOST_AT_SEA, ptOdysseus->psName);
+    // The ship and its treasure are lost: forget the saved state (restart
+    // uses the initial resources) and empty the memory copy so the final
+    // save on exit does not bring it back
+    ptOdysseus->tCargo.nGold = 0;
+    odysseusResetState(ptOdysseus);
     close(ptOdysseus->nIslandSocket);
     ptOdysseus->nIslandSocket = NO_SOCKET;
     return ODY_LOST_AT_SEA;
