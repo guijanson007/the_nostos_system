@@ -61,6 +61,78 @@ static void disconectIthaca(int nFdClient, Ithaca *ptIthaca, Message tMsg) {
     }
 }
 
+static void finishClaim(Ithaca *ptIthaca, int nClient, PoolJob *ptJob) {
+    Message tMsg;
+    Voyage *ptVoyage = NULL;
+    char *psText = NULL;
+    char *psName = ptIthaca->atClients[nClient].psName;
+
+    tMsg.type = MSG_CLAIM;
+
+    ptVoyage = findVoyage(ptIthaca, atoi(ptJob->psPath));
+    if (NULL == ptVoyage) {
+        replyError(ptJob->nFd, &tMsg, ERROR_CLAIM_NO_VOYAGE);
+        return;
+    }
+
+    switch (ptJob->nResult) {
+        case TRANSFER_OK:
+            tVoyage->eState = VOYAGE_COMPLETED;
+
+            if (-1 == asprintf(&psText, CLAIM_OK_FORMAT, ptVoyage->nReward)) {
+                replyError(ptJob->nFd, &tMsg, ERROR_MEMORY_ALLOCATION);
+                return;
+            }
+            buildMessage(&tMsg, FLAG_RESPONSE, psText);
+            free(psText);
+            psText = NULL;
+            sendMessage(&tMsg, ptJob->nFd);
+
+            if (-1 != asprintf(&psText, MSG_VOYAGE_COMPLETED, ptVoyage->nId,
+                               psName, ptVoyage->nReward)) {
+                println(psText);
+                free(psText);
+            }
+            break;
+        case TRANSFER_PEER_GONE:
+            replyError(ptJob->nFd, &tMsg, ERROR_CLAIM_PEER_GONE);
+            break;
+        case TRANSFER_WRONG_FILE:
+            replyError(ptJob->nFd, &tMsg, ERROR_CLAIM_WRONG_FILE);
+            break;
+        case TRANSFER_SIZE_ERROR:
+            replyError(ptJob->nFd, &tMsg, ERROR_CLAIM_SIZE_ERROR);
+            break;
+        case TRANSFER_MD5_ERROR:
+            replyError(ptJob->nFd, &tMsg, ERROR_CLAIM_MD5_ERROR);
+            break;
+        default:
+            replyError(ptJob->nFd, &tMsg, ERROR_CLAIM_FAILED);
+            break;
+    }    
+}
+
+void finishJob(Ithaca *ptIthaca, PoolJob *ptJob) {
+    int nClient = findClientIndex(ptIthaca, ptJob->nFd);
+
+    if (-1 != nClient) {
+        ptIthaca->atClients[nClient].ptJob = NULL;
+    }
+
+    if (TRANSFER_PEER_GONE == ptJob->nResult || -1 == nClient) {
+        if (-1 != nClient) {
+            consoleLog(ptIthaca->atClients[nClient].psName, LOG_LEFT_ITHACA);
+            removeClient(ptIthaca, ptJob->nFd);
+        }
+    } else {
+        FD_SET(ptJob->nFd, &ptIthaca->tFdsClients);
+        if (JOB_VERIFY_CLAIM == ptJob->eType) {
+            finishClaim(ptIthaca, nClient, ptJob);
+        }
+    }
+    freeJob(ptJob);
+}
+
 /***********************************************
  *
  * @Name : replyError
@@ -126,6 +198,8 @@ static void connectIthaca(int nFdClient, Ithaca *ptIthaca, Message tMsg) {
     ptIthaca->atClients = atTempClients;
     ptIthaca->atClients[ptIthaca->tNumClients].nFd = nFdClient;
     ptIthaca->atClients[ptIthaca->tNumClients].psName = psName;
+    ptIthaca->atClients[ptIthaca->tNumClients].ptJob = NULL;
+    ptIthaca->atClients[ptIthaca->tNumClients].nClaimPending = 0;
     ptIthaca->tNumClients++;
 
     consoleLog(psName, LOG_CONNECTED_ITHACA);
@@ -410,6 +484,11 @@ static void claimHeader(int nFdClient, Ithaca *ptIthaca, Message tMsg) {
         sendReadyError(nFdClient, ERROR_CLAIM_NO_VOYAGE);
         return;
     }
+    if (0 == ptIthaca->atClients[nClient].nClaimPending) {
+        sendReadyError(nFdClient, ERROR_CLAIM_NO_REQUEST);
+        return;
+    }
+    ptIthaca->atClients[nClient].nClaimPending = 0;
 
     if (TRANSFER_OK != parseHeader(&tMsg, TRANSFER_CLAIM, &tInfo)) {
         sendReadyError(nFdClient, ERROR_CLAIM_HEADER);

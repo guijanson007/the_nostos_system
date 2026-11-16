@@ -45,6 +45,7 @@ typedef enum {
     VOYAGE_AVAILABLE = 0,
     VOYAGE_ASSIGNED,
     VOYAGE_FAILED,
+    VOYAGE_COMPLETED,
 } VoyageState;
 
 typedef struct {
@@ -80,6 +81,7 @@ typedef struct {
 // Local includes
 #include "utils/utils.h"
 #include "utils/utils_communication.h"
+#include "utils/utils_pool.h"
 
 // Functions
 void freeVoyage(Voyage **voyages, size_t *numVoyage);

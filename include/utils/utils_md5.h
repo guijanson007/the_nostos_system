@@ -1,10 +1,11 @@
 #ifndef _UTILS_MD5_H
 #define _UTILS_MD5_H
 
-#include <stdio.h>
+#include <errno.h>
 #include <stdlib.h>
-#include <string.h>
-#include <fcntl.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
 
 #define MD5_LENGTH 32

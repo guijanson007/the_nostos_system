@@ -253,6 +253,15 @@ static int startServer(Ithaca *ptIthaca, Voyage **patVoyages,
 
     ptIthaca->nMaxFd = ptIthaca->nServerFd;
 
+    if (POOL_OK != poolCreate(&ptIthaca->tPool, POOL_DEFAULT_WORKERS,POOL_DEFAULT_CAPACITY)) {
+        printErr(ERROR_POOL);
+        close(ptIthaca->nServerFd);
+        freeIthaca(ptIthaca);
+        freeVoyage(patVoyages, ptNumVoyages);
+        ptIthaca->atVoyages = NULL;
+        return -1;
+    }
+
     if (-1 == asprintf(&psBuff, WELCOME, (int)ptIthaca->tNumVoyages)) {
         close(ptIthaca->nServerFd);
         ptIthaca->atVoyages = NULL;
@@ -354,6 +363,10 @@ static void runServer(Ithaca *ptIthaca) {
 
             if (nFd == ptIthaca->nServerFd) {
                 acceptClient(ptIthaca);
+            } else if (nFd == poolNotifyFd(&ptIthaca->tPool)) {
+                if (POOL_OK == poolCollect(&ptIthaca->tPool, &ptJob)) {
+                    finishJob(ptIthaca, ptJob);
+                }
             } else {
                 handleClient(ptIthaca, nFd);
             }

@@ -23,6 +23,8 @@
 #define LOG_LEFT_ITHACA " has left Ithaca. Fair winds!"
 #define LOG_CONNECTED_ITHACA " connected to Ithaca."
 #define LOG_REQUESTED_VOYAGES " requested available voyages."
+#define CLAIM_OK_FORMAT "OK&%d" 
+#define MSG_VOYAGE_COMPLETED ">>> Voyage %d completed by %s. Reward: %d gold."
  
 #define ERROR_MESSAGE_FORMAT "ERROR: The message that you send has the wrong format"
 #define ERROR_DISCONECTING "ERROR: you couldn't be diconected"
@@ -37,9 +39,15 @@
 #define ERROR_CLAIM_HEADER "ERROR: Invalid file header"
 #define ERROR_CLAIM_WRONG_FILE "ERROR: That is not the object of your voyage"
 #define ERROR_CLAIM_BUSY "ERROR: Ithaca is busy, try again later"
+#define ERROR_CLAIM_PEER_GONE "ERROR: The destination is missing"
+#define ERROR_CLAIM_MD5_ERROR "ERROR: MD5 checksum mismatch"
+#define ERROR_CLAIM_SIZE_ERROR "ERROR: File size mismatch"
+#define ERROR_CLAIM_NO_REQUEST "ERROR: You have no pending claim request"
+#define ERROR_CLAIM_FAILED "ERROR: The claim failed"
 #define OK_MESSAGE "OK"
  
 // Functions
+void finishJob(Ithaca *ptIthaca, PoolJob *ptJob);
 void consoleLog(const char *psOdysseusName, const char *psPostFix);
 void choseOption(Ithaca *ptIthaca, Message tMsg, int nFdClient);
 int removeClient(Ithaca *ptIthaca, int nFdClient);

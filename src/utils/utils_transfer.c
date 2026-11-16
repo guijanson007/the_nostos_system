@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 
 #include "utils/utils_transfer.h"
  
@@ -69,14 +70,11 @@ int parseHeader(const Message *ptMsg, TransferType eType, FileInfo *ptInfo) {
     unsigned char cHeaderFlags = FLAG_NONE;
     unsigned char cReplyFlags = FLAG_NONE;
     char *psCopy = NULL;
-    char *psSave = NULL;
     char *psFieldKind = NULL;
     char *psFieldName = NULL;
     char *psFieldSize = NULL;
     char *psFieldMd5 = NULL;
-    char *psEnd = NULL;
-    long nSize = 0;
-    int i = 0;
+
 
     if (NULL == ptMsg || NULL == ptInfo ||
         TRANSFER_OK != transferSettings(eType, &psKind, &cHeaderFlags,
@@ -92,17 +90,15 @@ int parseHeader(const Message *ptMsg, TransferType eType, FileInfo *ptInfo) {
     if (NULL == psCopy) {
         return TRANSFER_ERROR;
     }
-    psFieldKind = strtok_r(psCopy, HEADER_SEPARATOR, &psSave);
-    psFieldName = strtok_r(NULL, HEADER_SEPARATOR, &psSave);
-    psFieldSize = strtok_r(NULL, HEADER_SEPARATOR, &psSave);
-    psFieldMd5 = strtok_r(NULL, HEADER_SEPARATOR, &psSave);
+    psFieldKind = strtok(psCopy, HEADER_SEPARATOR);
+    psFieldName = strtok(NULL, HEADER_SEPARATOR);
+    psFieldSize = strtok(NULL, HEADER_SEPARATOR);
+    psFieldMd5 = strtok(NULL, HEADER_SEPARATOR);
 
-     if (NULL != psFieldMd5) {
-        nSize = strtol(psFieldSize, &psEnd, DECIMAL_BASE);
-    }
     if (NULL == psFieldMd5 ||
-        NULL != strtok_r(NULL, HEADER_SEPARATOR, &psSave) ||
-        0 != strcmp(psFieldKind, psKind) || '\0' != *psEnd || 0 >= nSize ||
+        NULL != strtok(NULL, HEADER_SEPARATOR) ||
+        0 != strcmp(psFieldKind, psKind) ||
+        0 == isPositiveInteger(psFieldSize) ||
         !isMd5Text(psFieldMd5)) {
         free(psCopy);
         return TRANSFER_ERROR;
@@ -110,8 +106,7 @@ int parseHeader(const Message *ptMsg, TransferType eType, FileInfo *ptInfo) {
 
     ptInfo->psFileName = strdup(psFieldName);
     ptInfo->psMd5 = strdup(psFieldMd5);
-    ptInfo->nSize = nSize;
-    free(psCopy);
+    ptInfo->nSize = atoi(psFieldSize);
 
     if (NULL == ptInfo->psFileName || NULL == ptInfo->psMd5) {
         freeFileInfo(ptInfo);

@@ -63,6 +63,7 @@ typedef struct {
     char *psPath;     // file to send, or where to store the received one
     char *psFileName; // name of the file in the transfer
     char *psOwner;    // island whose glyph is applied or expected
+    FileInfo tInfo;
     int nResult;      // JOB_RESULT_OK or JOB_RESULT_ERROR, set by the worker
 } PoolJob;
 

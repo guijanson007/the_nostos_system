@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 
 #include "utils/utils_md5.h"
 
@@ -31,13 +32,6 @@ char *computeMd5(const char *psPath) {
         exit(EXIT_FAILURE);
     }
     else {
-        while (-1 == waitpid(nPid, &nStatus, 0)) {
-            if (EINTR != errno) {
-                return NULL;
-            }
-        }
-
-        close(anPipe[1]);
         while (nRead < MD5_LENGTH) {
             nBytes = read(anPipe[0], psMd5 + nRead, MD5_LENGTH - nRead);
             if (0 >= nBytes) {
@@ -46,6 +40,14 @@ char *computeMd5(const char *psPath) {
             nRead += (int)nBytes;
         }
         close(anPipe[0]);
+
+        while (-1 == waitpid(nPid, &nStatus, 0)) {
+            if (EINTR != errno) {
+                return NULL;
+            }
+        }
+
+        close(anPipe[1]);
 
         if (!WIFEXITED(nStatus) || 0 != WEXITSTATUS(nStatus) ||
             MD5_LENGTH != nRead) {
