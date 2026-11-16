@@ -509,6 +509,7 @@ static int consumeRation(Odysseus *ptOdysseus) {
     char *psBuffer = NULL;
 
     consumeFood(&ptOdysseus->tCargo);
+    odysseusSaveState(ptOdysseus);
     if (-1 !=
         asprintf(&psBuffer, MSG_RATION, ptOdysseus->tCargo.nTotalAmount)) {
         println(psBuffer);
