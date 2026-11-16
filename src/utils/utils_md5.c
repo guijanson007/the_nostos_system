@@ -52,7 +52,8 @@ char *computeMd5(const char *psPath) {
             close(nNull);
         }
         execlp("md5sum", "md5sum", psPath, NULL);
-        _exit(EXIT_FAILURE);
+        free(psMd5);
+        exit(EXIT_FAILURE);
     }
 
     // The parent must close its write end, otherwise a failing md5sum would
