@@ -70,6 +70,7 @@ int parseHeader(const Message *ptMsg, TransferType eType, FileInfo *ptInfo) {
     unsigned char cHeaderFlags = FLAG_NONE;
     unsigned char cReplyFlags = FLAG_NONE;
     char *psCopy = NULL;
+    char *psSave = NULL;
     char *psFieldKind = NULL;
     char *psFieldName = NULL;
     char *psFieldSize = NULL;
@@ -86,17 +87,21 @@ int parseHeader(const Message *ptMsg, TransferType eType, FileInfo *ptInfo) {
         return TRANSFER_ERROR;
     }
 
+    memset(ptInfo, 0, sizeof(FileInfo));
+
     psCopy = strdup(ptMsg->data);
     if (NULL == psCopy) {
         return TRANSFER_ERROR;
     }
-    psFieldKind = strtok(psCopy, HEADER_SEPARATOR);
-    psFieldName = strtok(NULL, HEADER_SEPARATOR);
-    psFieldSize = strtok(NULL, HEADER_SEPARATOR);
-    psFieldMd5 = strtok(NULL, HEADER_SEPARATOR);
+    // strtok_r keeps its state in psSave, so parsing is safe in worker threads
+    psFieldKind = strtok_r(psCopy, HEADER_SEPARATOR, &psSave);
+    psFieldName = strtok_r(NULL, HEADER_SEPARATOR, &psSave);
+    psFieldSize = strtok_r(NULL, HEADER_SEPARATOR, &psSave);
+    psFieldMd5 = strtok_r(NULL, HEADER_SEPARATOR, &psSave);
 
-    if (NULL == psFieldMd5 ||
-        NULL != strtok(NULL, HEADER_SEPARATOR) ||
+    if (NULL == psFieldKind || NULL == psFieldName || NULL == psFieldSize ||
+        NULL == psFieldMd5 ||
+        NULL != strtok_r(NULL, HEADER_SEPARATOR, &psSave) ||
         0 != strcmp(psFieldKind, psKind) ||
         0 == isPositiveInteger(psFieldSize) ||
         !isMd5Text(psFieldMd5)) {
@@ -106,11 +111,32 @@ int parseHeader(const Message *ptMsg, TransferType eType, FileInfo *ptInfo) {
 
     ptInfo->psFileName = strdup(psFieldName);
     ptInfo->psMd5 = strdup(psFieldMd5);
-    ptInfo->nSize = atoi(psFieldSize);
+    ptInfo->nSize = strtol(psFieldSize, NULL, DECIMAL_BASE);
+    free(psCopy);
 
     if (NULL == ptInfo->psFileName || NULL == ptInfo->psMd5) {
         freeFileInfo(ptInfo);
         return TRANSFER_ERROR;
     }
     return TRANSFER_OK;
+}
+
+/***********************************************
+ *
+ * @Name : freeFileInfo
+ * @Def : Frees the strings of a FileInfo and leaves it empty, so it is safe
+ *        to call it twice or on a struct that was never filled.
+ * @Arg : In/Out: ptInfo = info to free (NULL is allowed)
+ * @Ret : None.
+ *
+ ************************************************/
+void freeFileInfo(FileInfo *ptInfo) {
+    if (NULL == ptInfo) {
+        return;
+    }
+    free(ptInfo->psFileName);
+    free(ptInfo->psMd5);
+    ptInfo->psFileName = NULL;
+    ptInfo->psMd5 = NULL;
+    ptInfo->nSize = 0;
 }
