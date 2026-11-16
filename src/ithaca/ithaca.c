@@ -343,6 +343,7 @@ static void handleClient(Ithaca *ptIthaca, int nFd) {
  ************************************************/
 static void runServer(Ithaca *ptIthaca) {
     int nFd = 0;
+    PoolJob *ptJob = NULL;
     fd_set tReadFds = {0};
 
     while (0 == nEvQuit) {
