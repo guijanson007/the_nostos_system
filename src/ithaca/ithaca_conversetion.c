@@ -375,6 +375,99 @@ static void acceptVoyage(int nFdClient, Ithaca *ptIthaca, Message tMsg) {
     assignVoyage(ptVoyage, psName, &tMsg, nFdClient);
 }
 
+static void sendReadyError(int nFdClient, const char *psReason) {
+    Message tMsg;
+
+    tMsg.type = MSG_FILE_READY;
+    buildMessage(&tMsg, FLAG_RESPONSE | FLAG_ERROR, psReason);
+    sendMessage(&tMsg, nFdClient);
+}
+
+static char *fileBaseName(char *psFilePath) {
+    char *psBaseName = psFilePath;
+    int i = 0;
+
+    for (i = 0; '\0' != psFilePath[i]; i++) {
+        if ('/' == psFilePath[i]) {
+            psBaseName = &psFilePath[i + 1];
+        }
+    }
+    return psBaseName;
+}
+static void claimHeader(int nFdClient, Ithaca *ptIthaca, Message tMsg) {
+    FileInfo tInfo;
+    Voyage *ptVoyage = NULL;
+    PoolJob *ptJob = NULL;
+    char *psTempPath = NULL;
+    int nClient = findClientIndex(ptIthaca, nFdClient);
+
+    memset(&tInfo, 0, sizeof(FileInfo));
+
+    if (-1 != nClient) {
+        ptVoyage = findActiveVoyage(ptIthaca, ptIthaca->atClients[nClient].psName);
+    }
+    if (NULL == ptVoyage) {
+        sendReadyError(nFdClient, ERROR_CLAIM_NO_VOYAGE);
+        return;
+    }
+
+    if (TRANSFER_OK != parseHeader(&tMsg, TRANSFER_CLAIM, &tInfo)) {
+        sendReadyError(nFdClient, ERROR_CLAIM_HEADER);
+        return;
+    }
+
+    if (0 != strcmp(tInfo.psFileName, fileBaseName(ptVoyage->psFile))) {
+        freeFileInfo(&tInfo);
+        sendReadyError(nFdClient, ERROR_CLAIM_WRONG_FILE);
+        return;
+    }
+
+
+    if (-1 == asprintf(&psTempPath, CLAIM_TEMP_FORMAT, ptIthaca->psMission,
+                       ptVoyage->nId)) {
+        psTempPath = NULL;
+    }
+    if (NULL != psTempPath) {
+        ptJob = createJob(JOB_VERIFY_CLAIM, nFdClient, psTempPath,
+                          fileBaseName(ptVoyage->psFile),
+                          ptVoyage->psDestination, &tInfo);
+        free(psTempPath);
+    }
+    if (NULL == ptJob) {
+        freeFileInfo(&tInfo);
+        sendReadyError(nFdClient, ERROR_MEMORY_ALLOCATION);
+        return;
+    }
+
+    ptIthaca->atClients[nClient].ptJob = ptJob;
+    FD_CLR(nFdClient, &ptIthaca->tFdsClients);
+
+    if (POOL_OK != poolSubmit(&ptIthaca->tPool, ptJob)) {
+       FD_SET(nFdClient, &ptIthaca->tFdsClients);
+       ptIthaca->atClients[nClient].ptJob = NULL;
+       freeJob(ptJob);
+       sendReadyError(nFdClient, ERROR_CLAIM_BUSY);
+    }
+}
+
+static void claimRequest(int nFdClient, Ithaca *ptIthaca, Message tMsg) {
+    int nClient = findClientIndex(ptIthaca, nFdClient);
+
+    tMsg.type = MSG_CLAIM;
+
+    if (FLAG_NONE != tMsg.flag) {
+        replyError(nFdClient, &tMsg, ERROR_MESSAGE_FORMAT);
+        return;
+    }
+    if (-1 == nClient ||
+        NULL == findActiveVoyage(ptIthaca, ptIthaca->atClients[nClient].psName)) {
+        replyError(nFdClient, &tMsg, ERROR_CLAIM_NO_VOYAGE);
+        return;
+    }
+
+    ptIthaca->atClients[nClient].nClaimPending = 1;
+}
+
 /***********************************************
  *
  * @Name : consoleLog
@@ -418,34 +511,6 @@ int removeClient(Ithaca *ptIthaca, int nFd) {
     return 0;
 }
 
-void claim(int nFdClient, Ithaca *ptIthaca, Message tMsg) {
-    FileInfo tInfo;
-    Voyage *ptVoyage = NULL;
-    PoolJob *ptJob = NULL;
-    int nIndex = findClientIndex(ptIthaca, nFdClient);
-
-
-    if (-1 != nIndex) {
-        ptVoyage = findActiveVoyage(ptIthaca, ptIthaca->atClients[nIndex].psName);
-    }
-    if (NULL == ptVoyage) {
-        sendReadyError(nFdClient, ERROR_CLAIM_NO_VOYAGE);
-        return;
-    }
-
-    if (TRANSFER_OK != parseHeader(&tMsg, TRANSFER_CLAIM, &tInfo)) {
-        sendReadyError(nFdClient, ERROR_CLAIM_HEADER);
-        return;
-    }
-
-    // parsing the data to get filname, the size and MD5 hash
-
-    //Call the pollSubmit function whit the filename
-
-    //send remplay READY or ERROR
-
-}
-
 /***********************************************
  *
  * @Name : choseOption
@@ -472,7 +537,11 @@ void choseOption(Ithaca *ptIthaca, Message tMsg, int nFdClient) {
             break;
         case MSG_CLAIM:
             // CLAIM (REQUEST)
-            claim(nFdClient, ptIthaca, tMsg);
+            claimRequest(nFdClient, ptIthaca, tMsg);
+            break;
+        case MSG_FILE_HEADER:
+            // FILE HEADER (REQUEST)
+            claimHeader(nFdClient, ptIthaca, tMsg);
             break;
         case MSG_DISCONNECT_ITHACA:
             // DISCONNECT FROM ITHACA (REQUEST)
