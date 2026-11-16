@@ -1,34 +1,48 @@
 #define _GNU_SOURCE
 
+#include <fcntl.h>
+#include <strings.h>
+#include <sys/types.h>
 #include "utils/utils_transfer.h"
- 
 
-static int transferSettings(TransferType eType, const char **ppsKind, unsigned char *pcHeaderFlags, unsigned char *pcReplyFlags) {
+/***********************************************
+ *
+ * @Name : transferSettings
+ * @Def : Gives the constants of a transfer kind (spec 8.4): the text that
+ *        starts the HEADER, the flags of the HEADER and the flags of the
+ *        DATA frames. Transfers sent as a response (OBJECT, SIGNED) have
+ *        0x80 in the HEADER and 0xA0 in DATA; the others 0x00 and 0x20.
+ * @Arg : In: eType = kind of transfer
+ *        Out: ppsKind = text of the kind (KIND_*)
+ *        Out: pcHeaderFlags = flags of the HEADER frame
+ *        Out: pcDataFlags = flags of every DATA frame
+ * @Ret : TRANSFER_OK, or TRANSFER_ERROR if the kind is unknown.
+ *
+ ************************************************/
+static int transferSettings(TransferType eType, const char **ppsKind, unsigned char *pcHeaderFlags, unsigned char *pcDataFlags) {
 
     switch (eType) {
         case TRANSFER_CLAIM:
             *ppsKind = KIND_CLAIM;
             *pcHeaderFlags = FLAG_NONE;
-            *pcReplyFlags = FLAG_RESPONSE;
-            return TRANSFER_OK;
+            break;
         case TRANSFER_OBJECT:
             *ppsKind = KIND_OBJECT;
             *pcHeaderFlags = FLAG_RESPONSE;
-            *pcReplyFlags = FLAG_NONE;
-            return TRANSFER_OK;
+            break;
         case TRANSFER_DELIVERY:
             *ppsKind = KIND_DELIVERY;
             *pcHeaderFlags = FLAG_NONE;
-            *pcReplyFlags = FLAG_RESPONSE;
-            return TRANSFER_OK;
+            break;
         case TRANSFER_SIGNED:
             *ppsKind = KIND_SIGNED;
             *pcHeaderFlags = FLAG_RESPONSE;
-            *pcReplyFlags = FLAG_NONE;
-            return TRANSFER_OK;
+            break;
+        default:
+            return TRANSFER_ERROR;
     }
-
-    return TRANSFER_ERROR;
+    *pcDataFlags = *pcHeaderFlags | FLAG_BINARY;
+    return TRANSFER_OK;
 }
 
 /***********************************************
@@ -68,7 +82,7 @@ static int isMd5Text(const char *psText) {
 int parseHeader(const Message *ptMsg, TransferType eType, FileInfo *ptInfo) {
     const char *psKind = NULL;
     unsigned char cHeaderFlags = FLAG_NONE;
-    unsigned char cReplyFlags = FLAG_NONE;
+    unsigned char cDataFlags = FLAG_NONE;
     char *psCopy = NULL;
     char *psSave = NULL;
     char *psFieldKind = NULL;
@@ -79,7 +93,7 @@ int parseHeader(const Message *ptMsg, TransferType eType, FileInfo *ptInfo) {
 
     if (NULL == ptMsg || NULL == ptInfo ||
         TRANSFER_OK != transferSettings(eType, &psKind, &cHeaderFlags,
-                                        &cReplyFlags)) {
+                                        &cDataFlags)) {
         return TRANSFER_ERROR;
     }
     if (MSG_FILE_HEADER != ptMsg->type || cHeaderFlags != ptMsg->flag ||
@@ -139,4 +153,199 @@ void freeFileInfo(FileInfo *ptInfo) {
     ptInfo->psFileName = NULL;
     ptInfo->psMd5 = NULL;
     ptInfo->nSize = 0;
+}
+
+
+/***********************************************
+ *
+ * @Name : sendFrame
+ * @Def : Builds a frame with a text payload and sends it.
+ * @Arg : In: nFd = socket
+ *        In: eType = frame type
+ *        In: cFlags = frame flags
+ *        In: psText = payload (text)
+ * @Ret : TRANSFER_OK, or TRANSFER_PEER_GONE if the write failed.
+ *
+ ************************************************/
+static int sendFrame(int nFd, MessageType eType, unsigned char cFlags, const char *psText) {
+    Message tMsg;
+
+    memset(&tMsg, 0, sizeof(Message));
+    tMsg.type = eType;
+    buildMessage(&tMsg, cFlags, psText);
+    return 0 == sendMessage(&tMsg, nFd) ? TRANSFER_OK : TRANSFER_PEER_GONE;
+}
+
+/***********************************************
+ *
+ * @Name : waitFrame
+ * @Def : Waits (with the transfer timeout) for one frame of an expected type.
+ * @Arg : In: nFd = socket
+ *        In: eType = type the frame must have
+ *        Out: ptMsg = frame received
+ * @Ret : TRANSFER_OK, TRANSFER_PEER_GONE if the socket closed or the peer
+ *        stayed silent for TRANSFER_TIMEOUT_SECONDS, TRANSFER_ERROR if the
+ *        frame is malformed or has another type.
+ *
+ ************************************************/
+static int waitFrame(int nFd, MessageType eType, Message *ptMsg) {
+    int nRet = receiveMessageTimeout(ptMsg, nFd, TRANSFER_TIMEOUT_SECONDS);
+
+    if (-1 == nRet || RECEIVE_TIMEOUT == nRet) {
+        return TRANSFER_PEER_GONE;
+    }
+    if (0 != nRet || eType != ptMsg->type) {
+        return TRANSFER_ERROR;
+    }
+    return TRANSFER_OK;
+}
+
+/***********************************************
+ *
+ * @Name : readChunk
+ * @Def : Reads from a file until the buffer is full or the file ends.
+ * @Arg : In: nFile = file descriptor
+ *        Out: pcBuffer = where to store the bytes
+ *        In: nWanted = bytes to read
+ * @Ret : Bytes read (less than nWanted only at end of file or on error).
+ *
+ ************************************************/
+static int readChunk(int nFile, char *pcBuffer, int nWanted) {
+    int nTotal = 0;
+    int nBytes = 0;
+
+    while (nTotal < nWanted) {
+        nBytes = read(nFile, pcBuffer + nTotal, nWanted - nTotal);
+        if (0 >= nBytes) {
+            break;
+        }
+        nTotal += nBytes;
+    }
+    return nTotal;
+}
+
+/***********************************************
+ *
+ * @Name : streamFileOut
+ * @Def : Sends the N DATA frames of a file, reading it in chunks of
+ *        MESSAGE_DATA_MAX bytes (the file is never loaded whole). The last
+ *        frame carries 1 to MESSAGE_DATA_MAX bytes.
+ * @Arg : In: nFd = socket
+ *        In: nFile = file opened for reading, positioned at the start
+ *        In: nSize = bytes to send
+ *        In: cDataFlags = flags of the DATA frames
+ * @Ret : TRANSFER_OK, TRANSFER_ERROR if the file is shorter than nSize,
+ *        TRANSFER_PEER_GONE if a write failed.
+ *
+ ************************************************/
+static int streamFileOut(int nFd, int nFile, long nSize, unsigned char cDataFlags) {
+    Message tMsg;
+    long nSent = 0;
+    int nChunk = 0;
+
+    memset(&tMsg, 0, sizeof(Message));
+    tMsg.type = MSG_FILE_DATA;
+    while (nSent < nSize) {
+        nChunk = (nSize - nSent > MESSAGE_DATA_MAX) ? MESSAGE_DATA_MAX
+                                                    : (int)(nSize - nSent);
+        if (nChunk != readChunk(nFile, tMsg.data, nChunk)) {
+            return TRANSFER_ERROR;
+        }
+        tMsg.flag = cDataFlags;
+        tMsg.dataLength = (unsigned char)nChunk;
+        if (0 != sendMessage(&tMsg, nFd)) {
+            return TRANSFER_PEER_GONE;
+        }
+        nSent += nChunk;
+    }
+    return TRANSFER_OK;
+}
+
+/***********************************************
+ *
+ * @Name : readFileSize
+ * @Def : Measures an open file with lseek and rewinds it.
+ * @Arg : In: nFile = file descriptor
+ * @Ret : Size in bytes, or -1 on error.
+ *
+ ************************************************/
+static long readFileSize(int nFile) {
+    off_t tSize = lseek(nFile, 0, SEEK_END);
+
+    if (0 > tSize || 0 > lseek(nFile, 0, SEEK_SET)) {
+        return -1;
+    }
+    return (long)tSize;
+}
+
+/***********************************************
+ *
+ * @Name : sendFile
+ * @Def : Sender side of a transfer: HEADER, wait READY, N x DATA, wait the
+ *        FINAL ACK. The MD5 is computed with computeMd5 (md5sum).
+ * @Arg : In: nFd = socket of the peer
+ *        In: eType = kind of transfer (decides the flags)
+ *        In: psPath = file to send
+ *        In: psFileName = name written in the HEADER
+ * @Ret : TRANSFER_OK; TRANSFER_ERROR if the file is missing, empty, too big
+ *        or shorter than announced, or the peer broke the protocol;
+ *        TRANSFER_REJECTED if the peer answered READY or the ACK with an
+ *        error; TRANSFER_SIZE_ERROR / TRANSFER_MD5_ERROR as told by the
+ *        peer in the ACK; TRANSFER_PEER_GONE on closed socket or timeout.
+ *
+ ************************************************/
+int sendFile(int nFd, TransferType eType, const char *psPath, const char *psFileName) {
+    const char *psKind = NULL;
+    unsigned char cHeaderFlags = FLAG_NONE;
+    unsigned char cDataFlags = FLAG_NONE;
+    Message tMsg;
+    char *psMd5 = NULL;
+    char *psHeader = NULL;
+    long nSize = 0;
+    int nFile = -1;
+    int nRet = TRANSFER_ERROR;
+
+    if (NULL == psPath || NULL == psFileName ||
+        TRANSFER_OK != transferSettings(eType, &psKind, &cHeaderFlags, &cDataFlags)) {
+        return TRANSFER_ERROR;
+    }
+    nFile = open(psPath, O_RDONLY);
+    if (0 > nFile) {
+        return TRANSFER_ERROR;
+    }
+    nSize = readFileSize(nFile);
+    psMd5 = computeMd5(psPath);
+    if (0 >= nSize || TRANSFER_MAX_SIZE < nSize || NULL == psMd5 ||
+        -1 == asprintf(&psHeader, HEADER_FORMAT, psKind, psFileName, nSize, psMd5)) {
+        psHeader = NULL;
+    }
+    free(psMd5);
+
+    if (NULL != psHeader && MESSAGE_DATA_MAX >= strlen(psHeader)) {
+        nRet = sendFrame(nFd, MSG_FILE_HEADER, cHeaderFlags, psHeader);
+        if (TRANSFER_OK == nRet) {
+            nRet = waitFrame(nFd, MSG_FILE_READY, &tMsg);
+        }
+        if (TRANSFER_OK == nRet && FLAG_RESPONSE != tMsg.flag) {
+            nRet = (FLAG_RESPONSE | FLAG_ERROR) == tMsg.flag ? TRANSFER_REJECTED : TRANSFER_ERROR;
+        }
+        if (TRANSFER_OK == nRet) {
+            nRet = streamFileOut(nFd, nFile, nSize, cDataFlags);
+        }
+        if (TRANSFER_OK == nRet) {
+            nRet = waitFrame(nFd, MSG_FILE_ACK, &tMsg);
+        }
+        if (TRANSFER_OK == nRet && FLAG_RESPONSE != tMsg.flag) {
+            if (0 == strcmp(tMsg.data, REPLY_SIZE_ERROR)) {
+                nRet = TRANSFER_SIZE_ERROR;
+            } else if (0 == strcmp(tMsg.data, REPLY_MD5_ERROR)) {
+                nRet = TRANSFER_MD5_ERROR;
+            } else {
+                nRet = TRANSFER_REJECTED;
+            }
+        }
+    }
+    free(psHeader);
+    close(nFile);
+    return nRet;
 }
