@@ -349,3 +349,185 @@ int sendFile(int nFd, TransferType eType, const char *psPath, const char *psFile
     close(nFile);
     return nRet;
 }
+
+/***********************************************
+ *
+ * @Name : rejectTransfer
+ * @Def : Answers a HEADER with READY and the error flags, so the sender
+ *        does not start sending DATA.
+ * @Arg : In: nFd = socket of the sender
+ *        In: psReason = reason (payload of the READY)
+ * @Ret : TRANSFER_OK, or TRANSFER_PEER_GONE if the write failed.
+ *
+ ************************************************/
+int rejectTransfer(int nFd, const char *psReason) {
+    return sendFrame(nFd, MSG_FILE_READY, FLAG_RESPONSE | FLAG_ERROR, psReason);
+}
+
+/***********************************************
+ *
+ * @Name : writeChunk
+ * @Def : Writes a whole buffer to a file, retrying on partial writes.
+ * @Arg : In: nFile = file descriptor
+ *        In: pcBuffer = bytes to write
+ *        In: nLength = number of bytes
+ * @Ret : 1 if everything was written, 0 otherwise.
+ *
+ ************************************************/
+static int writeChunk(int nFile, const char *pcBuffer, int nLength) {
+    int nTotal = 0;
+    int nBytes = 0;
+
+    while (nTotal < nLength) {
+        nBytes = write(nFile, pcBuffer + nTotal, nLength - nTotal);
+        if (0 >= nBytes) {
+            return 0;
+        }
+        nTotal += nBytes;
+    }
+    return 1;
+}
+
+/***********************************************
+ *
+ * @Name : streamFileIn
+ * @Def : Receives the DATA frames of a transfer and appends each one to the
+ *        file as it arrives. Every frame must be MSG_FILE_DATA with the
+ *        flags of the kind, and carry MESSAGE_DATA_MAX bytes except the
+ *        last one, which carries what is left (1 to MESSAGE_DATA_MAX).
+ * @Arg : In: nFd = socket of the sender
+ *        In: nFile = file opened for writing
+ *        In: nSize = bytes announced in the HEADER
+ *        In: cDataFlags = flags every DATA frame must have
+ * @Ret : TRANSFER_OK; TRANSFER_SIZE_ERROR if a frame has the wrong length;
+ *        TRANSFER_PEER_GONE on closed socket or timeout; TRANSFER_ERROR on
+ *        another frame, wrong flags or a failed write.
+ *
+ ************************************************/
+static int streamFileIn(int nFd, int nFile, long nSize, unsigned char cDataFlags) {
+    Message tMsg;
+    long nReceived = 0;
+    int nExpected = 0;
+    int nRet = TRANSFER_OK;
+
+    while (TRANSFER_OK == nRet && nReceived < nSize) {
+        nExpected = (nSize - nReceived > MESSAGE_DATA_MAX) ? MESSAGE_DATA_MAX
+                                                           : (int)(nSize - nReceived);
+        nRet = waitFrame(nFd, MSG_FILE_DATA, &tMsg);
+        if (TRANSFER_OK != nRet) {
+            break;
+        }
+        if (cDataFlags != tMsg.flag) {
+            nRet = TRANSFER_ERROR;
+        } else if (nExpected != tMsg.dataLength) {
+            nRet = TRANSFER_SIZE_ERROR;
+        } else if (!writeChunk(nFile, tMsg.data, nExpected)) {
+            nRet = TRANSFER_ERROR;
+        }
+        nReceived += nExpected;
+    }
+    return nRet;
+}
+
+/***********************************************
+ *
+ * @Name : receiveBody
+ * @Def : Receiver side once the HEADER has been read and parsed: sends
+ *        READY, stores the DATA frames in psDestPath, checks the MD5 of the
+ *        stored file with md5sum and sends the FINAL ACK (OK, SIZE_ERROR or
+ *        MD5_ERROR). If anything fails, the partial file is deleted.
+ * @Arg : In: nFd = socket of the sender
+ *        In: eType = kind of transfer
+ *        In: psDestPath = where to store the file (created or truncated)
+ *        In: ptInfo = parsed HEADER (size and MD5 announced)
+ * @Ret : TRANSFER_OK, TRANSFER_SIZE_ERROR, TRANSFER_MD5_ERROR (both already
+ *        told to the sender), TRANSFER_PEER_GONE, or TRANSFER_ERROR (bad
+ *        arguments, file cannot be created, protocol violation).
+ *
+ ************************************************/
+int receiveBody(int nFd, TransferType eType, const char *psDestPath, const FileInfo *ptInfo) {
+    const char *psKind = NULL;
+    unsigned char cHeaderFlags = FLAG_NONE;
+    unsigned char cDataFlags = FLAG_NONE;
+    char *psMd5 = NULL;
+    int nFile = -1;
+    int nRet = TRANSFER_ERROR;
+
+    if (NULL == psDestPath || NULL == ptInfo || NULL == ptInfo->psMd5 ||
+        0 >= ptInfo->nSize ||
+        TRANSFER_OK != transferSettings(eType, &psKind, &cHeaderFlags, &cDataFlags)) {
+        return TRANSFER_ERROR;
+    }
+    nFile = open(psDestPath, O_WRONLY | O_CREAT | O_TRUNC, TRANSFER_FILE_MODE);
+    if (0 > nFile) {
+        rejectTransfer(nFd, REPLY_FILE_ERROR);
+        return TRANSFER_ERROR;
+    }
+
+    nRet = sendFrame(nFd, MSG_FILE_READY, FLAG_RESPONSE, REPLY_READY);
+    if (TRANSFER_OK == nRet) {
+        nRet = streamFileIn(nFd, nFile, ptInfo->nSize, cDataFlags);
+    }
+    if (0 != close(nFile) && TRANSFER_OK == nRet) {
+        nRet = TRANSFER_ERROR;
+    }
+
+    if (TRANSFER_OK == nRet) {
+        psMd5 = computeMd5(psDestPath);
+        if (NULL == psMd5) {
+            nRet = TRANSFER_ERROR;
+        } else if (0 != strcasecmp(psMd5, ptInfo->psMd5)) {
+            nRet = TRANSFER_MD5_ERROR;
+        }
+        free(psMd5);
+    }
+
+    // Only a verdict about the content is answered; a protocol violation or
+    // a dead peer gets no ACK (the sender will give up on its own timeout)
+    if (TRANSFER_OK == nRet) {
+        nRet = sendFrame(nFd, MSG_FILE_ACK, FLAG_RESPONSE, REPLY_OK);
+    } else if (TRANSFER_SIZE_ERROR == nRet) {
+        sendFrame(nFd, MSG_FILE_ACK, FLAG_RESPONSE | FLAG_ERROR, REPLY_SIZE_ERROR);
+    } else if (TRANSFER_MD5_ERROR == nRet) {
+        sendFrame(nFd, MSG_FILE_ACK, FLAG_RESPONSE | FLAG_ERROR, REPLY_MD5_ERROR);
+    }
+
+    if (TRANSFER_OK != nRet) {
+        unlink(psDestPath);
+    }
+    return nRet;
+}
+
+/***********************************************
+ *
+ * @Name : receiveFile
+ * @Def : Complete receiver side: waits for the HEADER, validates it (kind,
+ *        flags, size, MD5) and runs receiveBody. An invalid HEADER is
+ *        answered with READY and the error flags.
+ * @Arg : In: nFd = socket of the sender
+ *        In: eType = kind of transfer expected
+ *        In: psDestPath = where to store the file
+ *        Out: ptInfo = the HEADER (free with freeFileInfo); filled only if
+ *             it was valid
+ * @Ret : same codes as receiveBody; TRANSFER_PEER_GONE if no HEADER arrived.
+ *
+ ************************************************/
+int receiveFile(int nFd, TransferType eType, const char *psDestPath, FileInfo *ptInfo) {
+    Message tMsg;
+    int nRet = TRANSFER_ERROR;
+
+    if (NULL == ptInfo) {
+        return TRANSFER_ERROR;
+    }
+    memset(ptInfo, 0, sizeof(FileInfo));
+
+    nRet = waitFrame(nFd, MSG_FILE_HEADER, &tMsg);
+    if (TRANSFER_OK != nRet) {
+        return nRet;
+    }
+    if (TRANSFER_OK != parseHeader(&tMsg, eType, ptInfo)) {
+        rejectTransfer(nFd, REPLY_BAD_HEADER);
+        return TRANSFER_ERROR;
+    }
+    return receiveBody(nFd, eType, psDestPath, ptInfo);
+}

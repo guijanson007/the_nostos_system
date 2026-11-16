@@ -79,5 +79,8 @@ void freeFileInfo(FileInfo *ptInfo);
  * rejectTransfer: tells the sender it cannot start (READY with 0xC0).
  */
 int sendFile(int nFd, TransferType eType, const char *psPath, const char *psFileName);
+int receiveFile(int nFd, TransferType eType, const char *psDestPath, FileInfo *ptInfo);
+int receiveBody(int nFd, TransferType eType, const char *psDestPath, const FileInfo *ptInfo);
+int rejectTransfer(int nFd, const char *psReason);
 
 #endif
