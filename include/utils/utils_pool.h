@@ -21,6 +21,7 @@
 
 // Project includes
 #include "utils/utils_semaphore.h"
+#include "utils/utils_transfer.h"
 
 // Return values of the pool functions
 #define POOL_OK 0
@@ -85,6 +86,8 @@ typedef struct {
     int anNotify[POOL_PIPE_ENDS]; // finished jobs, one pointer each
 } ThreadPool;
 
+PoolJob *createJob(JobType eType, int nFd, const char *psPath, const char *psFileName, const char *psOwner, FileInfo *ptInfo);
+void freeJob(PoolJob *ptJob);
 int poolCreate(ThreadPool *ptPool, int nWorkers, int nCapacity);
 int poolSubmit(ThreadPool *ptPool, PoolJob *ptJob);
 int poolNotifyFd(const ThreadPool *ptPool);

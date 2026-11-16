@@ -22,6 +22,7 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <unistd.h>
+#include <sys/select.h> 
 
 // Project includes
 #include "utils/utils.h"
@@ -56,6 +57,8 @@
 #define ERR_CONNECT "ERROR: Could not connect to the server\n"
 #define ERROR_CONVERT_IP "ERROR: Could not convert IP address\n"
 
+#define RECEIVE_TIMEOUT -4 
+
 // Custom type definitions
 typedef enum {
     MSG_CONNECT_ITHACA = 0x01,
@@ -70,6 +73,10 @@ typedef enum {
     MSG_BUY_MAP = 0x14,
     MSG_DELIVER = 0x15,
     MSG_DEPARTURE_ISLAND = 0x16,
+    MSG_FILE_HEADER = 0x20,
+    MSG_FILE_DATA   = 0x21,
+    MSG_FILE_READY  = 0x22,
+    MSG_FILE_ACK    = 0x23,
     MSG_NACK = 0x7F
 } MessageType;
 
@@ -82,8 +89,10 @@ typedef struct {
 
 //Functions
 void buildMessage(Message *ptMsg, const char cFlags, const char *psData);
+void buildBinaryMessage(Message *ptMsg, unsigned char cFlags, const char *pData, int nLength);
 int sendMessage(const Message *ptMsg, int nFd);
 int receiveMessage(Message *ptMsg, int nFd);
+int receiveMessageTimeout(Message *ptMsg, int nFd, int nSeconds);
 void sendNack(int nFd, const char *psReason);
 int openListenConn(char *psIp, int nPort);
 int openClientConn(char *psIp, int nPort);

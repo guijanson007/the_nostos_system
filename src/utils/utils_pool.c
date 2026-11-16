@@ -33,6 +33,81 @@
 
 /***********************************************
  *
+ * @Name : copyText
+ * @Def : Copies a string into dynamic memory. A NULL source gives NULL.
+ * @Arg : Out: ppsDest = where the copy is stored
+ *        In: psSource = string to copy, or NULL
+ * @Ret : 1 if it worked, 0 if memory ran out.
+ *
+ ************************************************/
+static int copyText(char **ppsDest, const char *psSource) {
+    if (NULL == psSource) {
+        *ppsDest = NULL;
+        return 1;
+    }
+    *ppsDest = strdup(psSource);
+    return NULL != *ppsDest;
+}
+
+/***********************************************
+ *
+ * @Name : createJob
+ * @Def : Builds a job with its own copy of every string. If ptInfo is
+ *        given, its strings move into the job and ptInfo is emptied.
+ * @Arg : In: eType = what the worker has to do
+ *        In: nFd = socket of the client
+ *        In: psPath = file to send or where to store it (can be NULL)
+ *        In: psFileName = expected or sent file name (can be NULL)
+ *        In: psOwner = island of the glyph (can be NULL)
+ *        In/Out: ptInfo = parsed header, or NULL
+ * @Ret : The new job, or NULL if memory ran out.
+ *
+ ************************************************/
+PoolJob *createJob(JobType eType, int nFd, const char *psPath, const char *psFileName, const char *psOwner, FileInfo *ptInfo) {
+    PoolJob *ptJob = malloc(sizeof(PoolJob));
+
+    if (NULL == ptJob) {
+        return NULL;
+    }
+    ptJob->eType = eType;
+    ptJob->nFd = nFd;
+
+     if (!copyText(&ptJob->psPath, psPath) ||
+        !copyText(&ptJob->psFileName, psFileName) ||
+        !copyText(&ptJob->psOwner, psOwner)) {
+        freeJob(ptJob);
+        return NULL;
+    }
+
+    if (NULL != ptInfo) {
+        ptJob->tInfo = *ptInfo;
+        ptInfo->psFileName = NULL;
+        ptInfo->psMd5 = NULL;
+    }
+    return ptJob;
+}
+
+/***********************************************
+ *
+ * @Name : freeJob
+ * @Def : Frees a job and every string it owns.
+ * @Arg : In: ptJob = job to free (NULL is allowed)
+ * @Ret : None.
+ *
+ ************************************************/
+void freeJob(PoolJob *ptJob) {
+    if (NULL == ptJob) {
+        return;
+    }
+    free(ptJob->psPath);
+    free(ptJob->psFileName);
+    free(ptJob->psOwner);
+    freeFileInfo(&ptJob->tInfo);
+    free(ptJob);
+}
+
+/***********************************************
+ *
  * @Name : poolWorker
  * @Def : Body of every worker thread. It sleeps until there is a job, runs
  *        it with executeJob and reports it through the notification pipe. It

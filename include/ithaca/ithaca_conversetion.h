@@ -33,6 +33,10 @@
 #define ERROR_INVALID_VOYAGE_ID "ERROR: Invalid voyage id"
 #define ERROR_VOYAGE_NOT_AVAILABLE "ERROR: The voyage is not available"
 #define ERROR_ACTIVE_VOYAGE "ERROR: You already have an active voyage"
+#define ERROR_CLAIM_NO_VOYAGE "ERROR: You have no active voyage"
+#define ERROR_CLAIM_HEADER "ERROR: Invalid file header"
+#define ERROR_CLAIM_WRONG_FILE "ERROR: That is not the object of your voyage"
+#define ERROR_CLAIM_BUSY "ERROR: Ithaca is busy, try again later"
 #define OK_MESSAGE "OK"
  
 // Functions

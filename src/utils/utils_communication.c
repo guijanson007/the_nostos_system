@@ -2,6 +2,60 @@
 
 #include "utils/utils_communication.h"
 
+static size_t readFull(int nFd, unsigned char *pbyBuffer, size_t tSize) {
+    size_t tRead = 0;
+    int nBytes = 0;
+
+    while (tRead < tSize) {
+        nBytes = read(nFd, pbyBuffer + tRead, tSize - tRead);
+        if (0 >= nBytes) {
+            break;
+        }
+        tRead += (size_t)nBytes;
+    }
+    return tRead;
+}
+
+static size_t writeFull(int nFd, const unsigned char *pbyBuffer, size_t tSize) {
+    size_t tWritten = 0;
+    int nBytes = 0;
+
+    while (tWritten < tSize) {
+        nBytes = write(nFd, pbyBuffer + tWritten, tSize - tWritten);
+        if (0 >= nBytes) {
+            break;
+        }
+        tWritten += (size_t)nBytes;
+    }
+    return tWritten;
+}
+
+/***********************************************
+ *
+ * @Name : buildBinaryMessage
+ * @Def : Fills the flags, length and data of a message with raw bytes.
+ *        Unlike buildMessage, the data can contain '\0' bytes.
+ * @Arg : Out: ptMsg = message to fill
+ *        In: cFlags = flags of the message
+ *        In: pData = bytes to copy
+ *        In: nLength = number of bytes in pData
+ * @Ret : -
+ *
+ ************************************************/
+void buildBinaryMessage(Message *ptMsg, unsigned char cFlags, const char *pData, int nLength) {
+    if (0 > nLength) {
+        nLength = 0;
+    }
+    else if (MESSAGE_DATA_MAX < nLength) {
+        nLength = MESSAGE_DATA_MAX;
+    }
+
+    ptMsg->flag = cFlags;
+    ptMsg->dataLength = (unsigned char)nLength;
+    memcpy(ptMsg->data, pData, (size_t)nLength);
+    ptMsg->data[nLength] = '\0';
+}
+
 /***********************************************
  *
  * @Name : buildMessage
@@ -16,15 +70,7 @@
 void buildMessage(Message *ptMsg, const char cFlags, const char *psData) {
     size_t tLength = strlen(psData);
 
-    // Truncate so a too long payload never leaves stale data in the message
-    if (MESSAGE_DATA_MAX < tLength) {
-        tLength = MESSAGE_DATA_MAX;
-    }
-
-    ptMsg->flag = cFlags;
-    ptMsg->dataLength = (unsigned char)tLength;
-    memcpy(ptMsg->data, psData, tLength);
-    ptMsg->data[tLength] = '\0';
+    buildBinaryMessage(ptMsg, cFlags, psData, (int)tLength);
 }
 
 /***********************************************
@@ -54,7 +100,7 @@ int sendMessage(const Message *ptMsg, int nFd) {
     pbyBuffer[FRAME_LENGTH_POS] = ptMsg->dataLength;
     memcpy(pbyBuffer + FRAME_DATA_POS, ptMsg->data, ptMsg->dataLength);
 
-    if (MESSAGE_SIZE != write(nFd, pbyBuffer, MESSAGE_SIZE)) {
+    if (MESSAGE_SIZE != writeFull(nFd, pbyBuffer, MESSAGE_SIZE)) {
         free(pbyBuffer);
         return -1;
     }
@@ -76,9 +122,7 @@ int sendMessage(const Message *ptMsg, int nFd) {
  *
  ************************************************/
 int receiveMessage(Message *ptMsg, int nFd) {
-    unsigned char *pbyBuffer = NULL;
-    size_t tRead = 0;
-    ssize_t nBytes = 0;
+    unsigned char *pbyBuffer = NULL;    
 
     if (0 > nFd || NULL == ptMsg) {
         return -1;
@@ -89,14 +133,9 @@ int receiveMessage(Message *ptMsg, int nFd) {
         return -1;
     }
 
-    // TCP is a byte stream: a frame can arrive split in several reads
-    while (tRead < MESSAGE_SIZE) {
-        nBytes = read(nFd, pbyBuffer + tRead, MESSAGE_SIZE - tRead);
-        if (0 >= nBytes) {
-            free(pbyBuffer);
-            return -1;
-        }
-        tRead += (size_t)nBytes;
+    if (MESSAGE_SIZE != readFull(nFd, pbyBuffer, MESSAGE_SIZE)) {
+        free(pbyBuffer);
+        return -1;
     }
 
     if (MESSAGE_DATA_MAX < pbyBuffer[FRAME_LENGTH_POS]) {
@@ -116,6 +155,43 @@ int receiveMessage(Message *ptMsg, int nFd) {
 
     free(pbyBuffer);
     return 0;
+}
+
+/***********************************************
+ *
+ * @Name : receiveMessageTimeout
+ * @Def : Waits at most nSeconds for a frame on the socket and reads it.
+ * @Arg : Out: ptMsg = message received
+ *        In: nFd = socket to read from
+ *        In: nSeconds = maximum time to wait
+ * @Ret : 0 if a valid message was received, -1 on read error, closed
+ *        socket or signal, -2 if the data length is too big, -3 if
+ *        reserved flags are set, RECEIVE_TIMEOUT if nothing arrived.
+ *
+ ************************************************/
+int receiveMessageTimeout(Message *ptMsg, int nFd, int nSeconds) {
+    fd_set tReadFds;
+    struct timeval stTimeout;
+    int nReady = 0;
+
+    if (0 > nFd || NULL == ptMsg || 0 > nSeconds) {
+        return -1;
+    }
+
+    FD_ZERO(&tReadFds);
+    FD_SET(nFd, &tReadFds);
+    stTimeout.tv_sec = nSeconds;
+    stTimeout.tv_usec = 0;
+
+    nReady = select(nFd + 1, &tReadFds, NULL, NULL, &stTimeout);
+    if (-1 == nReady) {
+        return -1;
+    }
+    if (0 == nReady) {
+        return RECEIVE_TIMEOUT;
+    }
+
+    return receiveMessage(ptMsg, nFd);
 }
 
 /***********************************************

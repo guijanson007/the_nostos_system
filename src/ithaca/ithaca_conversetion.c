@@ -418,6 +418,34 @@ int removeClient(Ithaca *ptIthaca, int nFd) {
     return 0;
 }
 
+void claim(int nFdClient, Ithaca *ptIthaca, Message tMsg) {
+    FileInfo tInfo;
+    Voyage *ptVoyage = NULL;
+    PoolJob *ptJob = NULL;
+    int nIndex = findClientIndex(ptIthaca, nFdClient);
+
+
+    if (-1 != nIndex) {
+        ptVoyage = findActiveVoyage(ptIthaca, ptIthaca->atClients[nIndex].psName);
+    }
+    if (NULL == ptVoyage) {
+        sendReadyError(nFdClient, ERROR_CLAIM_NO_VOYAGE);
+        return;
+    }
+
+    if (TRANSFER_OK != parseHeader(&tMsg, TRANSFER_CLAIM, &tInfo)) {
+        sendReadyError(nFdClient, ERROR_CLAIM_HEADER);
+        return;
+    }
+
+    // parsing the data to get filname, the size and MD5 hash
+
+    //Call the pollSubmit function whit the filename
+
+    //send remplay READY or ERROR
+
+}
+
 /***********************************************
  *
  * @Name : choseOption
@@ -444,7 +472,7 @@ void choseOption(Ithaca *ptIthaca, Message tMsg, int nFdClient) {
             break;
         case MSG_CLAIM:
             // CLAIM (REQUEST)
-            sendNack(nFdClient, NACK_INVALID_TYPE);
+            claim(nFdClient, ptIthaca, tMsg);
             break;
         case MSG_DISCONNECT_ITHACA:
             // DISCONNECT FROM ITHACA (REQUEST)
