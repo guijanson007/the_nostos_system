@@ -23,9 +23,12 @@
 #define LOG_LEFT_ITHACA " has left Ithaca. Fair winds!"
 #define LOG_CONNECTED_ITHACA " connected to Ithaca."
 #define LOG_REQUESTED_VOYAGES " requested available voyages."
+#define LOG_OBJECT_SENT " received the object of the voyage."
+#define LOG_OBJECT_FAILED " did not receive the object. The voyage is free again."
 #define CLAIM_OK_FORMAT "OK&%d" 
 #define CLAIM_TEMP_FORMAT "%s/.claim_%d.tmp"
 #define MSG_VOYAGE_COMPLETED ">>> Voyage %d completed by %s. Reward: %d gold."
+#define OBJECT_PATH_FORMAT "%s/%s"
  
 #define ERROR_MESSAGE_FORMAT "ERROR: The message that you send has the wrong format"
 #define ERROR_DISCONECTING "ERROR: you couldn't be diconected"
@@ -45,6 +48,7 @@
 #define ERROR_CLAIM_SIZE_ERROR "ERROR: File size mismatch"
 #define ERROR_CLAIM_NO_REQUEST "ERROR: You have no pending claim request"
 #define ERROR_CLAIM_FAILED "ERROR: The claim failed"
+#define ERROR_OBJECT_MISSING "ERROR: The object of this voyage is not available"
 #define OK_MESSAGE "OK"
  
 // Functions

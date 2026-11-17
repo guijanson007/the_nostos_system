@@ -31,6 +31,26 @@ static int findClientIndex(Ithaca *ptIthaca, int nFd) {
     return -1;
 }
 
+static void sendReadyError(int nFdClient, const char *psReason) {
+    Message tMsg;
+
+    tMsg.type = MSG_FILE_READY;
+    buildMessage(&tMsg, FLAG_RESPONSE | FLAG_ERROR, psReason);
+    sendMessage(&tMsg, nFdClient);
+}
+
+static char *fileBaseName(char *psFilePath) {
+    char *psBaseName = psFilePath;
+    int i = 0;
+
+    for (i = 0; '\0' != psFilePath[i]; i++) {
+        if ('/' == psFilePath[i]) {
+            psBaseName = &psFilePath[i + 1];
+        }
+    }
+    return psBaseName;
+}
+
 /***********************************************
  *
  * @Name : disconectIthaca
@@ -61,9 +81,104 @@ static void disconectIthaca(int nFdClient, Ithaca *ptIthaca, Message tMsg) {
     }
 }
 
+/***********************************************
+ *
+ * @Name : releaseVoyage
+ * @Def : Makes a voyage available again and forgets its owner.
+ * @Arg : In/Out: ptVoyage = voyage to release
+ * @Ret : None.
+ *
+ ************************************************/
+static void releaseVoyage(Voyage *ptVoyage) {
+    free(ptVoyage->psOwner);
+    ptVoyage->psOwner = NULL;
+    ptVoyage->eState = VOYAGE_AVAILABLE;
+}
+
 static Voyage *findVoyage(Ithaca *ptIthaca, int nId);
 static Voyage *findActiveVoyage(Ithaca *ptIthaca, const char *psName);
 static void replyError(int nFdClient, Message *ptMsg, char *psReason);
+
+/***********************************************
+ *
+ * @Name : buildObjectPath
+ * @Def : Builds the path of a voyage's object: the folder of ithaca.dat
+ *        plus the file name from voyages.dat.
+ * @Arg : In: ptIthaca = ithaca (for the folder)
+ *        In: ptVoyage = voyage whose object is wanted
+ * @Ret : The path (free it), or NULL if memory ran out.
+ *
+ ************************************************/
+static char *buildObjectPath(Ithaca *ptIthaca, Voyage *ptVoyage) {
+    char *psPath = NULL;
+
+    if (-1 == asprintf(&psPath, OBJECT_PATH_FORMAT, ptIthaca->psMission,
+                       fileBaseName(ptVoyage->psFile))) {
+        return NULL;
+    }
+    return psPath;
+}
+
+/***********************************************
+ *
+ * @Name : startObjectJob
+ * @Def : Gives the socket to a worker that sends the voyage's object. If
+ *        that is impossible, the voyage is released and the client dropped,
+ *        because it already received the ACCEPT OK.
+ * @Arg : In/Out: ptIthaca = ithaca with the clients, voyages and pool
+ *        In: nClient = index of the client
+ *        In/Out: ptVoyage = voyage just assigned
+ *        In: psPath = path of the object
+ * @Ret : None.
+ *
+ ************************************************/
+static void startObjectJob(Ithaca *ptIthaca, int nClient, Voyage *ptVoyage, char *psPath) {
+    Client *ptClient = &ptIthaca->atClients[nClient];
+    PoolJob *ptJob = createJob(JOB_SEND_FILE, ptClient->nFd, psPath, fileBaseName(ptVoyage->psFile), NULL, NULL);
+
+    if (NULL != ptJob) {
+        ptClient->ptJob = ptJob;
+        FD_CLR(ptClient->nFd, &ptIthaca->tFdsClients);
+
+        if (POOL_OK == poolSubmit(&ptIthaca->tPool, ptJob)) {
+            return;
+        }
+        FD_SET(ptClient->nFd, &ptIthaca->tFdsClients);
+        ptClient->ptJob = NULL;
+        freeJob(ptJob);
+    }
+
+    releaseVoyage(ptVoyage);
+    consoleLog(ptClient->psName, LOG_OBJECT_FAILED);
+    removeClient(ptIthaca, ptClient->nFd);
+}
+
+
+/***********************************************
+ *
+ * @Name : finishObject
+ * @Def : Handles the end of an OBJECT transfer. If it failed, the voyage
+ *        is released so another odysseus can take it.
+ * @Arg : In/Out: ptIthaca = ithaca with the clients and voyages
+ *        In: nClient = index of the client
+ *        In: ptJob = finished job
+ * @Ret : None.
+ *
+ ************************************************/
+static void finishObject(Ithaca *ptIthaca, int nClient, PoolJob *ptJob) {
+    char *psName = ptIthaca->atClients[nClient].psName;
+    Voyage *ptVoyage = findActiveVoyage(ptIthaca, psName);
+
+    if (TRANSFER_OK == ptJob->nResult) {
+        consoleLog(psName, LOG_OBJECT_SENT);
+        return;
+    }
+
+    if (NULL != ptVoyage) {
+        releaseVoyage(ptVoyage);
+    }
+    consoleLog(psName, LOG_OBJECT_FAILED);
+}
 
 static void finishClaim(Ithaca *ptIthaca, int nClient, PoolJob *ptJob) {
     Message tMsg;
@@ -113,7 +228,7 @@ static void finishClaim(Ithaca *ptIthaca, int nClient, PoolJob *ptJob) {
         default:
             replyError(ptJob->nFd, &tMsg, ERROR_CLAIM_FAILED);
             break;
-    }    
+    }
 }
 
 void finishJob(Ithaca *ptIthaca, PoolJob *ptJob) {
@@ -130,8 +245,16 @@ void finishJob(Ithaca *ptIthaca, PoolJob *ptJob) {
         }
     } else {
         FD_SET(ptJob->nFd, &ptIthaca->tFdsClients);
-        if (JOB_VERIFY_CLAIM == ptJob->eType) {
-            finishClaim(ptIthaca, nClient, ptJob);
+        
+        switch (ptJob->eType) {
+            case JOB_VERIFY_CLAIM:
+                finishClaim(ptIthaca, nClient, ptJob);
+                break;
+            case JOB_SEND_FILE:
+                finishObject(ptIthaca, nClient, ptJob);
+                break;
+            default:
+                break;
         }
     }
     freeJob(ptJob);
@@ -369,7 +492,7 @@ static void listVoyages(int nFdClient, Ithaca *ptIthaca, Message tMsg) {
  * @Ret : None.
  *
  ************************************************/
-static void assignVoyage(Voyage *ptVoyage, const char *psName, Message *ptMsg,
+static int assignVoyage(Voyage *ptVoyage, const char *psName, Message *ptMsg,
                          int nFdClient) {
     char *psVoyageInfo = NULL;
     char *psOwner = NULL;
@@ -377,7 +500,7 @@ static void assignVoyage(Voyage *ptVoyage, const char *psName, Message *ptMsg,
     psOwner = strdup(psName);
     if (NULL == psOwner) {
         replyError(nFdClient, ptMsg, ERROR_MEMORY_ALLOCATION);
-        return;
+        return -1;
     }
 
     free(ptVoyage->psOwner);
@@ -388,8 +511,9 @@ static void assignVoyage(Voyage *ptVoyage, const char *psName, Message *ptMsg,
                        ptVoyage->psObject, ptVoyage->psDestination,
                        ptVoyage->nReward)) {
         replyError(nFdClient, ptMsg, ERROR_MEMORY_ALLOCATION);
-        return;
+        return -1;
     }
+    
     buildMessage(ptMsg, FLAG_RESPONSE, psVoyageInfo);
     free(psVoyageInfo);
     psVoyageInfo = NULL;
@@ -400,6 +524,8 @@ static void assignVoyage(Voyage *ptVoyage, const char *psName, Message *ptMsg,
         println(psVoyageInfo);
         free(psVoyageInfo);
     }
+
+    return 0;
 }
 
 /***********************************************
@@ -428,8 +554,9 @@ static void acceptVoyage(int nFdClient, Ithaca *ptIthaca, Message tMsg) {
         replyError(nFdClient, &tMsg, ERROR_MESSAGE_FORMAT);
         return;
     }
-    // At most 9 digits so atoi can't overflow
-    if (MAX_VOYAGE_ID_DIGITS < tMsg.dataLength ||
+    
+  
+    if (0 >= tMsg.dataLength ||
         0 == isPositiveInteger(tMsg.data)) {
         replyError(nFdClient, &tMsg, ERROR_INVALID_VOYAGE_ID);
         return;
@@ -444,34 +571,28 @@ static void acceptVoyage(int nFdClient, Ithaca *ptIthaca, Message tMsg) {
         replyError(nFdClient, &tMsg, ERROR_ACTIVE_VOYAGE);
         return;
     }
-    // Ithaca handles one request at a time, so this check-and-set is atomic
+
     if (VOYAGE_AVAILABLE != ptVoyage->eState) {
         replyError(nFdClient, &tMsg, ERROR_VOYAGE_NOT_AVAILABLE);
         return;
     }
 
     assignVoyage(ptVoyage, psName, &tMsg, nFdClient);
-}
 
-static void sendReadyError(int nFdClient, const char *psReason) {
-    Message tMsg;
-
-    tMsg.type = MSG_FILE_READY;
-    buildMessage(&tMsg, FLAG_RESPONSE | FLAG_ERROR, psReason);
-    sendMessage(&tMsg, nFdClient);
-}
-
-static char *fileBaseName(char *psFilePath) {
-    char *psBaseName = psFilePath;
-    int i = 0;
-
-    for (i = 0; '\0' != psFilePath[i]; i++) {
-        if ('/' == psFilePath[i]) {
-            psBaseName = &psFilePath[i + 1];
-        }
+    char *psObjectPath = buildObjectPath(ptIthaca, ptVoyage);
+    if (NULL == psObjectPath || 0 != access(psObjectPath, R_OK)) {
+        free(psObjectPath);
+        replyError(nFdClient, &tMsg, ERROR_OBJECT_MISSING);
+        return;
     }
-    return psBaseName;
+
+    if (0 == assignVoyage(ptVoyage, psName, &tMsg, nFdClient)) {
+        startObjectJob(ptIthaca, nClient, ptVoyage, psObjectPath);
+    }
+
+    free(psObjectPath);
 }
+
 static void claimHeader(int nFdClient, Ithaca *ptIthaca, Message tMsg) {
     FileInfo tInfo;
     Voyage *ptVoyage = NULL;
@@ -482,7 +603,8 @@ static void claimHeader(int nFdClient, Ithaca *ptIthaca, Message tMsg) {
     memset(&tInfo, 0, sizeof(FileInfo));
 
     if (-1 != nClient) {
-        ptVoyage = findActiveVoyage(ptIthaca, ptIthaca->atClients[nClient].psName);
+        ptVoyage =
+            findActiveVoyage(ptIthaca, ptIthaca->atClients[nClient].psName);
     }
     if (NULL == ptVoyage) {
         sendReadyError(nFdClient, ERROR_CLAIM_NO_VOYAGE);
@@ -505,7 +627,6 @@ static void claimHeader(int nFdClient, Ithaca *ptIthaca, Message tMsg) {
         return;
     }
 
-
     if (-1 == asprintf(&psTempPath, CLAIM_TEMP_FORMAT, ptIthaca->psMission,
                        ptVoyage->nId)) {
         psTempPath = NULL;
@@ -526,10 +647,10 @@ static void claimHeader(int nFdClient, Ithaca *ptIthaca, Message tMsg) {
     FD_CLR(nFdClient, &ptIthaca->tFdsClients);
 
     if (POOL_OK != poolSubmit(&ptIthaca->tPool, ptJob)) {
-       FD_SET(nFdClient, &ptIthaca->tFdsClients);
-       ptIthaca->atClients[nClient].ptJob = NULL;
-       freeJob(ptJob);
-       sendReadyError(nFdClient, ERROR_CLAIM_BUSY);
+        FD_SET(nFdClient, &ptIthaca->tFdsClients);
+        ptIthaca->atClients[nClient].ptJob = NULL;
+        freeJob(ptJob);
+        sendReadyError(nFdClient, ERROR_CLAIM_BUSY);
     }
 }
 
