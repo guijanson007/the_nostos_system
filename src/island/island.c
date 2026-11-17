@@ -314,6 +314,22 @@ static int startServer(Island *ptIsland, int *pnFdConfig,
     FD_ZERO(&ptIsland->tFdsClients);
     FD_SET(ptIsland->nServerFd, &ptIsland->tFdsClients);
 
+    if (POOL_OK != poolCreate(&ptIsland->tPool, POOL_DEFAULT_WORKERS,POOL_DEFAULT_CAPACITY)) {
+        printErr(ERROR_POOL);
+        close(ptIsland->nServerFd);
+        closeFiles(pnFdConfig, &ptIsland->nFdStock);
+        freeStock(&ptIsland->atStock);
+        freeIsland(ptIsland, ptSphragis);
+        
+        return -1;
+    }
+    
+    FD_SET(poolNotifyFd(&ptIsland->tPool), &ptIsland->tFdsClients);
+
+    if (poolNotifyFd(&ptIsland->tPool) > ptIsland->nMaxFd) {
+        ptIsland->nMaxFd = poolNotifyFd(&ptIsland->tPool);
+    }
+
     ptIsland->nMaxFd = ptIsland->nServerFd;
 
     if (-1 == asprintf(&psBuff, WELCOME, ptIsland->psName, ptIsland->nCapacity,
@@ -393,7 +409,11 @@ static void handleClient(Island *ptIsland, int nFd) {
  ************************************************/
 static void runServer(Island *ptIsland) {
     int nFd = 0;
-    fd_set tReadFds = {0};
+    int nNotifyFd = poolNotifyFd(&ptIsland->tPool);
+    PoolJob *ptJob = NULL;    
+    fd_set tReadFds;
+
+    memset(&tReadFds, 0, sizeof(fd_set));
 
     while (0 == nEvQuit) {
         tReadFds = ptIsland->tFdsClients;
@@ -409,6 +429,10 @@ static void runServer(Island *ptIsland) {
 
             if (nFd == ptIsland->nServerFd) {
                 acceptClient(ptIsland);
+            }else if (nFd == nNotifyFd) {
+                if (POOL_OK == poolCollect(&ptIsland->tPool, &ptJob)) {
+                    finishJob(ptIsland, ptJob);
+                }
             } else {
                 handleClient(ptIsland, nFd);
             }
@@ -430,8 +454,35 @@ static void runServer(Island *ptIsland) {
 static void closeIsland(Island *ptIsland, int *pnFdConfig,
                         SPHRAGIS_Island *ptSphragis) {
     int nFd = 0;
-    size_t i = 0;
     char *psFarewell = NULL;
+    int nNotifyFd = poolNotifyFd(&ptIsland->tPool);
+    size_t i = 0;
+
+    for (i = 0; i < ptIsland->tNumClients; i++) {
+        if (NULL != ptIsland->atClients[i].ptJob) {
+            shutdown(ptIsland->atClients[i].nFd, SHUT_RDWR);
+        }
+    }
+
+    if (0 <= nNotifyFd) {
+        FD_CLR(nNotifyFd, &ptIsland->tFdsClients);
+    }
+    poolDestroy(&ptIsland->tPool);
+
+    for (nFd = 0; nFd <= ptIsland->nMaxFd; nFd++) {
+        if (0 != FD_ISSET(nFd, &ptIsland->tFdsClients)) {
+            close(nFd);
+        }
+    }
+
+    for (i = 0; i < ptIsland->tNumClients; i++) {
+        Client *ptClient = &ptIsland->atClients[i];
+        if (NULL != ptClient->ptJob) {
+            freeJob(ptClient->ptJob);
+            ptClient->ptJob = NULL;
+            close(ptClient->nFd);
+        }
+    }
 
     for (nFd = 0; nFd <= ptIsland->nMaxFd; nFd++) {
         if (0 != FD_ISSET(nFd, &ptIsland->tFdsClients)) {

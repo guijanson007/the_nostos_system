@@ -22,6 +22,7 @@
 // Project includes
 #include "utils/utils.h"
 #include "utils/utils_communication.h"
+#include "utils/utils_pool.h"
 #include "../lib/sphragis/sphragis.h"
  
 // Constant declarations
@@ -34,6 +35,7 @@
 #define ERROR_FILE_CONFIG "ERROR: config file couldn't be open"
 #define ERROR_FILE_STOCK "ERROR: stock file couldn't be open"
 #define ERROR_LOAD_CONFIG "ERROR: data from the config file could not been open"
+#define ERROR_POOL "ERROR: the worker pool could not be created\n"
 #define MSG_ISLAND_FINISHED "\nIsland process finished."
  
 #define WELCOME "Island %s initialized.\nPort capacity: %d ships.\n%d sea routes loaded.\n%d products available."
@@ -58,6 +60,8 @@ typedef struct {
     char *psName;
     size_t tQueued;
     ClientState eState;
+    PoolJob *ptJob;
+    int nDeliverPending;
 } Client;
  
 typedef struct {
@@ -84,6 +88,7 @@ typedef struct {
     Stock *atStock;
     size_t tNumStock;
     int nFdStock;
+    ThreadPool tPool;
 } Island;
  
 // Project includes

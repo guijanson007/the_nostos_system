@@ -447,7 +447,7 @@ static int streamFileIn(int nFd, int nFile, long nSize, unsigned char cDataFlags
  *        arguments, file cannot be created, protocol violation).
  *
  ************************************************/
-int receiveBody(int nFd, TransferType eType, const char *psDestPath, const FileInfo *ptInfo) {
+int receiveBody(int nFd, TransferType eType,  const char *psDestPath,  const FileInfo *ptInfo) {
     const char *psKind = NULL;
     unsigned char cHeaderFlags = FLAG_NONE;
     unsigned char cDataFlags = FLAG_NONE;
