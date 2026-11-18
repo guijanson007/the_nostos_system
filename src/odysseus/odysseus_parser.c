@@ -159,6 +159,7 @@ Odysseus odysseusParseFile(int nFd) {
 void freeOdysseusVoyage(OdysseusVoyage *ptVoyage) {
     free(ptVoyage->psObject);
     free(ptVoyage->psDestination);
+    free(ptVoyage->psFileName);
     free(ptVoyage->psObjectPath);
     free(ptVoyage->psSignedPath);
     memset(ptVoyage, 0, sizeof(*ptVoyage));
