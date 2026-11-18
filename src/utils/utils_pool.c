@@ -69,6 +69,9 @@ PoolJob *createJob(JobType eType, int nFd, const char *psPath, const char *psFil
     if (NULL == ptJob) {
         return NULL;
     }
+
+    memset(ptJob, 0, sizeof(PoolJob));
+
     ptJob->eType = eType;
     ptJob->nFd = nFd;
 

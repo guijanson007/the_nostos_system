@@ -577,7 +577,6 @@ static void acceptVoyage(int nFdClient, Ithaca *ptIthaca, Message tMsg) {
         return;
     }
 
-    assignVoyage(ptVoyage, psName, &tMsg, nFdClient);
 
     char *psObjectPath = buildObjectPath(ptIthaca, ptVoyage);
     if (NULL == psObjectPath || 0 != access(psObjectPath, R_OK)) {

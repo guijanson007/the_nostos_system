@@ -1,11 +1,11 @@
 #define _GNU_SOURCE
 
+#include "utils/utils_transfer.h"
+#include "sphragis.h"
+#include "utils/utils_pool.h"
 #include <fcntl.h>
 #include <strings.h>
 #include <sys/types.h>
-#include "utils/utils_transfer.h"
-#include "utils/utils_pool.h"
-#include "sphragis.h"
 
 /***********************************************
  *
@@ -21,7 +21,9 @@
  * @Ret : TRANSFER_OK, or TRANSFER_ERROR if the kind is unknown.
  *
  ************************************************/
-static int transferSettings(TransferType eType, const char **ppsKind, unsigned char *pcHeaderFlags, unsigned char *pcDataFlags) {
+static int transferSettings(TransferType eType, const char **ppsKind,
+                            unsigned char *pcHeaderFlags,
+                            unsigned char *pcDataFlags) {
 
     switch (eType) {
         case TRANSFER_CLAIM:
@@ -74,11 +76,13 @@ static int isMd5Text(const char *psText) {
 /***********************************************
  *
  * @Name : parseHeader
- * @Def : Checks a FILE HEADER (<KIND>&<name>&<size>&<md5>) and copies its values into dynamic memory.
+ * @Def : Checks a FILE HEADER (<KIND>&<name>&<size>&<md5>) and copies its
+ * values into dynamic memory.
  * @Arg : In: ptMsg = frame received
  *        In: eType = transfer expected
  *        Out: ptInfo = name, size and MD5 (free with freeFileInfo)
- * @Ret : TRANSFER_OK if the header is valid, TRANSFER_ERROR otherwise (ptInfo is left empty).
+ * @Ret : TRANSFER_OK if the header is valid, TRANSFER_ERROR otherwise (ptInfo
+ * is left empty).
  *
  ************************************************/
 int parseHeader(const Message *ptMsg, TransferType eType, FileInfo *ptInfo) {
@@ -92,10 +96,9 @@ int parseHeader(const Message *ptMsg, TransferType eType, FileInfo *ptInfo) {
     char *psFieldSize = NULL;
     char *psFieldMd5 = NULL;
 
-
     if (NULL == ptMsg || NULL == ptInfo ||
-        TRANSFER_OK != transferSettings(eType, &psKind, &cHeaderFlags,
-                                        &cDataFlags)) {
+        TRANSFER_OK !=
+            transferSettings(eType, &psKind, &cHeaderFlags, &cDataFlags)) {
         return TRANSFER_ERROR;
     }
     if (MSG_FILE_HEADER != ptMsg->type || cHeaderFlags != ptMsg->flag ||
@@ -119,8 +122,7 @@ int parseHeader(const Message *ptMsg, TransferType eType, FileInfo *ptInfo) {
         NULL == psFieldMd5 ||
         NULL != strtok_r(NULL, HEADER_SEPARATOR, &psSave) ||
         0 != strcmp(psFieldKind, psKind) ||
-        0 == isPositiveInteger(psFieldSize) ||
-        !isMd5Text(psFieldMd5)) {
+        0 == isPositiveInteger(psFieldSize) || !isMd5Text(psFieldMd5)) {
         free(psCopy);
         return TRANSFER_ERROR;
     }
@@ -157,7 +159,6 @@ void freeFileInfo(FileInfo *ptInfo) {
     ptInfo->nSize = 0;
 }
 
-
 /***********************************************
  *
  * @Name : sendFrame
@@ -169,7 +170,8 @@ void freeFileInfo(FileInfo *ptInfo) {
  * @Ret : TRANSFER_OK, or TRANSFER_PEER_GONE if the write failed.
  *
  ************************************************/
-static int sendFrame(int nFd, MessageType eType, unsigned char cFlags, const char *psText) {
+static int sendFrame(int nFd, MessageType eType, unsigned char cFlags,
+                     const char *psText) {
     Message tMsg;
 
     memset(&tMsg, 0, sizeof(Message));
@@ -185,9 +187,7 @@ static int sendFrame(int nFd, MessageType eType, unsigned char cFlags, const cha
  * @Arg : In: nFd = socket
  *        In: eType = type the frame must have
  *        Out: ptMsg = frame received
- * @Ret : TRANSFER_OK, TRANSFER_PEER_GONE if the socket closed or the peer
- *        stayed silent for TRANSFER_TIMEOUT_SECONDS, TRANSFER_ERROR if the
- *        frame is malformed or has another type.
+ * @Ret : TRANSFER_OK If all worked fine or TRANSFER_PEER_GONE if the peer has left.
  *
  ************************************************/
 static int waitFrame(int nFd, MessageType eType, Message *ptMsg) {
@@ -195,9 +195,6 @@ static int waitFrame(int nFd, MessageType eType, Message *ptMsg) {
 
     if (-1 == nRet || RECEIVE_TIMEOUT == nRet) {
         return TRANSFER_PEER_GONE;
-    }
-    if (0 != nRet || eType != ptMsg->type) {
-        return TRANSFER_ERROR;
     }
     return TRANSFER_OK;
 }
@@ -240,7 +237,8 @@ static int readChunk(int nFile, char *pcBuffer, int nWanted) {
  *        TRANSFER_PEER_GONE if a write failed.
  *
  ************************************************/
-static int streamFileOut(int nFd, int nFile, long nSize, unsigned char cDataFlags) {
+static int streamFileOut(int nFd, int nFile, long nSize,
+                         unsigned char cDataFlags) {
     Message tMsg;
     long nSent = 0;
     int nChunk = 0;
@@ -296,7 +294,8 @@ static long readFileSize(int nFile) {
  *        peer in the ACK; TRANSFER_PEER_GONE on closed socket or timeout.
  *
  ************************************************/
-int sendFile(int nFd, TransferType eType, const char *psPath, const char *psFileName) {
+int sendFile(int nFd, TransferType eType, const char *psPath,
+             const char *psFileName) {
     const char *psKind = NULL;
     unsigned char cHeaderFlags = FLAG_NONE;
     unsigned char cDataFlags = FLAG_NONE;
@@ -308,7 +307,8 @@ int sendFile(int nFd, TransferType eType, const char *psPath, const char *psFile
     int nRet = TRANSFER_ERROR;
 
     if (NULL == psPath || NULL == psFileName ||
-        TRANSFER_OK != transferSettings(eType, &psKind, &cHeaderFlags, &cDataFlags)) {
+        TRANSFER_OK !=
+            transferSettings(eType, &psKind, &cHeaderFlags, &cDataFlags)) {
         return TRANSFER_ERROR;
     }
     nFile = open(psPath, O_RDONLY);
@@ -318,7 +318,8 @@ int sendFile(int nFd, TransferType eType, const char *psPath, const char *psFile
     nSize = readFileSize(nFile);
     psMd5 = computeMd5(psPath);
     if (0 >= nSize || TRANSFER_MAX_SIZE < nSize || NULL == psMd5 ||
-        -1 == asprintf(&psHeader, HEADER_FORMAT, psKind, psFileName, nSize, psMd5)) {
+        -1 == asprintf(&psHeader, HEADER_FORMAT, psKind, psFileName, nSize,
+                       psMd5)) {
         psHeader = NULL;
     }
     free(psMd5);
@@ -329,7 +330,8 @@ int sendFile(int nFd, TransferType eType, const char *psPath, const char *psFile
             nRet = waitFrame(nFd, MSG_FILE_READY, &tMsg);
         }
         if (TRANSFER_OK == nRet && FLAG_RESPONSE != tMsg.flag) {
-            nRet = (FLAG_RESPONSE | FLAG_ERROR) == tMsg.flag ? TRANSFER_REJECTED : TRANSFER_ERROR;
+            nRet = (FLAG_RESPONSE | FLAG_ERROR) == tMsg.flag ? TRANSFER_REJECTED
+                                                             : TRANSFER_ERROR;
         }
         if (TRANSFER_OK == nRet) {
             nRet = streamFileOut(nFd, nFile, nSize, cDataFlags);
@@ -393,38 +395,43 @@ static int writeChunk(int nFile, const char *pcBuffer, int nLength) {
 /***********************************************
  *
  * @Name : streamFileIn
- * @Def : Receives the DATA frames of a transfer and appends each one to the
- *        file as it arrives. Every frame must be MSG_FILE_DATA with the
- *        flags of the kind, and carry MESSAGE_DATA_MAX bytes except the
- *        last one, which carries what is left (1 to MESSAGE_DATA_MAX).
+ * @Def : Receives the N DATA frames of a transfer (N = size / 253 rounded
+ *        up) and writes each one to the file. All N frames are always read,
+ *        even after a size error, so no frame is left on the socket for the
+ *        server loop.
  * @Arg : In: nFd = socket of the sender
  *        In: nFile = file opened for writing
  *        In: nSize = bytes announced in the HEADER
  *        In: cDataFlags = flags every DATA frame must have
- * @Ret : TRANSFER_OK; TRANSFER_SIZE_ERROR if a frame has the wrong length;
- *        TRANSFER_PEER_GONE on closed socket or timeout; TRANSFER_ERROR on
- *        another frame, wrong flags or a failed write.
+ * @Ret : TRANSFER_OK; TRANSFER_SIZE_ERROR if a frame has the wrong length or
+ *        the file could not be written; TRANSFER_PEER_GONE if the socket
+ *        closed, timed out or a frame broke the protocol.
  *
  ************************************************/
-static int streamFileIn(int nFd, int nFile, long nSize, unsigned char cDataFlags) {
+static int streamFileIn(int nFd, int nFile, long nSize,
+                        unsigned char cDataFlags) {
     Message tMsg;
+    long nFrames = (nSize + MESSAGE_DATA_MAX - 1) / MESSAGE_DATA_MAX;
     long nReceived = 0;
-    int nExpected = 0;
+    long nExpected = 0;
     int nRet = TRANSFER_OK;
 
-    while (TRANSFER_OK == nRet && nReceived < nSize) {
-        nExpected = (nSize - nReceived > MESSAGE_DATA_MAX) ? MESSAGE_DATA_MAX
-                                                           : (int)(nSize - nReceived);
-        nRet = waitFrame(nFd, MSG_FILE_DATA, &tMsg);
-        if (TRANSFER_OK != nRet) {
-            break;
+    for (long i = 0; i < nFrames; i++) {
+        if (nSize - nReceived > MESSAGE_DATA_MAX) {
+            nExpected = MESSAGE_DATA_MAX;
+        } else {
+            nExpected = (nSize - nReceived);
         }
-        if (cDataFlags != tMsg.flag) {
-            nRet = TRANSFER_ERROR;
-        } else if (nExpected != tMsg.dataLength) {
+
+        if (TRANSFER_OK != waitFrame(nFd, MSG_FILE_DATA, &tMsg) ||
+            cDataFlags != tMsg.flag) {
+            return TRANSFER_PEER_GONE;
+        }
+        if (nExpected != tMsg.dataLength) {
             nRet = TRANSFER_SIZE_ERROR;
-        } else if (!writeChunk(nFile, tMsg.data, nExpected)) {
-            nRet = TRANSFER_ERROR;
+        } else if (TRANSFER_OK == nRet &&
+                   !writeChunk(nFile, tMsg.data, nExpected)) {
+            nRet = TRANSFER_SIZE_ERROR;
         }
         nReceived += nExpected;
     }
@@ -447,7 +454,8 @@ static int streamFileIn(int nFd, int nFile, long nSize, unsigned char cDataFlags
  *        arguments, file cannot be created, protocol violation).
  *
  ************************************************/
-int receiveBody(int nFd, TransferType eType,  const char *psDestPath,  const FileInfo *ptInfo) {
+int receiveBody(int nFd, TransferType eType, const char *psDestPath,
+                const FileInfo *ptInfo) {
     const char *psKind = NULL;
     unsigned char cHeaderFlags = FLAG_NONE;
     unsigned char cDataFlags = FLAG_NONE;
@@ -457,7 +465,8 @@ int receiveBody(int nFd, TransferType eType,  const char *psDestPath,  const Fil
 
     if (NULL == psDestPath || NULL == ptInfo || NULL == ptInfo->psMd5 ||
         0 >= ptInfo->nSize ||
-        TRANSFER_OK != transferSettings(eType, &psKind, &cHeaderFlags, &cDataFlags)) {
+        TRANSFER_OK !=
+            transferSettings(eType, &psKind, &cHeaderFlags, &cDataFlags)) {
         return TRANSFER_ERROR;
     }
     nFile = open(psDestPath, O_WRONLY | O_CREAT | O_TRUNC, TRANSFER_FILE_MODE);
@@ -489,9 +498,11 @@ int receiveBody(int nFd, TransferType eType,  const char *psDestPath,  const Fil
     if (TRANSFER_OK == nRet) {
         nRet = sendFrame(nFd, MSG_FILE_ACK, FLAG_RESPONSE, REPLY_OK);
     } else if (TRANSFER_SIZE_ERROR == nRet) {
-        sendFrame(nFd, MSG_FILE_ACK, FLAG_RESPONSE | FLAG_ERROR, REPLY_SIZE_ERROR);
+        sendFrame(nFd, MSG_FILE_ACK, FLAG_RESPONSE | FLAG_ERROR,
+                  REPLY_SIZE_ERROR);
     } else if (TRANSFER_MD5_ERROR == nRet) {
-        sendFrame(nFd, MSG_FILE_ACK, FLAG_RESPONSE | FLAG_ERROR, REPLY_MD5_ERROR);
+        sendFrame(nFd, MSG_FILE_ACK, FLAG_RESPONSE | FLAG_ERROR,
+                  REPLY_MD5_ERROR);
     }
 
     if (TRANSFER_OK != nRet) {
@@ -514,7 +525,8 @@ int receiveBody(int nFd, TransferType eType,  const char *psDestPath,  const Fil
  * @Ret : same codes as receiveBody; TRANSFER_PEER_GONE if no HEADER arrived.
  *
  ************************************************/
-int receiveFile(int nFd, TransferType eType, const char *psDestPath, FileInfo *ptInfo) {
+int receiveFile(int nFd, TransferType eType, const char *psDestPath,
+                FileInfo *ptInfo) {
     Message tMsg;
     int nRet = TRANSFER_ERROR;
 
@@ -582,7 +594,8 @@ static int verifyClaim(PoolJob *ptJob) {
         rejectTransfer(ptJob->nFd, REPLY_BAD_HEADER);
         return TRANSFER_WRONG_FILE;
     }
-    nRet = receiveBody(ptJob->nFd, TRANSFER_CLAIM, ptJob->psPath, &ptJob->tInfo);
+    nRet =
+        receiveBody(ptJob->nFd, TRANSFER_CLAIM, ptJob->psPath, &ptJob->tInfo);
     if (TRANSFER_OK != nRet) {
         return nRet;
     }
@@ -610,9 +623,10 @@ static int verifyClaim(PoolJob *ptJob) {
  ************************************************/
 static int sealDelivery(PoolJob *ptJob) {
     char *psSignedPath = NULL;
-    const char *psName = NULL == ptJob->psFileName ? ptJob->tInfo.psFileName
-                                                   : ptJob->psFileName;
-    int nRet = receiveBody(ptJob->nFd, TRANSFER_DELIVERY, ptJob->psPath, &ptJob->tInfo);
+    const char *psName =
+        NULL == ptJob->psFileName ? ptJob->tInfo.psFileName : ptJob->psFileName;
+    int nRet = receiveBody(ptJob->nFd, TRANSFER_DELIVERY, ptJob->psPath,
+                           &ptJob->tInfo);
 
     if (TRANSFER_OK != nRet) {
         return nRet;
@@ -621,7 +635,8 @@ static int sealDelivery(PoolJob *ptJob) {
         unlink(ptJob->psPath);
         return TRANSFER_ERROR;
     }
-    if (SPHRAGIS_OK != SPHRAGIS_sign_with_glyph(ptJob->psOwner, ptJob->psPath, psSignedPath)) {
+    if (SPHRAGIS_OK !=
+        SPHRAGIS_sign_with_glyph(ptJob->psOwner, ptJob->psPath, psSignedPath)) {
         nRet = TRANSFER_GLYPH_ERROR;
     } else {
         nRet = sendFile(ptJob->nFd, TRANSFER_SIGNED, psSignedPath, psName);
@@ -658,11 +673,13 @@ void executeJob(PoolJob *ptJob) {
 
     switch (ptJob->eType) {
         case JOB_SEND_FILE:
-            ptJob->nResult = sendFile(ptJob->nFd, TRANSFER_OBJECT, ptJob->psPath, ptJob->psFileName);
+            ptJob->nResult = sendFile(ptJob->nFd, TRANSFER_OBJECT,
+                                      ptJob->psPath, ptJob->psFileName);
             break;
         case JOB_RECEIVE_FILE:
             freeFileInfo(&ptJob->tInfo);
-            ptJob->nResult = receiveFile(ptJob->nFd, TRANSFER_CLAIM, ptJob->psPath, &ptJob->tInfo);
+            ptJob->nResult = receiveFile(ptJob->nFd, TRANSFER_CLAIM,
+                                         ptJob->psPath, &ptJob->tInfo);
             break;
         case JOB_SEAL_DELIVERY:
             ptJob->nResult = sealDelivery(ptJob);

@@ -396,13 +396,16 @@ void closeIthaca(Ithaca *ptIthaca, Voyage **patVoyages, size_t *ptNumVoyages) {
     int nFd = 0;
     size_t i = 0;
 
-    // The pool closes its own pipe; it also waits for the running jobs and
-    // joins the workers, so afterwards nobody else touches the job structs
+    for (i = 0; i < ptIthaca->tNumClients; i++) {
+        if (NULL != ptIthaca->atClients[i].ptJob) {
+            shutdown(ptIthaca->atClients[i].nFd, SHUT_RDWR);
+        }
+    }
+
     FD_CLR(poolNotifyFd(&ptIthaca->tPool), &ptIthaca->tFdsClients);
     poolDestroy(&ptIthaca->tPool);
 
-    // A client with a job is not in the select set, so its socket and its
-    // job (never collected) are released here
+
     for (i = 0; i < ptIthaca->tNumClients; i++) {
         if (NULL != ptIthaca->atClients[i].ptJob) {
             close(ptIthaca->atClients[i].nFd);
