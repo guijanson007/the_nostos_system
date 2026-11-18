@@ -18,6 +18,7 @@
 #include "odysseus/odysseus_parser.h"
 #include "odysseus/odysseus_persistence.h"
 #include "utils/utils_communication.h"
+#include "utils/utils_transfer.h"
 
 /***********************************************
  *
@@ -320,6 +321,35 @@ OdysseusStatus requestListOfVoyages(Odysseus *ptOdysseus) {
 
 /***********************************************
  *
+ * @Name : receiveObject
+ * @Def : Receives the OBJECT transfer that Ithaca starts after a
+ *        successful ACCEPT and stores it in the file of the ship. On
+ *        failure the partial file is already deleted by the transfer.
+ * @Arg : In/Out: ptOdysseus = odysseus whose active voyage gets the object
+ * @Ret : ODY_OK on success, otherwise ODY_ERR_TRANSFER.
+ *
+ ************************************************/
+static OdysseusStatus receiveObject(Odysseus *ptOdysseus) {
+    FileInfo tInfo;
+    char *psPath = NULL;
+    int nResult = TRANSFER_ERROR;
+
+    if (-1 == asprintf(&psPath, OBJECT_FILE_FORMAT, ptOdysseus->psName)) {
+        return ODY_ERR_TRANSFER;
+    }
+    nResult = receiveFile(ptOdysseus->nIthacaSocket, TRANSFER_OBJECT, psPath,
+                          &tInfo);
+    freeFileInfo(&tInfo);
+    if (TRANSFER_OK != nResult) {
+        free(psPath);
+        return ODY_ERR_TRANSFER;
+    }
+    ptOdysseus->tActiveVoyage.psObjectPath = psPath;
+    return ODY_OK;
+}
+
+/***********************************************
+ *
  * @Name : requestAcceptVoyage
  * @Def : Asks Ithaca to assign a voyage and stores it as the active
  *        voyage.
@@ -367,10 +397,18 @@ OdysseusStatus requestAcceptVoyage(Odysseus *ptOdysseus, int nVoyageId) {
     }
     free(apsFields);
 
-    freeOdysseusVoyage(&ptOdysseus->tActiveVoyage);
+    discardOdysseusVoyage(&ptOdysseus->tActiveVoyage);
     ptOdysseus->tActiveVoyage = tVoyage;
 
     freeListedVoyages(ptOdysseus);
+
+    // Ithaca sends the object right after the ACCEPT OK
+    eStatus = receiveObject(ptOdysseus);
+    if (ODY_OK != eStatus) {
+        // Without the object there is no voyage (Ithaca frees it again)
+        discardOdysseusVoyage(&ptOdysseus->tActiveVoyage);
+        return eStatus;
+    }
     return ODY_OK;
 }
 
