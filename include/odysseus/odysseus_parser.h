@@ -22,6 +22,7 @@
 // Projects
 void freeOdysseus(Odysseus *ptOdysseus);
 void freeOdysseusVoyage(OdysseusVoyage *ptVoyage);
+void discardOdysseusVoyage(OdysseusVoyage *ptVoyage);
 void freeListedVoyages(Odysseus *ptOdysseus);
 Odysseus odysseusParseFile(int nFd);
 

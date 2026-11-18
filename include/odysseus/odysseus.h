@@ -64,6 +64,9 @@ typedef struct {
     char *psObject;
     char *psDestination;
     int nReward;
+    char *psObjectPath;  // file received from Ithaca, NULL until it arrives
+    char *psSignedPath;  // file sealed by the island, NULL until delivered
+    int nDelivered;      // 1 once the island returned the sealed object
 } OdysseusVoyage;
  
 typedef struct Odysseus {
