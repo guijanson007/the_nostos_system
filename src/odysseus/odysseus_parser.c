@@ -159,7 +159,29 @@ Odysseus odysseusParseFile(int nFd) {
 void freeOdysseusVoyage(OdysseusVoyage *ptVoyage) {
     free(ptVoyage->psObject);
     free(ptVoyage->psDestination);
+    free(ptVoyage->psObjectPath);
+    free(ptVoyage->psSignedPath);
     memset(ptVoyage, 0, sizeof(*ptVoyage));
+}
+
+/***********************************************
+ *
+ * @Name : discardOdysseusVoyage
+ * @Def : Deletes the object and sealed files of a voyage (if they were
+ *        stored) and then frees it like freeOdysseusVoyage. The voyage is
+ *        not saved between runs, so its files must not outlive it.
+ * @Arg : In/Out: ptVoyage = voyage to discard
+ * @Ret : None.
+ *
+ ************************************************/
+void discardOdysseusVoyage(OdysseusVoyage *ptVoyage) {
+    if (NULL != ptVoyage->psObjectPath) {
+        unlink(ptVoyage->psObjectPath);
+    }
+    if (NULL != ptVoyage->psSignedPath) {
+        unlink(ptVoyage->psSignedPath);
+    }
+    freeOdysseusVoyage(ptVoyage);
 }
 
 
@@ -257,7 +279,7 @@ void freeOdysseus(Odysseus *ptOdysseus) {
     ptOdysseus->psLastError = NULL;
  
     freeListedVoyages(ptOdysseus);
-    freeOdysseusVoyage(&ptOdysseus->tActiveVoyage);
+    discardOdysseusVoyage(&ptOdysseus->tActiveVoyage);
     freeCargo(&ptOdysseus->tCargo);
     freeMap(&ptOdysseus->tMap);
  

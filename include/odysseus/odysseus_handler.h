@@ -23,6 +23,8 @@
 #define MSG_STATUS_HEADER "--- %s ---\nGold: %d\n\nCargo:"
 #define MSG_SUPPLY_LINE "%s: %d kg"
 #define MSG_TOTAL_PROVISIONS "\nTotal provisions: %d kg\n"
+#define MSG_OBJECT_STORED "Object: on board"
+#define MSG_OBJECT_RECEIVED "Object received correctly."
 #define MSG_NO_VOYAGE "Current voyage: None"
 #define MSG_CURRENT_VOYAGE "Current voyage: %s -> %s\nReward: %d"
 #define MSG_LOCATION "Current location: %s"

@@ -25,6 +25,8 @@
 #define DOCKED "DOCKED"
 #define OK_RESPONSE "OK"
 #define ZERO_STRING "0"
+// File where the ship keeps the object of its voyage, one per ship name
+#define OBJECT_FILE_FORMAT "%s.object"
 #define INT_FORMAT "%d"
  
 #define VOYAGE_LIST_FIELDS 6
