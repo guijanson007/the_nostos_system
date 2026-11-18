@@ -140,6 +140,9 @@ void odysseusStatus(Odysseus *ptOdysseus) {
                               ptOdysseus->tActiveVoyage.nReward)) {
         println(psBuffer);
         free(psBuffer);
+        if (NULL != ptOdysseus->tActiveVoyage.psObjectPath) {
+            println(MSG_OBJECT_STORED);
+        }
     }
 
     if (AT_ITHACA == ptOdysseus->nWhereAmI) {
@@ -289,6 +292,7 @@ OdysseusStatus odysseusAcceptVoyage(Odysseus *ptOdysseus,
         println(psBuffer);
         free(psBuffer);
     }
+    println(MSG_OBJECT_RECEIVED);
     return ODY_OK;
 }
 
@@ -356,6 +360,8 @@ static OdysseusStatus lostAtSea(Odysseus *ptOdysseus) {
     // save on exit does not bring it back
     ptOdysseus->tCargo.nGold = 0;
     odysseusResetState(ptOdysseus);
+    // Being lost at sea also loses the object (7.1)
+    discardOdysseusVoyage(&ptOdysseus->tActiveVoyage);
     close(ptOdysseus->nIslandSocket);
     ptOdysseus->nIslandSocket = NO_SOCKET;
     return ODY_LOST_AT_SEA;
