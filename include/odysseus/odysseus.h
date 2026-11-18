@@ -64,6 +64,7 @@ typedef struct {
     char *psObject;
     char *psDestination;
     int nReward;
+    char *psFileName;    // name Ithaca gave the object file (HEADER), NULL until it arrives
     char *psObjectPath;  // file received from Ithaca, NULL until it arrives
     char *psSignedPath;  // file sealed by the island, NULL until delivered
     int nDelivered;      // 1 once the island returned the sealed object

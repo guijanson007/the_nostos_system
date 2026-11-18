@@ -37,6 +37,9 @@
 #define STATUS_ERROR_ACTIVE_VOYAGE "ERROR: You already have an active voyage"
 #define STATUS_ERROR_NOT_LISTED "ERROR: That voyage is not in the last listing, use LIST VOYAGES"
 #define STATUS_ERROR_NOT_ENOUGH_CARGO "ERROR: Not enough cargo in the odysseus"
+#define STATUS_ERROR_NO_VOYAGE "ERROR: You have no active voyage"
+#define STATUS_ERROR_NOT_DESTINATION "ERROR: This island is not the destination of your voyage"
+#define STATUS_ERROR_ALREADY_DELIVERED "ERROR: The object has already been delivered"
 #define STATUS_ERROR_TRANSFER "ERROR: The object could not be transferred correctly"
 #define STATUS_ERROR_NOT_IN_CARGO "ERROR: The odysseus dosn't have the product"
 
@@ -62,7 +65,10 @@ typedef enum {
     ODY_ERR_MAP_AMOUNT,
     ODY_ERR_NOT_IN_CARGO,
     ODY_ERR_NOT_ENOUGH_CARGO,
-    ODY_ERR_TRANSFER
+    ODY_ERR_TRANSFER,
+    ODY_ERR_NO_VOYAGE,
+    ODY_ERR_NOT_DESTINATION,
+    ODY_ERR_ALREADY_DELIVERED
 } OdysseusStatus;
 
 struct Odysseus;

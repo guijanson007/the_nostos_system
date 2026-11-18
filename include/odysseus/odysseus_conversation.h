@@ -27,6 +27,12 @@
 #define ZERO_STRING "0"
 // File where the ship keeps the object of its voyage, one per ship name
 #define OBJECT_FILE_FORMAT "%s.object"
+// File where the ship keeps the object sealed by the island
+#define SIGNED_FILE_FORMAT "%s.signed"
+// Data of the DELIVER request: <VoyageID>&<Object>
+#define DELIVER_FORMAT "%d&%s"
+// Seconds to wait for the final DELIVER error after a failed transfer
+#define DELIVER_REPLY_SECONDS 1
 #define INT_FORMAT "%d"
  
 #define VOYAGE_LIST_FIELDS 6
@@ -68,6 +74,8 @@ OdysseusStatus buyMap(Odysseus *ptOdysseus);
 OdysseusStatus departFromIsland(Odysseus *ptOdysseus);
 OdysseusStatus waitingAtPort(Odysseus *ptOdysseus, int *pnArrival);
 OdysseusStatus leaveIsland(Odysseus *ptOdysseus);
+OdysseusStatus sendDelivery(Odysseus *ptOdysseus);
+OdysseusStatus receiveSigned(Odysseus *ptOdysseus);
  
 
 #endif

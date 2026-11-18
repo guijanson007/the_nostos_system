@@ -157,12 +157,55 @@ void odysseusStatus(Odysseus *ptOdysseus) {
 /***********************************************
  *
  * @Name : odysseusDeliver
- * @Def : Delivers the cargo of the current voyage. (Not yet implemented)
- * @Arg : In: ptOdysseus = Odysseus instance
- * @Ret : None.
+ * @Def : Delivers the object of the active voyage to the island where
+ *        odysseus is docked: sends it, waits for the island to seal it and
+ *        stores the sealed object. Only allowed at the destination island,
+ *        once per voyage.
+ * @Arg : In/Out: ptOdysseus = Odysseus instance
+ * @Ret : ODY_OK on success, otherwise the status code of the failure.
  *
  ************************************************/
-void odysseusDeliver(Odysseus *ptOdysseus) { (void)ptOdysseus; }
+OdysseusStatus odysseusDeliver(Odysseus *ptOdysseus) {
+    OdysseusStatus eStatus = ODY_OK;
+    OdysseusVoyage *ptVoyage = &ptOdysseus->tActiveVoyage;
+    const char *psIsland = NULL;
+    char *psBuffer = NULL;
+
+    if (NO_SOCKET == ptOdysseus->nIslandSocket ||
+        AT_ITHACA == ptOdysseus->nWhereAmI) {
+        return ODY_ERR_NOT_AT_ISLAND;
+    }
+    if (0 == ptVoyage->nId || NULL == ptVoyage->psObjectPath) {
+        return ODY_ERR_NO_VOYAGE;
+    }
+    psIsland = ptOdysseus->tMap.atConnections[ptOdysseus->nWhereAmI].psName;
+    if (0 != strcasecmp(ptVoyage->psDestination, psIsland)) {
+        return ODY_ERR_NOT_DESTINATION;
+    }
+    if (0 != ptVoyage->nDelivered) {
+        return ODY_ERR_ALREADY_DELIVERED;
+    }
+
+    if (-1 != asprintf(&psBuffer, MSG_DELIVERING, ptVoyage->psObject,
+                       psIsland)) {
+        println(psBuffer);
+        free(psBuffer);
+    }
+    eStatus = sendDelivery(ptOdysseus);
+    if (ODY_OK != eStatus) {
+        return eStatus;
+    }
+    println(MSG_OBJECT_TRANSFERRED);
+    printWithName(MSG_STAMPING, psIsland);
+
+    eStatus = receiveSigned(ptOdysseus);
+    if (ODY_OK != eStatus) {
+        return eStatus;
+    }
+    println(MSG_STAMPED_RECEIVED);
+    printWithName(MSG_DELIVERY_COMPLETED, psIsland);
+    return ODY_OK;
+}
 
 /***********************************************
  *

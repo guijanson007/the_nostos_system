@@ -332,6 +332,7 @@ OdysseusStatus requestListOfVoyages(Odysseus *ptOdysseus) {
 static OdysseusStatus receiveObject(Odysseus *ptOdysseus) {
     FileInfo tInfo;
     char *psPath = NULL;
+    char *psFileName = NULL;
     int nResult = TRANSFER_ERROR;
 
     if (-1 == asprintf(&psPath, OBJECT_FILE_FORMAT, ptOdysseus->psName)) {
@@ -339,11 +340,16 @@ static OdysseusStatus receiveObject(Odysseus *ptOdysseus) {
     }
     nResult = receiveFile(ptOdysseus->nIthacaSocket, TRANSFER_OBJECT, psPath,
                           &tInfo);
+    if (TRANSFER_OK == nResult) {
+        psFileName = strdup(tInfo.psFileName);
+    }
     freeFileInfo(&tInfo);
-    if (TRANSFER_OK != nResult) {
+    if (NULL == psFileName) {
+        unlink(psPath);
         free(psPath);
         return ODY_ERR_TRANSFER;
     }
+    ptOdysseus->tActiveVoyage.psFileName = psFileName;
     ptOdysseus->tActiveVoyage.psObjectPath = psPath;
     return ODY_OK;
 }
@@ -1336,5 +1342,116 @@ OdysseusStatus sellProduct(Odysseus *ptOdysseus, const char *psProduct,
         free(psBuffer);
     }
 
+    return ODY_OK;
+}
+/***********************************************
+ *
+ * @Name : skipDeliverReply
+ * @Def : After a failed transfer the island may still send the final error
+ *        of the DELIVER. Reads it (waiting only a short time) so it does
+ *        not get mixed with the answer of the next command.
+ * @Arg : In/Out: ptOdysseus = odysseus docked at the island
+ * @Ret : None.
+ *
+ ************************************************/
+static void skipDeliverReply(Odysseus *ptOdysseus) {
+    Message tMessage;
+
+    memset(&tMessage, 0, sizeof(Message));
+    receiveMessageTimeout(&tMessage, ptOdysseus->nIslandSocket,
+                          DELIVER_REPLY_SECONDS);
+}
+
+/***********************************************
+ *
+ * @Name : sendDelivery
+ * @Def : First half of DELIVER: sends the DELIVER request
+ *        (<VoyageID>&<Object>) and then the DELIVERY transfer with the
+ *        object received from Ithaca.
+ * @Arg : In/Out: ptOdysseus = odysseus docked at the destination island
+ *        with an active voyage that has its object
+ * @Ret : ODY_OK on success, ODY_ERR_IO if the request cannot be sent,
+ *        ODY_ERR_TRANSFER if the transfer fails.
+ *
+ ************************************************/
+OdysseusStatus sendDelivery(Odysseus *ptOdysseus) {
+    Message tMessage;
+    OdysseusVoyage *ptVoyage = &ptOdysseus->tActiveVoyage;
+    char *psBuffer = NULL;
+    int nResult = TRANSFER_ERROR;
+
+    memset(&tMessage, 0, sizeof(Message));
+    tMessage.type = MSG_DELIVER;
+
+    if (-1 == asprintf(&psBuffer, DELIVER_FORMAT, ptVoyage->nId,
+                       ptVoyage->psObject)) {
+        return ODY_ERR_IO;
+    }
+    buildMessage(&tMessage, FLAG_NONE, psBuffer);
+    free(psBuffer);
+
+    if (0 != sendMessage(&tMessage, ptOdysseus->nIslandSocket)) {
+        return ODY_ERR_IO;
+    }
+
+    nResult = sendFile(ptOdysseus->nIslandSocket, TRANSFER_DELIVERY,
+                       ptVoyage->psObjectPath, ptVoyage->psFileName);
+    if (TRANSFER_OK == nResult) {
+        return ODY_OK;
+    }
+    // The island answers a wrong size or MD5 with a final DELIVER error
+    if (TRANSFER_SIZE_ERROR == nResult || TRANSFER_MD5_ERROR == nResult) {
+        skipDeliverReply(ptOdysseus);
+    }
+    return ODY_ERR_TRANSFER;
+}
+
+/***********************************************
+ *
+ * @Name : receiveSigned
+ * @Def : Second half of DELIVER: receives the SIGNED transfer (the object
+ *        sealed by the island), stores it in the file of the ship and
+ *        reads the final DELIVER response. On success the voyage is
+ *        marked as delivered.
+ * @Arg : In/Out: ptOdysseus = odysseus that just sent the DELIVERY
+ * @Ret : ODY_OK on success, ODY_ERR_TRANSFER if the transfer fails,
+ *        otherwise the status of the final response (ODY_ERR_REMOTE with
+ *        the island's reason, ODY_ERR_IO, ODY_ERR_ISLAND_PROTOCOL).
+ *
+ ************************************************/
+OdysseusStatus receiveSigned(Odysseus *ptOdysseus) {
+    Message tMessage;
+    OdysseusVoyage *ptVoyage = &ptOdysseus->tActiveVoyage;
+    OdysseusStatus eStatus = ODY_OK;
+    FileInfo tInfo;
+    char *psPath = NULL;
+    int nResult = TRANSFER_ERROR;
+
+    memset(&tMessage, 0, sizeof(Message));
+    if (-1 == asprintf(&psPath, SIGNED_FILE_FORMAT, ptOdysseus->psName)) {
+        return ODY_ERR_TRANSFER;
+    }
+
+    nResult = receiveFile(ptOdysseus->nIslandSocket, TRANSFER_SIGNED, psPath,
+                          &tInfo);
+    freeFileInfo(&tInfo);
+    if (TRANSFER_OK != nResult) {
+        free(psPath);
+        // The island ends a failed delivery with a final DELIVER error
+        if (TRANSFER_PEER_GONE != nResult) {
+            skipDeliverReply(ptOdysseus);
+        }
+        return ODY_ERR_TRANSFER;
+    }
+
+    eStatus = receiveIslandResponse(ptOdysseus, &tMessage, MSG_DELIVER);
+    if (ODY_OK != eStatus) {
+        unlink(psPath);
+        free(psPath);
+        return eStatus;
+    }
+
+    ptVoyage->psSignedPath = psPath;
+    ptVoyage->nDelivered = 1;
     return ODY_OK;
 }
