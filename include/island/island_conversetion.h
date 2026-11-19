@@ -4,7 +4,7 @@
 
 /***********************************************
  *
- * @File : island_conversetion.c
+ * @File : island_conversetion.h
  * @Purpose : manage the logic between Island and odysseus
  * @Author : Axel Boleda i Callizo
  * @Date : 31/10/2026
@@ -28,6 +28,8 @@
 #define ERROR_NOT_DOCKED "NOT_DOCKED"
 #define ERROR_UNKNOWN_PRODUCT "UNKNOWN_PRODUCT"
 #define ERROR_NOT_ENOUGH_STOCK "NOT_ENOUGH_STOCK"
+#define ERROR_AMOUNT_TOO_BIG "ERROR: The amount is too big"
+#define ERROR_TRADE_NOT_SAVED "ERROR: The trade could not be saved"
 #define ERROR_DELIVER_NO_REQUEST "ERROR: Send DELIVER before the file"
 #define ERROR_DELIVER_HEADER "ERROR: Invalid file header"
 #define ERROR_DELIVER_BUSY "ERROR: The island is busy"
@@ -44,7 +46,7 @@
 #define TRADE_OK_FORMAT "OK&%s&%d&%d"
 #define MAP_EMPTY_FORMAT "%s&%d&0"
 #define MAP_ROUTE_FORMAT "%s&%d&%zu&%zu&%s&%s&%d"
-#define DELIVER_TEMP_FORMAT ".delivery_%s_%d.tmp"
+#define DELIVER_TEMP_FORMAT "%s/.delivery_%s_%d.tmp"
 
 #define MSG_APPROACHING ">>> %s approaching %s."
 #define MSG_ENTERED_PORT ">>> %s entered the port."
@@ -54,6 +56,12 @@
 #define MSG_BOUGHT_MAP ">>> %s bought the local map."
 #define MSG_HAS_LEFT ">>> %s has left."
 #define MSG_OBJECT_SEALED ">>> %s's object was sealed with the glyph of %s."
+#define MSG_DELIVERY_REQUEST ">>> %s requests delivery of voyage %d."
+#define MSG_RECEIVING_OBJECT ">>> Receiving %s..."
+#define MSG_OBJECT_RECEIVED ">>> Object received correctly."
+#define MSG_STAMPING ">>> Stamping object with the glyph of %s..."
+#define MSG_SENDING_STAMPED ">>> Sending stamped object to %s..."
+#define MSG_TRANSFER_COMPLETED ">>> Transfer completed."
 
 //Functions
 void removeClient(Island *ptIsland, int nFd);

@@ -101,8 +101,9 @@ void removeClient(Island *ptIsland, int nFd) {
  *
  ************************************************/
 static int dockClient(Island *ptIsland, size_t tIndex) {
-    Message tMsg = {0};
+    Message tMsg;
 
+    memset(&tMsg, 0, sizeof(Message));
     tMsg.type = MSG_ARRIVAL_ISLAND;
     buildMessage(&tMsg, FLAG_RESPONSE, DOCKED);
     if (0 != sendMessage(&tMsg, ptIsland->atClients[tIndex].nFd)) {
@@ -123,8 +124,9 @@ static int dockClient(Island *ptIsland, size_t tIndex) {
  *
  ************************************************/
 static int queueClient(Island *ptIsland, size_t tIndex) {
-    Message tMsg = {0};
+    Message tMsg;
 
+    memset(&tMsg, 0, sizeof(Message));
     ptIsland->atClients[tIndex].eState = CLIENT_WAITING;
     ptIsland->atClients[tIndex].tQueued = ptIsland->tArrivalCounter++;
 
@@ -293,6 +295,8 @@ static void listMarket(Island *ptIsland, Message tMsg, int nFd) {
                            ptIsland->tNumStock + 1, ptIsland->atStock[i].sName,
                            ptIsland->atStock[i].nQuantity,
                            ptIsland->atStock[i].nPrice)) {
+            // The client is waiting for the rest of the list: end it
+            sendError(&tMsg, nFd, ERROR_MEMORY);
             return;
         }
 
@@ -305,13 +309,15 @@ static void listMarket(Island *ptIsland, Message tMsg, int nFd) {
     }
 
     psBuff = NULL;
-    if (-1 != asprintf(&psBuff, MARKET_LINE_FORMAT, ptIsland->tNumStock + 1,
+    if (-1 == asprintf(&psBuff, MARKET_LINE_FORMAT, ptIsland->tNumStock + 1,
                        ptIsland->tNumStock + 1, MAP_PRODUCT, MAP_AMOUNT,
                        MAP_PRICE)) {
-        buildMessage(&tMsg, FLAG_RESPONSE, psBuff);
-        free(psBuff);
-        sendMessage(&tMsg, nFd);
+        sendError(&tMsg, nFd, ERROR_MEMORY);
+        return;
     }
+    buildMessage(&tMsg, FLAG_RESPONSE, psBuff);
+    free(psBuff);
+    sendMessage(&tMsg, nFd);
 }
 
 /***********************************************
@@ -427,6 +433,27 @@ static int prepareTrade(Island *ptIsland, Message *ptMsg, int nFd, char nType,
 
 /***********************************************
  *
+ * @Name : tradeFits
+ * @Def : Checks that a trade cannot overflow an int: the price of the
+ *        amount and, when selling, the new stock.
+ * @Arg : In: ptItem = product traded
+ *        In: nAmount = amount traded
+ *        In: nSelling = 1 if the amount is added to the stock
+ * @Ret : 1 if the trade fits in an int, 0 otherwise.
+ *
+ ************************************************/
+static int tradeFits(const Stock *ptItem, int nAmount, int nSelling) {
+    if (0 < ptItem->nPrice && nAmount > INT_MAX / ptItem->nPrice) {
+        return 0;
+    }
+    if (nSelling && nAmount > INT_MAX - ptItem->nQuantity) {
+        return 0;
+    }
+    return 1;
+}
+
+/***********************************************
+ *
  * @Name : completeTrade
  * @Def : Saves the updated stock entry, answers OK to the client and
  *        prints the trade.
@@ -435,18 +462,25 @@ static int prepareTrade(Island *ptIsland, Message *ptMsg, int nFd, char nType,
  *        In: nFd = socket of the client
  *        In: tIndex = index of the product in the stock
  *        In: nAmount = amount traded
+ *        In: nOldQuantity = stock before the trade, restored if the file
+ *            cannot be written
  *        In: psVerb = "bought" or "sold"
  * @Ret : None.
  *
  ************************************************/
 static void completeTrade(Island *ptIsland, Message *ptMsg, int nFd,
-                          size_t tIndex, int nAmount, char *psVerb) {
+                          size_t tIndex, int nAmount, int nOldQuantity,
+                          char *psVerb) {
     Stock *ptItem = &ptIsland->atStock[tIndex];
     char *psBuff = NULL;
     int nIndex = 0;
 
+    // Memory and stock.db must agree: a trade that cannot be saved is undone
     if (0 != saveStockEntry(ptIsland->nFdStock, tIndex, ptItem)) {
         printErr(ERROR_UPDATE_STOCK);
+        ptItem->nQuantity = nOldQuantity;
+        sendError(ptMsg, nFd, ERROR_TRADE_NOT_SAVED);
+        return;
     }
 
     if (-1 == asprintf(&psBuff, TRADE_OK_FORMAT, ptItem->sName, nAmount,
@@ -488,9 +522,14 @@ static void buyProduct(Island *ptIsland, Message tMsg, int nFd) {
         sendError(&tMsg, nFd, ERROR_NOT_ENOUGH_STOCK);
         return;
     }
+    if (0 == tradeFits(&ptIsland->atStock[i], nAmount, 0)) {
+        sendError(&tMsg, nFd, ERROR_AMOUNT_TOO_BIG);
+        return;
+    }
 
     ptIsland->atStock[i].nQuantity -= nAmount;
-    completeTrade(ptIsland, &tMsg, nFd, i, nAmount, VERB_BOUGHT);
+    completeTrade(ptIsland, &tMsg, nFd, i, nAmount,
+                  ptIsland->atStock[i].nQuantity + nAmount, VERB_BOUGHT);
 }
 
 /***********************************************
@@ -510,9 +549,14 @@ static void sellProduct(Island *ptIsland, Message tMsg, int nFd) {
     if (0 != prepareTrade(ptIsland, &tMsg, nFd, MSG_SELL, &nAmount, &i)) {
         return;
     }
+    if (0 == tradeFits(&ptIsland->atStock[i], nAmount, 1)) {
+        sendError(&tMsg, nFd, ERROR_AMOUNT_TOO_BIG);
+        return;
+    }
 
     ptIsland->atStock[i].nQuantity += nAmount;
-    completeTrade(ptIsland, &tMsg, nFd, i, nAmount, VERB_SOLD);
+    completeTrade(ptIsland, &tMsg, nFd, i, nAmount,
+                  ptIsland->atStock[i].nQuantity - nAmount, VERB_SOLD);
 }
 
 /***********************************************
@@ -640,8 +684,8 @@ static void departure(Island *ptIsland, Message tMsg, int nFd) {
 /***********************************************
  *
  * @Name : deliverRequest
- * @Def : Handles a DELIVER request: only a docked ship can deliver. The
- *        file transfer follows with a FILE HEADER.
+ * @Def : Handles a DELIVER request (<VoyageID>&<Object>): only a docked
+ *        ship can deliver. The file transfer follows with a FILE HEADER.
  * @Arg : In/Out: ptIsland = island with the client list
  *        In: tMsg = request received
  *        In: nFd = socket of the client
@@ -650,18 +694,36 @@ static void departure(Island *ptIsland, Message tMsg, int nFd) {
  ************************************************/
 static void deliverRequest(Island *ptIsland, Message tMsg, int nFd) {
     int nIndex = findClientIndex(ptIsland, nFd);
+    char *psVoyage = NULL;
+    char *psObject = NULL;
+    char *psBuff = NULL;
 
     tMsg.type = MSG_DELIVER;
     if (0 == isClientDocked(ptIsland, nFd)) {
         sendError(&tMsg, nFd, ERROR_NOT_DOCKED);
         return;
     }
-    if (FLAG_NONE != tMsg.flag) {
+    // Only the main thread uses strtok
+    psVoyage = strtok(tMsg.data, TRADE_DELIMITER);
+    psObject = strtok(NULL, TRADE_DELIMITER);
+    if (FLAG_NONE != tMsg.flag || NULL == psVoyage || NULL == psObject ||
+        NULL != strtok(NULL, TRADE_DELIMITER) ||
+        0 == isPositiveInteger(psVoyage)) {
         sendError(&tMsg, nFd, ERROR_MESSAGE_FORMAT);
         return;
     }
 
     ptIsland->atClients[nIndex].nDeliverPending = 1;
+
+    if (-1 != asprintf(&psBuff, MSG_DELIVERY_REQUEST,
+                       ptIsland->atClients[nIndex].psName, atoi(psVoyage))) {
+        println(psBuff);
+        free(psBuff);
+    }
+    if (-1 != asprintf(&psBuff, MSG_RECEIVING_OBJECT, psObject)) {
+        println(psBuff);
+        free(psBuff);
+    }
 }
 
 /***********************************************
@@ -676,11 +738,12 @@ static void deliverRequest(Island *ptIsland, Message tMsg, int nFd) {
  *
  ************************************************/
 static void deliverHeader(Island *ptIsland, Message tMsg, int nFd) {
-    FileInfo tInfo = {0};
+    FileInfo tInfo;
     PoolJob *ptJob = NULL;
     char *psTempPath = NULL;
     int nIndex = findClientIndex(ptIsland, nFd);
 
+    memset(&tInfo, 0, sizeof(FileInfo));
     if (0 == isClientDocked(ptIsland, nFd) ||
         0 == ptIsland->atClients[nIndex].nDeliverPending) {
         rejectTransfer(nFd, ERROR_DELIVER_NO_REQUEST);
@@ -693,8 +756,8 @@ static void deliverHeader(Island *ptIsland, Message tMsg, int nFd) {
         return;
     }
 
-    if (-1 ==
-        asprintf(&psTempPath, DELIVER_TEMP_FORMAT, ptIsland->psName, nFd)) {
+    if (-1 == asprintf(&psTempPath, DELIVER_TEMP_FORMAT, ptIsland->psFile,
+                       ptIsland->psName, nFd)) {
         psTempPath = NULL;
     }
     if (NULL != psTempPath) {
@@ -730,8 +793,9 @@ static void deliverHeader(Island *ptIsland, Message tMsg, int nFd) {
  *
  ************************************************/
 static void finishDelivery(Island *ptIsland, int nIndex, const PoolJob *ptJob) {
-     Message tMsg;
+    Message tMsg;
     char *psBuffer = NULL;
+    const char *psShip = ptIsland->atClients[nIndex].psName;
 
     memset(&tMsg, 0, sizeof(Message));
     tMsg.type = MSG_DELIVER;
@@ -740,12 +804,23 @@ static void finishDelivery(Island *ptIsland, int nIndex, const PoolJob *ptJob) {
         case TRANSFER_OK:
             buildMessage(&tMsg, FLAG_RESPONSE, OK_MESSAGE);
             sendMessage(&tMsg, ptJob->nFd);
-            if (-1 != asprintf(&psBuffer, MSG_OBJECT_SEALED,
-                               ptIsland->atClients[nIndex].psName,
+
+            // The worker did every step; they are logged once it is done
+            println(MSG_OBJECT_RECEIVED);
+            if (-1 != asprintf(&psBuffer, MSG_STAMPING, ptIsland->psName)) {
+                println(psBuffer);
+                free(psBuffer);
+            }
+            if (-1 != asprintf(&psBuffer, MSG_OBJECT_SEALED, psShip,
                                ptIsland->psName)) {
                 println(psBuffer);
                 free(psBuffer);
             }
+            if (-1 != asprintf(&psBuffer, MSG_SENDING_STAMPED, psShip)) {
+                println(psBuffer);
+                free(psBuffer);
+            }
+            println(MSG_TRANSFER_COMPLETED);
             break;
         case TRANSFER_GLYPH_ERROR:
             sendError(&tMsg, ptJob->nFd, ERROR_DELIVER_SEAL);
