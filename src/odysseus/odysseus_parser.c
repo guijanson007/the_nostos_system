@@ -173,8 +173,8 @@ void freeOdysseusVoyage(OdysseusVoyage *ptVoyage) {
  *
  * @Name : discardOdysseusVoyage
  * @Def : Deletes the object and sealed files of a voyage (if they were
- *        stored) and then frees it like freeOdysseusVoyage. The voyage is
- *        not saved between runs, so its files must not outlive it.
+ *        stored) and then frees it like freeOdysseusVoyage. Used when the
+ *        voyage ends or is lost, so its files must not outlive it.
  * @Arg : In/Out: ptVoyage = voyage to discard
  * @Ret : None.
  *
@@ -284,7 +284,9 @@ void freeOdysseus(Odysseus *ptOdysseus) {
     ptOdysseus->psLastError = NULL;
  
     freeListedVoyages(ptOdysseus);
-    discardOdysseusVoyage(&ptOdysseus->tActiveVoyage);
+    // The files of the voyage stay in the ship folder: the saved state
+    // brings the voyage back on the next run (lost voyages were discarded)
+    freeOdysseusVoyage(&ptOdysseus->tActiveVoyage);
     freeCargo(&ptOdysseus->tCargo);
     freeMap(&ptOdysseus->tMap);
  

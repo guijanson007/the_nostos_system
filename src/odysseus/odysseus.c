@@ -244,8 +244,8 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
     }
 
-    // Restore gold and cargo of a previous execution; if there is no usable
-    // saved state the initial resources of the config file are kept
+    // Restore gold, cargo and active voyage of a previous execution; if there
+    // is no usable saved state the initial resources of the config file are kept
     odysseusLoadState(&tOdysseus);
 
     // odysseusPrintInfo(&tOdysseus);
