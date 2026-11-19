@@ -67,7 +67,10 @@ int semWait(const Sem *ptSem) {
     }
 
     tLib.shmid = ptSem->nId;
-    return (SEM_LIB_OK == SEM_wait(&tLib)) ? SEM_WRAP_OK : SEM_WRAP_ERROR;
+    if (SEM_LIB_OK != SEM_wait(&tLib)) {
+        return SEM_WRAP_ERROR;
+    }
+    return SEM_WRAP_OK;
 }
 
 /***********************************************
@@ -86,7 +89,10 @@ int semSignal(const Sem *ptSem) {
     }
 
     tLib.shmid = ptSem->nId;
-    return (SEM_LIB_OK == SEM_signal(&tLib)) ? SEM_WRAP_OK : SEM_WRAP_ERROR;
+    if (SEM_LIB_OK != SEM_signal(&tLib)) {
+        return SEM_WRAP_ERROR;
+    }
+    return SEM_WRAP_OK;
 }
 
 /***********************************************
@@ -106,5 +112,8 @@ int semDestroy(const Sem *ptSem) {
     }
 
     tLib.shmid = ptSem->nId;
-    return (SEM_LIB_OK == SEM_destructor(&tLib)) ? SEM_WRAP_OK : SEM_WRAP_ERROR;
+    if (SEM_LIB_OK != SEM_destructor(&tLib)) {
+        return SEM_WRAP_ERROR;
+    }
+    return SEM_WRAP_OK;
 }
