@@ -54,7 +54,7 @@ OdysseusStatus odysseusConnect(Odysseus *ptOdysseus);
 void odysseusMap(Odysseus *ptOdysseus);
 void odysseusStatus(Odysseus *ptOdysseus);
 OdysseusStatus odysseusDeliver(Odysseus *ptOdysseus);
-void odysseusClaim(Odysseus *ptOdysseus);
+OdysseusStatus odysseusClaim(Odysseus *ptOdysseus);
 OdysseusStatus odysseusListMarket(Odysseus *ptOdysseus);
 OdysseusStatus odysseusBuy(Odysseus *ptOdysseus, const char *psProduct, const char *psAmount);
 OdysseusStatus odysseusListVoyages(Odysseus *ptOdysseus);

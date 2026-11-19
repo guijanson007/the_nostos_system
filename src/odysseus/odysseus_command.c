@@ -256,8 +256,7 @@ OdysseusStatus executeOdysseusCommand(Odysseus *tOdysseus,
         case COMMAND_DELIVER:
             return odysseusDeliver(tOdysseus);
         case COMMAND_CLAIM:
-            odysseusClaim(tOdysseus);
-            break;
+            return odysseusClaim(tOdysseus);
         case COMMAND_CONNECT:
             return odysseusConnect(tOdysseus);
         case COMMAND_LIST:

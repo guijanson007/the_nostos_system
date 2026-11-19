@@ -210,12 +210,67 @@ OdysseusStatus odysseusDeliver(Odysseus *ptOdysseus) {
 /***********************************************
  *
  * @Name : odysseusClaim
- * @Def : Claims the reward of the current voyage. (Not yet implemented)
- * @Arg : In: ptOdysseus = Odysseus instance
- * @Ret : None.
+ * @Def : Claims the reward of the active voyage from Ithaca by presenting
+ *        the object sealed by the island. Only allowed connected to Ithaca
+ *        after a delivery. On success the reward is added to the gold, the
+ *        voyage (and its files) is cleared and the state is saved.
+ * @Arg : In/Out: ptOdysseus = Odysseus instance
+ * @Ret : ODY_OK on success, otherwise the status code of the failure.
  *
  ************************************************/
-void odysseusClaim(Odysseus *ptOdysseus) { (void)ptOdysseus; }
+OdysseusStatus odysseusClaim(Odysseus *ptOdysseus) {
+    OdysseusStatus eStatus = ODY_OK;
+    OdysseusVoyage *ptVoyage = &ptOdysseus->tActiveVoyage;
+    char *psDestination = NULL;
+    char *psBuffer = NULL;
+    int nVoyageId = 0;
+    int nReward = 0;
+
+    if (NO_SOCKET == ptOdysseus->nIthacaSocket) {
+        return ODY_ERR_NOT_CONNECTED;
+    }
+    if (0 == ptVoyage->nId) {
+        return ODY_ERR_NO_VOYAGE;
+    }
+    if (0 == ptVoyage->nDelivered || NULL == ptVoyage->psSignedPath) {
+        return ODY_ERR_NOT_DELIVERED;
+    }
+
+    if (-1 != asprintf(&psBuffer, MSG_CLAIM_PRESENTING, ptVoyage->psObject)) {
+        println(psBuffer);
+        free(psBuffer);
+    }
+    eStatus = requestClaim(ptOdysseus, &nReward);
+    if (ODY_OK != eStatus) {
+        if (ODY_ERR_REMOTE != eStatus) {
+            // The Ithaca conversation is out of sync, drop it
+            close(ptOdysseus->nIthacaSocket);
+            ptOdysseus->nIthacaSocket = NO_SOCKET;
+        }
+        return eStatus;
+    }
+
+    // The voyage is cleared below, keep what the messages need
+    nVoyageId = ptVoyage->nId;
+    psDestination = strdup(ptVoyage->psDestination);
+    if (NULL != psDestination) {
+        printWithName(MSG_GLYPH_VERIFIED, psDestination);
+        free(psDestination);
+    }
+    if (-1 != asprintf(&psBuffer, MSG_VOYAGE_COMPLETED, nVoyageId)) {
+        println(psBuffer);
+        free(psBuffer);
+    }
+    if (-1 != asprintf(&psBuffer, MSG_REWARD_RECEIVED, nReward)) {
+        println(psBuffer);
+        free(psBuffer);
+    }
+
+    ptOdysseus->tCargo.nGold += nReward;
+    discardOdysseusVoyage(ptVoyage);
+    odysseusSaveState(ptOdysseus);
+    return ODY_OK;
+}
 
 /***********************************************
  *
