@@ -148,6 +148,29 @@ int isOdysseusValid(Odysseus *ptOdysseus) {
 
 /***********************************************
  *
+ * @Name : createShipFolder
+ * @Def : Creates the folder of the ship (line 2 of the config file) if it
+ *        does not exist. The object, the sealed object and the saved state
+ *        are kept there.
+ * @Arg : In: ptOdysseus = odysseus with the folder path
+ * @Ret : 0 if the folder exists or was created, -1 otherwise (printed).
+ *
+ ************************************************/
+static int createShipFolder(const Odysseus *ptOdysseus) {
+    char *psError = NULL;
+
+    if (0 == mkdir(ptOdysseus->psPath, SHIP_FOLDER_MODE) || EEXIST == errno) {
+        return 0;
+    }
+    if (-1 != asprintf(&psError, ERROR_FOLDER, ptOdysseus->psPath)) {
+        printErr(psError);
+        free(psError);
+    }
+    return -1;
+}
+
+/***********************************************
+ *
  * @Name : closeConnections
  * @Def : Disconnects from Ithaca and departs from the island if the
  *        sockets are still open.
@@ -196,6 +219,11 @@ int main(int argc, char *argv[]) {
 
     // Something went wrong while parsing the file, we should exit
     if (0 == isOdysseusValid(&tOdysseus)) {
+        freeOdysseus(&tOdysseus);
+        return EXIT_FAILURE;
+    }
+
+    if (0 != createShipFolder(&tOdysseus)) {
         freeOdysseus(&tOdysseus);
         return EXIT_FAILURE;
     }

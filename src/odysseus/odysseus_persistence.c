@@ -71,9 +71,9 @@ static uint32_t checksum(const unsigned char *pcBuffer) {
 /***********************************************
  *
  * @Name : buildStatePath
- * @Def : Builds the name of the state file of the ship (<name>.state, in
- *        the working directory). Names with a slash are refused so the
- *        file can never leave the working directory.
+ * @Def : Builds the path of the state file of the ship (<name>.state, in
+ *        the ship folder). Names with a slash are refused so the file can
+ *        never leave that folder.
  * @Arg : In: ptOdysseus = odysseus whose file is wanted
  * @Ret : Allocated path (the caller frees it), or NULL on failure.
  *
@@ -85,7 +85,8 @@ static char *buildStatePath(const Odysseus *ptOdysseus) {
         NULL != strchr(ptOdysseus->psName, '/')) {
         return NULL;
     }
-    if (-1 == asprintf(&psPath, STATE_FILE_FORMAT, ptOdysseus->psName)) {
+    if (-1 == asprintf(&psPath, STATE_FILE_FORMAT, ptOdysseus->psPath,
+                       ptOdysseus->psName)) {
         return NULL;
     }
     return psPath;

@@ -33,7 +33,7 @@
  */
 
 // Constant declarations
-#define STATE_FILE_FORMAT "%s.state"
+#define STATE_FILE_FORMAT "%s/%s.state"
 #define STATE_FILE_MODE 0644
 #define STATE_MAGIC 0x4E4F5354u
 #define STATE_VERSION 1u

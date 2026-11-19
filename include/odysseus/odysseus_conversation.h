@@ -26,9 +26,9 @@
 #define OK_RESPONSE "OK"
 #define ZERO_STRING "0"
 // File where the ship keeps the object of its voyage, one per ship name
-#define OBJECT_FILE_FORMAT "%s.object"
+#define OBJECT_FILE_FORMAT "%s/%s.object"
 // File where the ship keeps the object sealed by the island
-#define SIGNED_FILE_FORMAT "%s.signed"
+#define SIGNED_FILE_FORMAT "%s/%s.signed"
 // Data of the DELIVER request: <VoyageID>&<Object>
 #define DELIVER_FORMAT "%d&%s"
 // Seconds to wait for the final DELIVER error after a failed transfer

@@ -341,7 +341,8 @@ static OdysseusStatus receiveObject(Odysseus *ptOdysseus) {
     char *psFileName = NULL;
     int nResult = TRANSFER_ERROR;
 
-    if (-1 == asprintf(&psPath, OBJECT_FILE_FORMAT, ptOdysseus->psName)) {
+    if (-1 == asprintf(&psPath, OBJECT_FILE_FORMAT, ptOdysseus->psPath,
+                       ptOdysseus->psName)) {
         return ODY_ERR_TRANSFER;
     }
     nResult = receiveFile(ptOdysseus->nIthacaSocket, TRANSFER_OBJECT, psPath,
@@ -1452,7 +1453,8 @@ OdysseusStatus receiveSigned(Odysseus *ptOdysseus) {
     int nResult = TRANSFER_ERROR;
 
     memset(&tMessage, 0, sizeof(Message));
-    if (-1 == asprintf(&psPath, SIGNED_FILE_FORMAT, ptOdysseus->psName)) {
+    if (-1 == asprintf(&psPath, SIGNED_FILE_FORMAT, ptOdysseus->psPath,
+                       ptOdysseus->psName)) {
         return ODY_ERR_TRANSFER;
     }
 
