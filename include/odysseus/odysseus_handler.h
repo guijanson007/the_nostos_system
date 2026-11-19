@@ -30,6 +30,11 @@
 #define MSG_STAMPING "%s is stamping the object...\n"
 #define MSG_STAMPED_RECEIVED "Stamped object received.\n"
 #define MSG_DELIVERY_COMPLETED "Delivery completed.\nThe mark of %s has been obtained."
+#define MSG_CLAIM_PRESENTING "Presenting the stamped %s..."
+#define MSG_CLAIM_TRANSFERRED "\nObject transferred correctly."
+#define MSG_GLYPH_VERIFIED "Glyph of %s verified."
+#define MSG_VOYAGE_COMPLETED "Voyage %d completed."
+#define MSG_REWARD_RECEIVED "Reward received: %d gold."
 #define MSG_NO_VOYAGE "Current voyage: None"
 #define MSG_CURRENT_VOYAGE "Current voyage: %s -> %s\nReward: %d"
 #define MSG_LOCATION "Current location: %s"
@@ -49,7 +54,7 @@ OdysseusStatus odysseusConnect(Odysseus *ptOdysseus);
 void odysseusMap(Odysseus *ptOdysseus);
 void odysseusStatus(Odysseus *ptOdysseus);
 OdysseusStatus odysseusDeliver(Odysseus *ptOdysseus);
-void odysseusClaim(Odysseus *ptOdysseus);
+OdysseusStatus odysseusClaim(Odysseus *ptOdysseus);
 OdysseusStatus odysseusListMarket(Odysseus *ptOdysseus);
 OdysseusStatus odysseusBuy(Odysseus *ptOdysseus, const char *psProduct, const char *psAmount);
 OdysseusStatus odysseusListVoyages(Odysseus *ptOdysseus);

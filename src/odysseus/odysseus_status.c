@@ -125,6 +125,8 @@ const char *odysseusStatusMessage(const Odysseus *ptOdysseus,
             return STATUS_ERROR_NOT_DESTINATION;
         case ODY_ERR_ALREADY_DELIVERED:
             return STATUS_ERROR_ALREADY_DELIVERED;
+        case ODY_ERR_NOT_DELIVERED:
+            return STATUS_ERROR_NOT_DELIVERED;
         case ODY_ERR_TRANSFER:
             return STATUS_ERROR_TRANSFER;
         default:
