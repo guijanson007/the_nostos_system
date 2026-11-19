@@ -91,6 +91,7 @@ PoolJob *createJob(JobType eType, int nFd, const char *psPath, const char *psFil
 void freeJob(PoolJob *ptJob);
 int poolCreate(ThreadPool *ptPool, int nWorkers, int nCapacity);
 int poolSubmit(ThreadPool *ptPool, PoolJob *ptJob);
+int poolHasRoom(ThreadPool *ptPool);
 int poolNotifyFd(const ThreadPool *ptPool);
 int poolCollect(ThreadPool *ptPool, PoolJob **pptJob);
 void poolDestroy(ThreadPool *ptPool);
