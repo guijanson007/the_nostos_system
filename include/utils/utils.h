@@ -49,7 +49,6 @@ void println(const char *psMessage);
 void print(const char *psMessage);
 void printErr(const char *psMessage);
 void strToUpper(char *psString);
-char *readUntil(int nFd, char cEnd);
 void *readUntilEmpty(int nFd, size_t tElementSize, size_t *ptOutCount);
 int waitReadable(int nFd, volatile sig_atomic_t *pnQuit);
 int readLine(int nFd, char **ppsBuffer);
