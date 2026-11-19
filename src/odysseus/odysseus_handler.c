@@ -156,6 +156,28 @@ void odysseusStatus(Odysseus *ptOdysseus) {
 
 /***********************************************
  *
+ * @Name : dropIslandOnError
+ * @Def : After an I/O or protocol error the island conversation is out of
+ *        sync (a late frame would be read as the answer of the next
+ *        command), so the connection is closed. Errors the island answered
+ *        in order (its own error replies, failed transfers that were
+ *        resynchronised) keep it.
+ * @Arg : In/Out: ptOdysseus = odysseus at the island
+ *        In: eStatus = result of the island command
+ * @Ret : None.
+ *
+ ************************************************/
+static void dropIslandOnError(Odysseus *ptOdysseus, OdysseusStatus eStatus) {
+    if ((ODY_ERR_IO == eStatus || ODY_ERR_ISLAND_PROTOCOL == eStatus ||
+         ODY_ERR_PROTOCOL == eStatus) &&
+        NO_SOCKET != ptOdysseus->nIslandSocket) {
+        close(ptOdysseus->nIslandSocket);
+        ptOdysseus->nIslandSocket = NO_SOCKET;
+    }
+}
+
+/***********************************************
+ *
  * @Name : odysseusDeliver
  * @Def : Delivers the object of the active voyage to the island where
  *        odysseus is docked: sends it, waits for the island to seal it and
@@ -193,6 +215,7 @@ OdysseusStatus odysseusDeliver(Odysseus *ptOdysseus) {
     }
     eStatus = sendDelivery(ptOdysseus);
     if (ODY_OK != eStatus) {
+        dropIslandOnError(ptOdysseus, eStatus);
         return eStatus;
     }
     println(MSG_OBJECT_TRANSFERRED);
@@ -200,6 +223,7 @@ OdysseusStatus odysseusDeliver(Odysseus *ptOdysseus) {
 
     eStatus = receiveSigned(ptOdysseus);
     if (ODY_OK != eStatus) {
+        dropIslandOnError(ptOdysseus, eStatus);
         return eStatus;
     }
     println(MSG_STAMPED_RECEIVED);
@@ -595,6 +619,7 @@ OdysseusStatus odysseusBuy(Odysseus *ptOdysseus, const char *psProduct,
  ************************************************/
 OdysseusStatus odysseusSell(Odysseus *ptOdysseus, const char *psProduct,
                             const char *psAmount) {
+    OdysseusStatus eStatus = ODY_OK;
     int nAmount = atoi(psAmount);
     int i = 0;
 
@@ -606,10 +631,12 @@ OdysseusStatus odysseusSell(Odysseus *ptOdysseus, const char *psProduct,
     for (i = 0; i < ptOdysseus->tCargo.nNumSupplies; i++) {
         if (0 ==
             strcasecmp(ptOdysseus->tCargo.atSupplies[i].psName, psProduct)) {
-            if (nAmount <= ptOdysseus->tCargo.atSupplies[i].nAmount) {
-                return sellProduct(ptOdysseus, psProduct, nAmount);
+            if (nAmount > ptOdysseus->tCargo.atSupplies[i].nAmount) {
+                return ODY_ERR_NOT_ENOUGH_CARGO;
             }
-            return ODY_ERR_NOT_ENOUGH_CARGO;
+            eStatus = sellProduct(ptOdysseus, psProduct, nAmount);
+            dropIslandOnError(ptOdysseus, eStatus);
+            return eStatus;
         }
     }
 

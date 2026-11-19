@@ -1389,6 +1389,21 @@ static void skipDeliverReply(Odysseus *ptOdysseus) {
 
 /***********************************************
  *
+ * @Name : dropIsland
+ * @Def : Closes the island connection when the conversation is lost (the
+ *        island vanished or answered out of order), so a late frame is
+ *        never read as the answer of another command.
+ * @Arg : In/Out: ptOdysseus = odysseus docked at the island
+ * @Ret : None.
+ *
+ ************************************************/
+static void dropIsland(Odysseus *ptOdysseus) {
+    close(ptOdysseus->nIslandSocket);
+    ptOdysseus->nIslandSocket = NO_SOCKET;
+}
+
+/***********************************************
+ *
  * @Name : sendDelivery
  * @Def : First half of DELIVER: sends the DELIVER request
  *        (<VoyageID>&<Object>) and then the DELIVERY transfer with the
@@ -1427,6 +1442,8 @@ OdysseusStatus sendDelivery(Odysseus *ptOdysseus) {
     // The island answers a wrong size or MD5 with a final DELIVER error
     if (TRANSFER_SIZE_ERROR == nResult || TRANSFER_MD5_ERROR == nResult) {
         skipDeliverReply(ptOdysseus);
+    } else if (TRANSFER_PEER_GONE == nResult) {
+        dropIsland(ptOdysseus);
     }
     return ODY_ERR_TRANSFER;
 }
@@ -1439,9 +1456,11 @@ OdysseusStatus sendDelivery(Odysseus *ptOdysseus) {
  *        reads the final DELIVER response. On success the voyage is
  *        marked as delivered.
  * @Arg : In/Out: ptOdysseus = odysseus that just sent the DELIVERY
- * @Ret : ODY_OK on success, ODY_ERR_TRANSFER if the transfer fails,
- *        otherwise the status of the final response (ODY_ERR_REMOTE with
- *        the island's reason, ODY_ERR_IO, ODY_ERR_ISLAND_PROTOCOL).
+ * @Ret : ODY_OK on success, ODY_ERR_REMOTE with the island's reason if it
+ *        could not seal the object (it answers DELIVER with an error
+ *        instead of the SIGNED transfer), ODY_ERR_TRANSFER if the transfer
+ *        fails, otherwise the status of the final response (ODY_ERR_IO,
+ *        ODY_ERR_ISLAND_PROTOCOL).
  *
  ************************************************/
 OdysseusStatus receiveSigned(Odysseus *ptOdysseus) {
@@ -1458,17 +1477,40 @@ OdysseusStatus receiveSigned(Odysseus *ptOdysseus) {
         return ODY_ERR_TRANSFER;
     }
 
-    nResult = receiveFile(ptOdysseus->nIslandSocket, TRANSFER_SIGNED, psPath,
-                          &tInfo);
+    // Either the SIGNED HEADER or, if sealing failed, the DELIVER error
+    if (RECEIVE_OK != receiveMessageTimeout(&tMessage,
+                                            ptOdysseus->nIslandSocket,
+                                            TRANSFER_TIMEOUT_SECONDS)) {
+        free(psPath);
+        dropIsland(ptOdysseus);
+        return ODY_ERR_TRANSFER;
+    }
+    if (MSG_DELIVER == tMessage.type && 0 != (FLAG_ERROR & tMessage.flag)) {
+        free(psPath);
+        odysseusSetRemoteError(ptOdysseus, tMessage.data, tMessage.dataLength);
+        return ODY_ERR_REMOTE;
+    }
+    if (MSG_FILE_HEADER != tMessage.type) {
+        free(psPath);
+        dropIsland(ptOdysseus);
+        return ODY_ERR_ISLAND_PROTOCOL;
+    }
+
+    nResult = receiveFileFromHeader(ptOdysseus->nIslandSocket,
+                                    TRANSFER_SIGNED, psPath, &tMessage,
+                                    &tInfo);
     freeFileInfo(&tInfo);
     if (TRANSFER_OK != nResult) {
         free(psPath);
         // The island ends a failed delivery with a final DELIVER error
-        if (TRANSFER_PEER_GONE != nResult) {
+        if (TRANSFER_PEER_GONE == nResult) {
+            dropIsland(ptOdysseus);
+        } else {
             skipDeliverReply(ptOdysseus);
         }
         return ODY_ERR_TRANSFER;
     }
+    memset(&tMessage, 0, sizeof(Message));
 
     eStatus = receiveIslandResponse(ptOdysseus, &tMessage, MSG_DELIVER);
     if (ODY_OK != eStatus) {
