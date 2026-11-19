@@ -55,6 +55,7 @@ typedef struct {
     char *psName;
     PoolJob *ptJob;     // transfer a worker is running for this client, or NULL
     int nClaimPending;  // 1 after a CLAIM request, until its HEADER arrives
+    const char *psClaimError; // refusal of the pending CLAIM, or NULL
 } Client;
  
  
