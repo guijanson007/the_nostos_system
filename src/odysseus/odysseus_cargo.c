@@ -13,9 +13,31 @@
 
 /***********************************************
  *
+ * @Name : removeSupplyAt
+ * @Def : Removes the supply in a position of the cargo array, moving the
+ *        next ones one position down.
+ * @Arg : In/Out: ptCargo = cargo to modify
+ *        In: nIndex = position of the supply to remove
+ * @Ret : None.
+ *
+ ************************************************/
+static void removeSupplyAt(Cargo *ptCargo, int nIndex) {
+    int j = 0;
+
+    free(ptCargo->atSupplies[nIndex].psName);
+    for (j = nIndex; j < ptCargo->nNumSupplies - 1; j++) {
+        ptCargo->atSupplies[j] = ptCargo->atSupplies[j + 1];
+    }
+    ptCargo->nNumSupplies--;
+}
+
+/***********************************************
+ *
  * @Name : consumeFood
  * @Def : Consumes CONSUME_WEIGHT kg of supplies, taking them from the
- *        first supplies of the cargo that still have some amount.
+ *        first supplies of the cargo. A supply that runs out is removed
+ *        from the cargo (a 0 kg product is not part of the inventory, and
+ *        the saved state rejects it).
  * @Arg : In/Out: ptCargo = cargo whose supplies are consumed
  * @Ret : None.
  *
@@ -23,20 +45,17 @@
 void consumeFood(Cargo *ptCargo) {
     int nFoodToConsume = CONSUME_WEIGHT;
     int i = 0;
- 
-    for (i = 0; i < ptCargo->nNumSupplies && 0 < nFoodToConsume; i++) {
-        if (0 >= ptCargo->atSupplies[i].nAmount) {
-            continue;
-        }
- 
-        if (ptCargo->atSupplies[i].nAmount >= nFoodToConsume) {
+
+    while (i < ptCargo->nNumSupplies && 0 < nFoodToConsume) {
+        if (ptCargo->atSupplies[i].nAmount > nFoodToConsume) {
             ptCargo->atSupplies[i].nAmount -= nFoodToConsume;
             ptCargo->nTotalAmount -= nFoodToConsume;
             nFoodToConsume = 0;
         } else {
+            // Used up: the next supply moves to position i
             ptCargo->nTotalAmount -= ptCargo->atSupplies[i].nAmount;
             nFoodToConsume -= ptCargo->atSupplies[i].nAmount;
-            ptCargo->atSupplies[i].nAmount = 0;
+            removeSupplyAt(ptCargo, i);
         }
     }
 }
@@ -118,8 +137,7 @@ int addSupply(Cargo *ptCargo, const char *psName, int nAmount) {
  ************************************************/
 int removeSuplies(Cargo *ptCargo, const char *psName, int nAmount) {
     int i = 0;
-    int j = 0;
- 
+
     for (i = 0; i < ptCargo->nNumSupplies; i++) {
         if (0 == strcasecmp(ptCargo->atSupplies[i].psName, psName)) {
             break;
@@ -137,13 +155,7 @@ int removeSuplies(Cargo *ptCargo, const char *psName, int nAmount) {
     ptCargo->nTotalAmount -= nAmount;
  
     if (0 == ptCargo->atSupplies[i].nAmount) {
-        free(ptCargo->atSupplies[i].psName);
- 
-        for (j = i; j < ptCargo->nNumSupplies - 1; j++) {
-            ptCargo->atSupplies[j] = ptCargo->atSupplies[j + 1];
-        }
- 
-        ptCargo->nNumSupplies--;
+        removeSupplyAt(ptCargo, i);
     }
  
     return 0;
