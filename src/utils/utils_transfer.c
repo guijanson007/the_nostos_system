@@ -177,7 +177,10 @@ static int sendFrame(int nFd, MessageType eType, unsigned char cFlags,
     memset(&tMsg, 0, sizeof(Message));
     tMsg.type = eType;
     buildMessage(&tMsg, cFlags, psText);
-    return 0 == sendMessage(&tMsg, nFd) ? TRANSFER_OK : TRANSFER_PEER_GONE;
+    if (0 != sendMessage(&tMsg, nFd)) {
+        return TRANSFER_PEER_GONE;
+    }
+    return TRANSFER_OK;
 }
 
 /***********************************************
@@ -188,17 +191,20 @@ static int sendFrame(int nFd, MessageType eType, unsigned char cFlags,
  *        In: eType = type the frame must have
  *        Out: ptMsg = frame received
  * @Ret : TRANSFER_OK if a frame of the expected type arrived,
- *        TRANSFER_ERROR if the frame has another type, or
+ *        TRANSFER_ERROR if the frame has another type or is malformed, or
  *        TRANSFER_PEER_GONE if the peer has left or timed out.
  *
  ************************************************/
 static int waitFrame(int nFd, MessageType eType, Message *ptMsg) {
-    int nRet = receiveMessageTimeout(ptMsg, nFd, TRANSFER_TIMEOUT_SECONDS);
+    int nRet = RECEIVE_ERROR;
 
-    if (-1 == nRet || RECEIVE_TIMEOUT == nRet) {
+    // A malformed frame leaves ptMsg untouched: never check a stale frame
+    memset(ptMsg, 0, sizeof(Message));
+    nRet = receiveMessageTimeout(ptMsg, nFd, TRANSFER_TIMEOUT_SECONDS);
+    if (RECEIVE_ERROR == nRet || RECEIVE_TIMEOUT == nRet) {
         return TRANSFER_PEER_GONE;
     }
-    if (eType != ptMsg->type) {
+    if (RECEIVE_OK != nRet || eType != ptMsg->type) {
         return TRANSFER_ERROR;
     }
     return TRANSFER_OK;
@@ -251,8 +257,11 @@ static int streamFileOut(int nFd, int nFile, long nSize,
     memset(&tMsg, 0, sizeof(Message));
     tMsg.type = MSG_FILE_DATA;
     while (nSent < nSize) {
-        nChunk = (nSize - nSent > MESSAGE_DATA_MAX) ? MESSAGE_DATA_MAX
-                                                    : (int)(nSize - nSent);
+        if (nSize - nSent > MESSAGE_DATA_MAX) {
+            nChunk = MESSAGE_DATA_MAX;
+        } else {
+            nChunk = (int)(nSize - nSent);
+        }
         if (nChunk != readChunk(nFile, tMsg.data, nChunk)) {
             return TRANSFER_ERROR;
         }
@@ -335,8 +344,11 @@ int sendFile(int nFd, TransferType eType, const char *psPath,
             nRet = waitFrame(nFd, MSG_FILE_READY, &tMsg);
         }
         if (TRANSFER_OK == nRet && FLAG_RESPONSE != tMsg.flag) {
-            nRet = (FLAG_RESPONSE | FLAG_ERROR) == tMsg.flag ? TRANSFER_REJECTED
-                                                             : TRANSFER_ERROR;
+            if ((FLAG_RESPONSE | FLAG_ERROR) == tMsg.flag) {
+                nRet = TRANSFER_REJECTED;
+            } else {
+                nRet = TRANSFER_ERROR;
+            }
         }
         if (TRANSFER_OK == nRet) {
             nRet = streamFileOut(nFd, nFile, nSize, cDataFlags);
@@ -419,9 +431,10 @@ static int streamFileIn(int nFd, int nFile, long nSize,
     long nFrames = (nSize + MESSAGE_DATA_MAX - 1) / MESSAGE_DATA_MAX;
     long nReceived = 0;
     long nExpected = 0;
+    long i = 0;
     int nRet = TRANSFER_OK;
 
-    for (long i = 0; i < nFrames; i++) {
+    for (i = 0; i < nFrames; i++) {
         if (nSize - nReceived > MESSAGE_DATA_MAX) {
             nExpected = MESSAGE_DATA_MAX;
         } else {
@@ -628,10 +641,13 @@ static int verifyClaim(PoolJob *ptJob) {
  ************************************************/
 static int sealDelivery(PoolJob *ptJob) {
     char *psSignedPath = NULL;
-    const char *psName =
-        NULL == ptJob->psFileName ? ptJob->tInfo.psFileName : ptJob->psFileName;
+    const char *psName = ptJob->psFileName;
     int nRet = receiveBody(ptJob->nFd, TRANSFER_DELIVERY, ptJob->psPath,
                            &ptJob->tInfo);
+
+    if (NULL == psName) {
+        psName = ptJob->tInfo.psFileName;
+    }
 
     if (TRANSFER_OK != nRet) {
         return nRet;
