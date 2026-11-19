@@ -531,6 +531,23 @@ int isAllDigits(const char *psString) {
  
 /***********************************************
  *
+ * @Name : isBoundedNumber
+ * @Def : Checks whether a string is a non-negative integer short enough
+ *        to fit in an int (0 is accepted, unlike isPositiveInteger).
+ * @Arg : In: psString = string to check
+ * @Ret : Returns 1 if it is, 0 otherwise.
+ *
+ ************************************************/
+int isBoundedNumber(const char *psString) {
+    if (NULL == psString || 0 == isAllDigits(psString)) {
+        return 0;
+    }
+    // Bounded length so atoi never overflows
+    return MAX_INT_DIGITS >= strlen(psString);
+}
+
+/***********************************************
+ *
  * @Name : isPositiveInteger
  * @Def : Checks whether a string represents an integer greater than 0.
  * @Arg : In: psString = string to check

@@ -55,6 +55,7 @@ int readLine(int nFd, char **ppsBuffer);
 char **readLines(int nFd, size_t *ptOutCount);
 void *readBinary(int nFd, size_t tElementSize, size_t *ptOutCount);
 int isAllDigits(const char *psString);
+int isBoundedNumber(const char *psString);
 int isPositiveInteger(const char *psString);
 
 #endif // __UTILS_H__

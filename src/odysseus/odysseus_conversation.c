@@ -757,8 +757,8 @@ static int parseMessageMarket(char *psData, int nLength, int *pnIndex,
         NULL == psAmount || NULL == psPrice || NULL != strtok(NULL, "&")) {
         return -1;
     }
-    if (0 == isAllDigits(psIndex) || 0 == isAllDigits(psTotal) ||
-        0 == isAllDigits(psAmount) || 0 == isAllDigits(psPrice)) {
+    if (0 == isBoundedNumber(psIndex) || 0 == isBoundedNumber(psTotal) ||
+        0 == isBoundedNumber(psAmount) || 0 == isBoundedNumber(psPrice)) {
         return -1;
     }
 
@@ -954,7 +954,7 @@ static int parseMessageTrade(char *psData, int nLength, char **ppsProduct,
         return -1;
     }
 
-    if (0 == isAllDigits(psAmount) || 0 == isAllDigits(psCost)) {
+    if (0 == isBoundedNumber(psAmount) || 0 == isBoundedNumber(psCost)) {
         return -1;
     }
 
