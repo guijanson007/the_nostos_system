@@ -33,6 +33,7 @@
 #define ERROR_ARGC "Usage: odysseus <config_file>.dat"
 #define ERROR_OPEN_FILE "Failed to open file: %s"
 #define ERROR_INIT_STATE "Failed to initialise the odysseus state"
+#define ERROR_INVALID_CONFIG "The config file of the ship is not valid"
 #define ERROR_FOLDER "Failed to create the folder of the ship: %s"
 // Permissions of the ship folder if it has to be created
 #define SHIP_FOLDER_MODE 0755

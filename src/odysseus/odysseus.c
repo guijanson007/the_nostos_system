@@ -127,21 +127,30 @@ void setupSignals(void) {
 /***********************************************
  *
  * @Name : isOdysseusValid
- * @Def : Checks that every field read from the config file was parsed.
+ * @Def : Checks that every field read from the config file was parsed,
+ *        including every supply (a missing line or a failed allocation
+ *        leaves a supply without name, and amounts must be positive).
  * @Arg : In: ptOdysseus = odysseus to check
  * @Ret : 1 if the odysseus is valid, 0 if something went wrong while
  *        parsing the file.
  *
  ************************************************/
 int isOdysseusValid(Odysseus *ptOdysseus) {
+    int i = 0;
+
     if (NULL == ptOdysseus->psName || NULL == ptOdysseus->psPath ||
         NULL == ptOdysseus->psIp || NULL == ptOdysseus->psPort ||
         NULL == ptOdysseus->psInitialInfo ||
+        0 > ptOdysseus->tCargo.nNumSupplies ||
         (0 < ptOdysseus->tCargo.nNumSupplies &&
-         (NULL == ptOdysseus->tCargo.atSupplies ||
-          NULL == ptOdysseus->tCargo.atSupplies->psName ||
-          0 == ptOdysseus->tCargo.atSupplies->nAmount))) {
+         NULL == ptOdysseus->tCargo.atSupplies)) {
         return 0;
+    }
+    for (i = 0; i < ptOdysseus->tCargo.nNumSupplies; i++) {
+        if (NULL == ptOdysseus->tCargo.atSupplies[i].psName ||
+            0 >= ptOdysseus->tCargo.atSupplies[i].nAmount) {
+            return 0;
+        }
     }
     return 1;
 }
@@ -219,6 +228,7 @@ int main(int argc, char *argv[]) {
 
     // Something went wrong while parsing the file, we should exit
     if (0 == isOdysseusValid(&tOdysseus)) {
+        printErr(ERROR_INVALID_CONFIG);
         freeOdysseus(&tOdysseus);
         return EXIT_FAILURE;
     }
