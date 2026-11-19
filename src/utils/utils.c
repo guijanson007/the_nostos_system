@@ -112,45 +112,6 @@ void strToUpper(char *psString) {
  
 /***********************************************
  *
- * @Name : readUntil
- * @Def : Reads characters from a file descriptor until the end character.
- *        The end character is not stored.
- * @Arg : In: nFd = file descriptor to be read
- *        In: cEnd = character that ends the reading
- * @Ret : Dynamically allocated string with the characters read, or NULL if
- *        the file ended or there was a read error before cEnd.
- *
- ************************************************/
-char *readUntil(int nFd, char cEnd) {
-    int i = 0;
-    int nCharsRead = 0;
-    char cChar = ' ';
-    char *psBuffer = NULL;
- 
-    while (cChar != cEnd) {
-        nCharsRead = (int)read(nFd, &cChar, sizeof(char));
-        if (0 >= nCharsRead) {
-            free(psBuffer);
-            return NULL;
-        }
-        if (NULL == psBuffer) {
-            psBuffer = (char *)malloc(sizeof(char));
-        }
-        if (0 < nCharsRead) {
-            if (cChar != cEnd) {
-                psBuffer[i] = cChar;
-                psBuffer = (char *)realloc(psBuffer, (sizeof(char)) * (i + 2));
-            }
-            i++;
-        }
-    }
- 
-    psBuffer[i - 1] = '\0';
-    return psBuffer;
-}
- 
-/***********************************************
- *
  * @Name : growBuffer
  * @Def : Changes the size of a dynamic buffer. If the memory can't be
  *        allocated, the old buffer is freed.
@@ -568,6 +529,23 @@ int isAllDigits(const char *psString) {
     return 1;
 }
  
+/***********************************************
+ *
+ * @Name : isBoundedNumber
+ * @Def : Checks whether a string is a non-negative integer short enough
+ *        to fit in an int (0 is accepted, unlike isPositiveInteger).
+ * @Arg : In: psString = string to check
+ * @Ret : Returns 1 if it is, 0 otherwise.
+ *
+ ************************************************/
+int isBoundedNumber(const char *psString) {
+    if (NULL == psString || 0 == isAllDigits(psString)) {
+        return 0;
+    }
+    // Bounded length so atoi never overflows
+    return MAX_INT_DIGITS >= strlen(psString);
+}
+
 /***********************************************
  *
  * @Name : isPositiveInteger

@@ -180,12 +180,17 @@ static void poolInit(ThreadPool *ptPool, int nWorkers, int nCapacity) {
  *
  ************************************************/
 static int poolAllocate(ThreadPool *ptPool) {
-    ptPool->ptThreads = calloc((size_t)ptPool->nWorkers, sizeof(pthread_t));
-    ptPool->pptQueue = calloc((size_t)ptPool->nCapacity, sizeof(PoolJob *));
+    size_t tThreadsSize = (size_t)ptPool->nWorkers * sizeof(pthread_t);
+    size_t tQueueSize = (size_t)ptPool->nCapacity * sizeof(PoolJob *);
+
+    ptPool->ptThreads = malloc(tThreadsSize);
+    ptPool->pptQueue = malloc(tQueueSize);
 
     if (NULL == ptPool->ptThreads || NULL == ptPool->pptQueue) {
         return POOL_ERROR;
     }
+    memset(ptPool->ptThreads, 0, tThreadsSize);
+    memset(ptPool->pptQueue, 0, tQueueSize);
     return POOL_OK;
 }
 
@@ -314,11 +319,43 @@ int poolSubmit(ThreadPool *ptPool, PoolJob *ptJob) {
     ptPool->nCount++;
     semSignal(&ptPool->tMutex);
 
-    // Wakes up one sleeping worker
+    // Wakes up one sleeping worker. If that fails, the job is taken out of
+    // the queue again, because the caller frees it on POOL_ERROR
     if (SEM_WRAP_OK != semSignal(&ptPool->tItems)) {
+        semWait(&ptPool->tMutex);
+        nTail = (ptPool->nHead + ptPool->nCount - 1) % ptPool->nCapacity;
+        if (0 < ptPool->nCount && ptJob == ptPool->pptQueue[nTail]) {
+            ptPool->pptQueue[nTail] = NULL;
+            ptPool->nCount--;
+        }
+        semSignal(&ptPool->tMutex);
         return POOL_ERROR;
     }
     return POOL_OK;
+}
+
+/***********************************************
+ *
+ * @Name : poolHasRoom
+ * @Def : Tells if the queue can take one more job. Workers only take jobs
+ *        out of the queue, so if the owner is the only one submitting, the
+ *        answer stays true until its next poolSubmit.
+ * @Arg : In: ptPool = pool to ask
+ * @Ret : 1 if a job can be queued, 0 if the queue is full or the pool is
+ *        closing or broken.
+ *
+ ************************************************/
+int poolHasRoom(ThreadPool *ptPool) {
+    int nRoom = 0;
+
+    if (NULL == ptPool || SEM_WRAP_OK != semWait(&ptPool->tMutex)) {
+        return 0;
+    }
+    if (POOL_TRUE != ptPool->nQuit && ptPool->nCount < ptPool->nCapacity) {
+        nRoom = 1;
+    }
+    semSignal(&ptPool->tMutex);
+    return nRoom;
 }
 
 /***********************************************

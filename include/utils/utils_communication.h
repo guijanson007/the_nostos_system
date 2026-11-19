@@ -22,7 +22,7 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <unistd.h>
-#include <sys/select.h> 
+#include <sys/select.h>
 
 // Project includes
 #include "utils/utils.h"
@@ -57,7 +57,15 @@
 #define ERR_CONNECT "ERROR: Could not connect to the server\n"
 #define ERROR_CONVERT_IP "ERROR: Could not convert IP address\n"
 
-#define RECEIVE_TIMEOUT -4 
+// Results of receiveMessage / receiveMessageTimeout
+#define RECEIVE_OK 0
+#define RECEIVE_ERROR -1
+#define RECEIVE_BAD_LENGTH -2
+#define RECEIVE_BAD_FLAGS -3
+#define RECEIVE_TIMEOUT -4
+
+// Once a frame has started, the rest of it must arrive within this time
+#define FRAME_READ_TIMEOUT_SECONDS 5
 
 // Custom type definitions
 typedef enum {

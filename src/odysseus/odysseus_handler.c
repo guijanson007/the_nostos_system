@@ -8,6 +8,8 @@
  ************************************************/
 #define _GNU_SOURCE
 
+#include <strings.h>
+
 // header
 #include "odysseus/odysseus_handler.h"
 
@@ -39,9 +41,29 @@ static void printWithName(const char *psFormat, const char *psName) {
 
 /***********************************************
  *
+ * @Name : returnToIthaca
+ * @Def : Leaves the current island and returns directly to Ithaca (7.1),
+ *        without connecting to it. Does nothing if already at Ithaca.
+ * @Arg : In/Out: ptOdysseus = Odysseus instance
+ * @Ret : None.
+ *
+ ************************************************/
+static void returnToIthaca(Odysseus *ptOdysseus) {
+    if (AT_ITHACA == ptOdysseus->nWhereAmI) {
+        return;
+    }
+    printWithName(MSG_LEAVING,
+                  ptOdysseus->tMap.atConnections[ptOdysseus->nWhereAmI].psName);
+    departFromIsland(ptOdysseus);
+    ptOdysseus->nWhereAmI = AT_ITHACA;
+    println(MSG_RETURNING_ITHACA);
+}
+
+/***********************************************
+ *
  * @Name : odysseusConnect
  * @Def : Connects odysseus to Ithaca. If odysseus is at an island, it
- *        departs from it first.
+ *        returns directly to Ithaca first.
  * @Arg : In/Out: ptOdysseus = Odysseus instance
  * @Ret : ODY_OK on success, otherwise the status code of the failure.
  *
@@ -53,14 +75,7 @@ OdysseusStatus odysseusConnect(Odysseus *ptOdysseus) {
         return ODY_ERR_ALREADY_CONNECTED;
     }
 
-    if (AT_ITHACA != ptOdysseus->nWhereAmI) {
-        printWithName(
-            MSG_LEAVING,
-            ptOdysseus->tMap.atConnections[ptOdysseus->nWhereAmI].psName);
-        departFromIsland(ptOdysseus);
-        ptOdysseus->nWhereAmI = AT_ITHACA;
-        println(MSG_RETURNING_ITHACA);
-    }
+    returnToIthaca(ptOdysseus);
 
     eStatus = connectToIthaca(ptOdysseus);
     if (ODY_OK != eStatus) {
@@ -156,6 +171,28 @@ void odysseusStatus(Odysseus *ptOdysseus) {
 
 /***********************************************
  *
+ * @Name : dropIslandOnError
+ * @Def : After an I/O or protocol error the island conversation is out of
+ *        sync (a late frame would be read as the answer of the next
+ *        command), so the connection is closed. Errors the island answered
+ *        in order (its own error replies, failed transfers that were
+ *        resynchronised) keep it.
+ * @Arg : In/Out: ptOdysseus = odysseus at the island
+ *        In: eStatus = result of the island command
+ * @Ret : None.
+ *
+ ************************************************/
+static void dropIslandOnError(Odysseus *ptOdysseus, OdysseusStatus eStatus) {
+    if ((ODY_ERR_IO == eStatus || ODY_ERR_ISLAND_PROTOCOL == eStatus ||
+         ODY_ERR_PROTOCOL == eStatus) &&
+        NO_SOCKET != ptOdysseus->nIslandSocket) {
+        close(ptOdysseus->nIslandSocket);
+        ptOdysseus->nIslandSocket = NO_SOCKET;
+    }
+}
+
+/***********************************************
+ *
  * @Name : odysseusDeliver
  * @Def : Delivers the object of the active voyage to the island where
  *        odysseus is docked: sends it, waits for the island to seal it and
@@ -193,6 +230,7 @@ OdysseusStatus odysseusDeliver(Odysseus *ptOdysseus) {
     }
     eStatus = sendDelivery(ptOdysseus);
     if (ODY_OK != eStatus) {
+        dropIslandOnError(ptOdysseus, eStatus);
         return eStatus;
     }
     println(MSG_OBJECT_TRANSFERRED);
@@ -200,6 +238,7 @@ OdysseusStatus odysseusDeliver(Odysseus *ptOdysseus) {
 
     eStatus = receiveSigned(ptOdysseus);
     if (ODY_OK != eStatus) {
+        dropIslandOnError(ptOdysseus, eStatus);
         return eStatus;
     }
     println(MSG_STAMPED_RECEIVED);
@@ -508,6 +547,17 @@ OdysseusStatus odysseusSail(Odysseus *ptOdysseus, const char *psDestination) {
     int nDestinationIndex = -1;
     int nArrival = ARRIVAL_NONE;
 
+    // From any island the ship can return directly to Ithaca (7.1); it
+    // connects to Ithaca later with CONNECT ITHACA
+    if (0 == strcasecmp(psDestination, ITHACA_NAME)) {
+        if (AT_ITHACA == ptOdysseus->nWhereAmI) {
+            printWithName(MSG_CANT_SAIL, ITHACA_NAME);
+        } else {
+            returnToIthaca(ptOdysseus);
+        }
+        return ODY_OK;
+    }
+
     nDestinationIndex = findDestinationFromIsland(ptOdysseus, psDestination);
 
     if (-1 == nDestinationIndex) {
@@ -595,6 +645,7 @@ OdysseusStatus odysseusBuy(Odysseus *ptOdysseus, const char *psProduct,
  ************************************************/
 OdysseusStatus odysseusSell(Odysseus *ptOdysseus, const char *psProduct,
                             const char *psAmount) {
+    OdysseusStatus eStatus = ODY_OK;
     int nAmount = atoi(psAmount);
     int i = 0;
 
@@ -606,10 +657,12 @@ OdysseusStatus odysseusSell(Odysseus *ptOdysseus, const char *psProduct,
     for (i = 0; i < ptOdysseus->tCargo.nNumSupplies; i++) {
         if (0 ==
             strcasecmp(ptOdysseus->tCargo.atSupplies[i].psName, psProduct)) {
-            if (nAmount <= ptOdysseus->tCargo.atSupplies[i].nAmount) {
-                return sellProduct(ptOdysseus, psProduct, nAmount);
+            if (nAmount > ptOdysseus->tCargo.atSupplies[i].nAmount) {
+                return ODY_ERR_NOT_ENOUGH_CARGO;
             }
-            return ODY_ERR_NOT_ENOUGH_CARGO;
+            eStatus = sellProduct(ptOdysseus, psProduct, nAmount);
+            dropIslandOnError(ptOdysseus, eStatus);
+            return eStatus;
         }
     }
 

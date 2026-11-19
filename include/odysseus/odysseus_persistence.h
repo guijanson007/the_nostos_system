@@ -5,8 +5,8 @@
  *
  * @File : odysseus_persistence.h
  * @Purpose : declarations for saving and restoring the state of the
- *            odysseus (gold and cargo) in a fixed-record binary file, one
- *            file per ship.
+ *            odysseus (gold, cargo and active voyage) in a fixed-record
+ *            binary file, one file per ship.
  * @Author : Guilherme Rodrigues
  * @Date : 16/11/2026
  *
@@ -27,32 +27,49 @@
  *   offset 16                STATE_MAX_SUPPLIES slots of STATE_SLOT_SIZE:
  *                              STATE_NAME_SIZE bytes name (NUL padded)
  *                              4 bytes amount
+ *   offset STATE_VOYAGE_OFFSET  active voyage (all zero if there is none):
+ *                              4 bytes voyage id (0 = no voyage)
+ *                              4 bytes reward
+ *                              4 bytes delivered (0 or 1)
+ *                              STATE_NAME_SIZE bytes object
+ *                              STATE_NAME_SIZE bytes destination
+ *                              STATE_FILE_NAME_SIZE bytes file name of the
+ *                              object given by Ithaca
  *   offset STATE_SUM_OFFSET  checksum: sum of every previous byte
  *
- * The file always has exactly STATE_RECORD_SIZE bytes.
+ * The file always has exactly STATE_RECORD_SIZE bytes. The voyage is only
+ * saved once its object has been received; the object (<name>.object) and
+ * the sealed image (<name>.signed) stay in the ship folder between runs.
  */
 
 // Constant declarations
-#define STATE_FILE_FORMAT "%s.state"
+#define STATE_FILE_FORMAT "%s/%s.state"
 #define STATE_FILE_MODE 0644
 #define STATE_MAGIC 0x4E4F5354u
-#define STATE_VERSION 1u
+#define STATE_VERSION 2u
 #define STATE_FIELD_SIZE 4
 #define STATE_HEADER_FIELDS 4
 #define STATE_HEADER_SIZE (STATE_HEADER_FIELDS * STATE_FIELD_SIZE)
 #define STATE_MAX_SUPPLIES 32
 #define STATE_NAME_SIZE 64
 #define STATE_SLOT_SIZE (STATE_NAME_SIZE + STATE_FIELD_SIZE)
-#define STATE_SUM_OFFSET (STATE_HEADER_SIZE + STATE_MAX_SUPPLIES * STATE_SLOT_SIZE)
+#define STATE_VOYAGE_OFFSET (STATE_HEADER_SIZE + STATE_MAX_SUPPLIES * STATE_SLOT_SIZE)
+#define STATE_VOYAGE_FIELDS 3
+#define STATE_FILE_NAME_SIZE 256
+#define STATE_OBJECT_OFFSET (STATE_VOYAGE_OFFSET + STATE_VOYAGE_FIELDS * STATE_FIELD_SIZE)
+#define STATE_DESTINATION_OFFSET (STATE_OBJECT_OFFSET + STATE_NAME_SIZE)
+#define STATE_FILE_NAME_OFFSET (STATE_DESTINATION_OFFSET + STATE_NAME_SIZE)
+#define STATE_SUM_OFFSET (STATE_FILE_NAME_OFFSET + STATE_FILE_NAME_SIZE)
 #define STATE_RECORD_SIZE (STATE_SUM_OFFSET + STATE_FIELD_SIZE)
 
 #define STATE_WARN_SAVE "WARNING: Could not save the state of the odysseus"
 #define STATE_WARN_CORRUPT "WARNING: The saved state is invalid, using the initial resources"
+#define STATE_WARN_FILES "WARNING: The files of the saved voyage are missing, the voyage is lost"
 
 // Functions
 int odysseusSaveState(const Odysseus *ptOdysseus);
 int odysseusLoadState(Odysseus *ptOdysseus);
 void odysseusResetState(const Odysseus *ptOdysseus);
-void odysseusSaveOnExit(const Odysseus *ptOdysseus);
+void odysseusSaveOnExit(Odysseus *ptOdysseus);
 
 #endif

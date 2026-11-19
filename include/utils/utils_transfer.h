@@ -41,8 +41,11 @@
 #define REPLY_BAD_HEADER "INVALID_HEADER"
 #define REPLY_FILE_ERROR "FILE_ERROR"
 
-// Temp file of the island where the sealed image is written
+// Sealed image the island keeps next to the received one
 #define SIGNED_PATH_FORMAT "%s.signed"
+// Received images kept by the servers: <folder>/<Ship>_<VoyageID>_<file>
+#define RECORD_PATH_FORMAT "%s/%s_%d_%s"
+#define PATH_SEPARATOR_CHAR '/'
 
 #define KIND_OBJECT "OBJECT"
 #define KIND_DELIVERY "DELIVERY"
@@ -83,7 +86,10 @@ void freeFileInfo(FileInfo *ptInfo);
  */
 int sendFile(int nFd, TransferType eType, const char *psPath, const char *psFileName);
 int receiveFile(int nFd, TransferType eType, const char *psDestPath, FileInfo *ptInfo);
+int receiveFileFromHeader(int nFd, TransferType eType, const char *psDestPath,
+                          const Message *ptHeader, FileInfo *ptInfo);
 int receiveBody(int nFd, TransferType eType, const char *psDestPath, const FileInfo *ptInfo);
 int rejectTransfer(int nFd, const char *psReason);
+char *buildRecordPath(const char *psFolder, const char *psShip, int nVoyageId, const char *psFileName);
 
 #endif

@@ -139,12 +139,9 @@ static int hasExactlyTwoArguments(const OdysseusCommand *ptCommand) {
 CommandValidationResult validateOdysseusCommand(const OdysseusCommand *ptCommand,
                                                 const char **ppsErrorMessage) {
     *ppsErrorMessage = NULL;
- 
-    if (0 < ptCommand->argc) {
-        // Convert argv[0] to uppercase for case-insensitive comparison
-        strToUpper(ptCommand->argv[0]);
-    }
- 
+
+    // Keywords are compared ignoring case; the other arguments (islands,
+    // products) are kept as typed and compared ignoring case where used
     if (COMMAND_UNKNOWN == ptCommand->type) {
         *ppsErrorMessage = ERROR_UNKNOWN_COMMAND;
         return COMMAND_UNKNOWN_COMMAND;
@@ -177,15 +174,15 @@ CommandValidationResult validateOdysseusCommand(const OdysseusCommand *ptCommand
  
         case COMMAND_CONNECT:
             if (0 == hasExactlyOneArgument(ptCommand) ||
-                0 != strcmp(ptCommand->argv[0], ARG_ITHACA)) {
+                0 != strcasecmp(ptCommand->argv[0], ARG_ITHACA)) {
                 *ppsErrorMessage = USAGE_CONNECT;
             }
             break;
  
         case COMMAND_LIST:
             if (0 == hasExactlyOneArgument(ptCommand) ||
-                (0 != strcmp(ptCommand->argv[0], ARG_VOYAGES) &&
-                 0 != strcmp(ptCommand->argv[0], ARG_MARKET))) {
+                (0 != strcasecmp(ptCommand->argv[0], ARG_VOYAGES) &&
+                 0 != strcasecmp(ptCommand->argv[0], ARG_MARKET))) {
                 *ppsErrorMessage = USAGE_LIST;
             }
             break;
@@ -231,7 +228,10 @@ CommandValidationResult validateOdysseusCommand(const OdysseusCommand *ptCommand
             break;
     }
  
-    return NULL == *ppsErrorMessage ? COMMAND_VALID : COMMAND_INVALID_ARGUMENTS;
+    if (NULL != *ppsErrorMessage) {
+        return COMMAND_INVALID_ARGUMENTS;
+    }
+    return COMMAND_VALID;
 }
 
 /*************************************************
@@ -260,7 +260,7 @@ OdysseusStatus executeOdysseusCommand(Odysseus *tOdysseus,
         case COMMAND_CONNECT:
             return odysseusConnect(tOdysseus);
         case COMMAND_LIST:
-            if (0 == strcmp(ptCommand->argv[0], ARG_VOYAGES)) {
+            if (0 == strcasecmp(ptCommand->argv[0], ARG_VOYAGES)) {
                 return odysseusListVoyages(tOdysseus);
             } else {
                 return odysseusListMarket(tOdysseus);

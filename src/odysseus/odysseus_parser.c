@@ -31,10 +31,13 @@ static int buildSupplies(Odysseus *ptOdysseus, char **apsLines, size_t tOutCount
     Supply *ptSupply = NULL;
  
     if (0 < ptOdysseus->tCargo.nNumSupplies) {
-        ptOdysseus->tCargo.atSupplies = calloc(ptOdysseus->tCargo.nNumSupplies, sizeof(Supply));
+        ptOdysseus->tCargo.atSupplies =
+            malloc((size_t)ptOdysseus->tCargo.nNumSupplies * sizeof(Supply));
         if (NULL == ptOdysseus->tCargo.atSupplies) {
             return 0;
         } else {
+            memset(ptOdysseus->tCargo.atSupplies, 0,
+                   (size_t)ptOdysseus->tCargo.nNumSupplies * sizeof(Supply));
             while (tLine < tOutCount &&
                    (tLine - SUPPLIES_FIRST_LINE) <
                        (size_t)ptOdysseus->tCargo.nNumSupplies) {
@@ -100,10 +103,11 @@ static void parseIpPort(Odysseus *ptOdysseus, const char *psLine) {
  *
  ************************************************/
 Odysseus odysseusParseFile(int nFd) {
-    Odysseus tOdysseus = {0};
+    Odysseus tOdysseus;
     size_t tOutCount = 0;
     char **apsLines = NULL;
  
+    memset(&tOdysseus, 0, sizeof(tOdysseus));
     tOdysseus.nIthacaSocket = NO_SOCKET;
     tOdysseus.nIslandSocket = NO_SOCKET;
  
@@ -169,8 +173,8 @@ void freeOdysseusVoyage(OdysseusVoyage *ptVoyage) {
  *
  * @Name : discardOdysseusVoyage
  * @Def : Deletes the object and sealed files of a voyage (if they were
- *        stored) and then frees it like freeOdysseusVoyage. The voyage is
- *        not saved between runs, so its files must not outlive it.
+ *        stored) and then frees it like freeOdysseusVoyage. Used when the
+ *        voyage ends or is lost, so its files must not outlive it.
  * @Arg : In/Out: ptVoyage = voyage to discard
  * @Ret : None.
  *
@@ -280,7 +284,9 @@ void freeOdysseus(Odysseus *ptOdysseus) {
     ptOdysseus->psLastError = NULL;
  
     freeListedVoyages(ptOdysseus);
-    discardOdysseusVoyage(&ptOdysseus->tActiveVoyage);
+    // The files of the voyage stay in the ship folder: the saved state
+    // brings the voyage back on the next run (lost voyages were discarded)
+    freeOdysseusVoyage(&ptOdysseus->tActiveVoyage);
     freeCargo(&ptOdysseus->tCargo);
     freeMap(&ptOdysseus->tMap);
  

@@ -171,8 +171,9 @@ static int addRoute(char *psLine, Island *ptIsland, SPHRAGIS_Island *ptSphragis,
     char *psIp = NULL;
     char *psPort = NULL;
     char *psKnown = NULL;
-    Route tRoute = {0};
+    Route tRoute;
  
+    memset(&tRoute, 0, sizeof(Route));
     if (NULL == psName) {
         return 0;   // empty line
     }

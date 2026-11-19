@@ -122,6 +122,7 @@ int parseHeader(const Message *ptMsg, TransferType eType, FileInfo *ptInfo) {
         NULL == psFieldMd5 ||
         NULL != strtok_r(NULL, HEADER_SEPARATOR, &psSave) ||
         0 != strcmp(psFieldKind, psKind) ||
+        NULL != strchr(psFieldName, PATH_SEPARATOR_CHAR) ||
         0 == isPositiveInteger(psFieldSize) || !isMd5Text(psFieldMd5)) {
         free(psCopy);
         return TRANSFER_ERROR;
@@ -177,7 +178,10 @@ static int sendFrame(int nFd, MessageType eType, unsigned char cFlags,
     memset(&tMsg, 0, sizeof(Message));
     tMsg.type = eType;
     buildMessage(&tMsg, cFlags, psText);
-    return 0 == sendMessage(&tMsg, nFd) ? TRANSFER_OK : TRANSFER_PEER_GONE;
+    if (0 != sendMessage(&tMsg, nFd)) {
+        return TRANSFER_PEER_GONE;
+    }
+    return TRANSFER_OK;
 }
 
 /***********************************************
@@ -188,17 +192,20 @@ static int sendFrame(int nFd, MessageType eType, unsigned char cFlags,
  *        In: eType = type the frame must have
  *        Out: ptMsg = frame received
  * @Ret : TRANSFER_OK if a frame of the expected type arrived,
- *        TRANSFER_ERROR if the frame has another type, or
+ *        TRANSFER_ERROR if the frame has another type or is malformed, or
  *        TRANSFER_PEER_GONE if the peer has left or timed out.
  *
  ************************************************/
 static int waitFrame(int nFd, MessageType eType, Message *ptMsg) {
-    int nRet = receiveMessageTimeout(ptMsg, nFd, TRANSFER_TIMEOUT_SECONDS);
+    int nRet = RECEIVE_ERROR;
 
-    if (-1 == nRet || RECEIVE_TIMEOUT == nRet) {
+    // A malformed frame leaves ptMsg untouched: never check a stale frame
+    memset(ptMsg, 0, sizeof(Message));
+    nRet = receiveMessageTimeout(ptMsg, nFd, TRANSFER_TIMEOUT_SECONDS);
+    if (RECEIVE_ERROR == nRet || RECEIVE_TIMEOUT == nRet) {
         return TRANSFER_PEER_GONE;
     }
-    if (eType != ptMsg->type) {
+    if (RECEIVE_OK != nRet || eType != ptMsg->type) {
         return TRANSFER_ERROR;
     }
     return TRANSFER_OK;
@@ -251,8 +258,11 @@ static int streamFileOut(int nFd, int nFile, long nSize,
     memset(&tMsg, 0, sizeof(Message));
     tMsg.type = MSG_FILE_DATA;
     while (nSent < nSize) {
-        nChunk = (nSize - nSent > MESSAGE_DATA_MAX) ? MESSAGE_DATA_MAX
-                                                    : (int)(nSize - nSent);
+        if (nSize - nSent > MESSAGE_DATA_MAX) {
+            nChunk = MESSAGE_DATA_MAX;
+        } else {
+            nChunk = (int)(nSize - nSent);
+        }
         if (nChunk != readChunk(nFile, tMsg.data, nChunk)) {
             return TRANSFER_ERROR;
         }
@@ -335,8 +345,11 @@ int sendFile(int nFd, TransferType eType, const char *psPath,
             nRet = waitFrame(nFd, MSG_FILE_READY, &tMsg);
         }
         if (TRANSFER_OK == nRet && FLAG_RESPONSE != tMsg.flag) {
-            nRet = (FLAG_RESPONSE | FLAG_ERROR) == tMsg.flag ? TRANSFER_REJECTED
-                                                             : TRANSFER_ERROR;
+            if ((FLAG_RESPONSE | FLAG_ERROR) == tMsg.flag) {
+                nRet = TRANSFER_REJECTED;
+            } else {
+                nRet = TRANSFER_ERROR;
+            }
         }
         if (TRANSFER_OK == nRet) {
             nRet = streamFileOut(nFd, nFile, nSize, cDataFlags);
@@ -419,9 +432,10 @@ static int streamFileIn(int nFd, int nFile, long nSize,
     long nFrames = (nSize + MESSAGE_DATA_MAX - 1) / MESSAGE_DATA_MAX;
     long nReceived = 0;
     long nExpected = 0;
+    long i = 0;
     int nRet = TRANSFER_OK;
 
-    for (long i = 0; i < nFrames; i++) {
+    for (i = 0; i < nFrames; i++) {
         if (nSize - nReceived > MESSAGE_DATA_MAX) {
             nExpected = MESSAGE_DATA_MAX;
         } else {
@@ -544,11 +558,67 @@ int receiveFile(int nFd, TransferType eType, const char *psDestPath,
     if (TRANSFER_OK != nRet) {
         return nRet;
     }
-    if (TRANSFER_OK != parseHeader(&tMsg, eType, ptInfo)) {
+    return receiveFileFromHeader(nFd, eType, psDestPath, &tMsg, ptInfo);
+}
+
+/***********************************************
+ *
+ * @Name : receiveFileFromHeader
+ * @Def : Receiver side for a caller that already read the HEADER frame
+ *        (for example to tell it apart from an error reply): validates it
+ *        and runs receiveBody. An invalid HEADER is answered with READY
+ *        and the error flags.
+ * @Arg : In: nFd = socket of the sender
+ *        In: eType = kind of transfer expected
+ *        In: psDestPath = where to store the file
+ *        In: ptHeader = HEADER frame received
+ *        Out: ptInfo = the HEADER (free with freeFileInfo); filled only if
+ *             it was valid
+ * @Ret : same codes as receiveBody.
+ *
+ ************************************************/
+int receiveFileFromHeader(int nFd, TransferType eType, const char *psDestPath,
+                          const Message *ptHeader, FileInfo *ptInfo) {
+    if (NULL == ptHeader || NULL == ptInfo) {
+        return TRANSFER_ERROR;
+    }
+    memset(ptInfo, 0, sizeof(FileInfo));
+
+    if (TRANSFER_OK != parseHeader(ptHeader, eType, ptInfo)) {
         rejectTransfer(nFd, REPLY_BAD_HEADER);
         return TRANSFER_ERROR;
     }
     return receiveBody(nFd, eType, psDestPath, ptInfo);
+}
+
+/***********************************************
+ *
+ * @Name : buildRecordPath
+ * @Def : Builds the path where a server keeps an image it received for a
+ *        voyage: <folder>/<Ship>_<VoyageID>_<file>. These are the server's
+ *        own files (proof of each delivery or claim), not temporary state.
+ * @Arg : In: psFolder = folder of the server (from its config file)
+ *        In: psShip = name of the ship
+ *        In: nVoyageId = voyage the image belongs to
+ *        In: psFileName = name of the file in the HEADER
+ * @Ret : Allocated path (the caller frees it), or NULL if a name contains a
+ *        slash (it could leave the folder) or memory ran out.
+ *
+ ************************************************/
+char *buildRecordPath(const char *psFolder, const char *psShip, int nVoyageId,
+                      const char *psFileName) {
+    char *psPath = NULL;
+
+    if (NULL == psFolder || NULL == psShip || NULL == psFileName ||
+        NULL != strchr(psShip, PATH_SEPARATOR_CHAR) ||
+        NULL != strchr(psFileName, PATH_SEPARATOR_CHAR)) {
+        return NULL;
+    }
+    if (-1 == asprintf(&psPath, RECORD_PATH_FORMAT, psFolder, psShip, nVoyageId,
+                       psFileName)) {
+        return NULL;
+    }
+    return psPath;
 }
 
 /***********************************************
@@ -582,9 +652,10 @@ static int jobHasArgs(const PoolJob *ptJob) {
  * @Name : verifyClaim
  * @Def : Ithaca job: receives the CLAIM image (the HEADER is already in
  *        tInfo), checks it is the object of the voyage and that it carries
- *        the glyph of the destination island, and always deletes the
- *        received file.
- * @Arg : In/Out: ptJob = psPath temp file, psFileName expected object name,
+ *        the glyph of the destination island. A valid image is kept as the
+ *        proof of the claim; an incomplete or rejected one is deleted.
+ * @Arg : In/Out: ptJob = psPath where the image is kept, psFileName
+ *        expected object name,
  *        psOwner destination island, tInfo the parsed HEADER
  * @Ret : TRANSFER_OK, TRANSFER_WRONG_FILE (name differs from the mission
  *        object), TRANSFER_GLYPH_ERROR (no glyph of the island, or the
@@ -605,9 +676,9 @@ static int verifyClaim(PoolJob *ptJob) {
         return nRet;
     }
     if (1 != SPHRAGIS_has_glyph(ptJob->psOwner, ptJob->psPath)) {
+        unlink(ptJob->psPath);
         nRet = TRANSFER_GLYPH_ERROR;
     }
-    unlink(ptJob->psPath);
     return nRet;
 }
 
@@ -615,10 +686,11 @@ static int verifyClaim(PoolJob *ptJob) {
  *
  * @Name : sealDelivery
  * @Def : Island job: receives the DELIVERY image (HEADER already in
- *        tInfo), seals it with the glyph of psOwner (this island) into a
- *        second temp file and sends it back as SIGNED. Both temp files are
- *        deleted at the end, as the spec forbids extra storage.
- * @Arg : In/Out: ptJob = psPath temp file for the received image, psOwner
+ *        tInfo), seals it with the glyph of psOwner (this island) into
+ *        <psPath>.signed and sends it back as SIGNED. After a complete
+ *        delivery the island keeps both images; if any step fails both are
+ *        deleted, so a partial image is never kept or sealed.
+ * @Arg : In/Out: ptJob = psPath where the received image is kept, psOwner
  *        island name, psFileName name used in the SIGNED HEADER (the
  *        received name if NULL), tInfo the parsed HEADER
  * @Ret : TRANSFER_OK, TRANSFER_GLYPH_ERROR if SPHRAGIS could not seal the
@@ -628,10 +700,13 @@ static int verifyClaim(PoolJob *ptJob) {
  ************************************************/
 static int sealDelivery(PoolJob *ptJob) {
     char *psSignedPath = NULL;
-    const char *psName =
-        NULL == ptJob->psFileName ? ptJob->tInfo.psFileName : ptJob->psFileName;
+    const char *psName = ptJob->psFileName;
     int nRet = receiveBody(ptJob->nFd, TRANSFER_DELIVERY, ptJob->psPath,
                            &ptJob->tInfo);
+
+    if (NULL == psName) {
+        psName = ptJob->tInfo.psFileName;
+    }
 
     if (TRANSFER_OK != nRet) {
         return nRet;
@@ -646,8 +721,10 @@ static int sealDelivery(PoolJob *ptJob) {
     } else {
         nRet = sendFile(ptJob->nFd, TRANSFER_SIGNED, psSignedPath, psName);
     }
-    unlink(ptJob->psPath);
-    unlink(psSignedPath);
+    if (TRANSFER_OK != nRet) {
+        unlink(ptJob->psPath);
+        unlink(psSignedPath);
+    }
     free(psSignedPath);
     return nRet;
 }

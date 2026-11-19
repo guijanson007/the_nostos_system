@@ -233,11 +233,12 @@ void displayMap(const Odysseus *ptOdysseus) {
     int i = 0;
     int j = 0;
  
-    atIslands = calloc(nCount, sizeof(SPHRAGIS_Island));
+    atIslands = malloc((size_t)nCount * sizeof(SPHRAGIS_Island));
     if (NULL == atIslands) {
         printErr(ERROR_MAP_DISPLAY);
         return;
     }
+    memset(atIslands, 0, (size_t)nCount * sizeof(SPHRAGIS_Island));
  
     for (i = 0; i < nCount; i++) {
         ptKnown = &ptOdysseus->tMap.atConnections[i];
@@ -247,14 +248,16 @@ void displayMap(const Odysseus *ptOdysseus) {
         if (0 == ptKnown->nNumNeighbors) {
             continue;
         }
-        atIslands[i].known_islands = calloc(ptKnown->nNumNeighbors,
-                                            sizeof(char *));
+        atIslands[i].known_islands =
+            malloc((size_t)ptKnown->nNumNeighbors * sizeof(char *));
         if (NULL == atIslands[i].known_islands) {
             printErr(ERROR_MAP_DISPLAY);
             nCount = i;
             nResult = SPHRAGIS_ERROR_INVALID_CONNECTION;
             break;
         }
+        memset(atIslands[i].known_islands, 0,
+               (size_t)ptKnown->nNumNeighbors * sizeof(char *));
         for (j = 0; j < ptKnown->nNumNeighbors; j++) {
             atIslands[i].known_islands[j] =
                 ptOdysseus->tMap.atConnections[ptKnown->anNeighbors[j]].psName;
