@@ -484,12 +484,6 @@ static void closeIsland(Island *ptIsland, int *pnFdConfig,
         }
     }
 
-    for (nFd = 0; nFd <= ptIsland->nMaxFd; nFd++) {
-        if (0 != FD_ISSET(nFd, &ptIsland->tFdsClients)) {
-            close(nFd);
-        }
-    }
-
     for (i = 0; i < ptIsland->tNumClients; i++) {
         free(ptIsland->atClients[i].psName);
     }
