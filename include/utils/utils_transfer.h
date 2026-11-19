@@ -83,6 +83,8 @@ void freeFileInfo(FileInfo *ptInfo);
  */
 int sendFile(int nFd, TransferType eType, const char *psPath, const char *psFileName);
 int receiveFile(int nFd, TransferType eType, const char *psDestPath, FileInfo *ptInfo);
+int receiveFileFromHeader(int nFd, TransferType eType, const char *psDestPath,
+                          const Message *ptHeader, FileInfo *ptInfo);
 int receiveBody(int nFd, TransferType eType, const char *psDestPath, const FileInfo *ptInfo);
 int rejectTransfer(int nFd, const char *psReason);
 

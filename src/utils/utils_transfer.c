@@ -557,7 +557,33 @@ int receiveFile(int nFd, TransferType eType, const char *psDestPath,
     if (TRANSFER_OK != nRet) {
         return nRet;
     }
-    if (TRANSFER_OK != parseHeader(&tMsg, eType, ptInfo)) {
+    return receiveFileFromHeader(nFd, eType, psDestPath, &tMsg, ptInfo);
+}
+
+/***********************************************
+ *
+ * @Name : receiveFileFromHeader
+ * @Def : Receiver side for a caller that already read the HEADER frame
+ *        (for example to tell it apart from an error reply): validates it
+ *        and runs receiveBody. An invalid HEADER is answered with READY
+ *        and the error flags.
+ * @Arg : In: nFd = socket of the sender
+ *        In: eType = kind of transfer expected
+ *        In: psDestPath = where to store the file
+ *        In: ptHeader = HEADER frame received
+ *        Out: ptInfo = the HEADER (free with freeFileInfo); filled only if
+ *             it was valid
+ * @Ret : same codes as receiveBody.
+ *
+ ************************************************/
+int receiveFileFromHeader(int nFd, TransferType eType, const char *psDestPath,
+                          const Message *ptHeader, FileInfo *ptInfo) {
+    if (NULL == ptHeader || NULL == ptInfo) {
+        return TRANSFER_ERROR;
+    }
+    memset(ptInfo, 0, sizeof(FileInfo));
+
+    if (TRANSFER_OK != parseHeader(ptHeader, eType, ptInfo)) {
         rejectTransfer(nFd, REPLY_BAD_HEADER);
         return TRANSFER_ERROR;
     }
