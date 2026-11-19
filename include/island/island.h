@@ -68,6 +68,7 @@ typedef struct {
     ClientState eState;
     PoolJob *ptJob;
     int nDeliverPending;
+    int nDeliverVoyage;  // voyage of the pending DELIVER request
 } Client;
  
 typedef struct {

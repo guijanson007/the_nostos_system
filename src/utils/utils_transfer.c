@@ -122,6 +122,7 @@ int parseHeader(const Message *ptMsg, TransferType eType, FileInfo *ptInfo) {
         NULL == psFieldMd5 ||
         NULL != strtok_r(NULL, HEADER_SEPARATOR, &psSave) ||
         0 != strcmp(psFieldKind, psKind) ||
+        NULL != strchr(psFieldName, PATH_SEPARATOR_CHAR) ||
         0 == isPositiveInteger(psFieldSize) || !isMd5Text(psFieldMd5)) {
         free(psCopy);
         return TRANSFER_ERROR;
@@ -592,6 +593,36 @@ int receiveFileFromHeader(int nFd, TransferType eType, const char *psDestPath,
 
 /***********************************************
  *
+ * @Name : buildRecordPath
+ * @Def : Builds the path where a server keeps an image it received for a
+ *        voyage: <folder>/<Ship>_<VoyageID>_<file>. These are the server's
+ *        own files (proof of each delivery or claim), not temporary state.
+ * @Arg : In: psFolder = folder of the server (from its config file)
+ *        In: psShip = name of the ship
+ *        In: nVoyageId = voyage the image belongs to
+ *        In: psFileName = name of the file in the HEADER
+ * @Ret : Allocated path (the caller frees it), or NULL if a name contains a
+ *        slash (it could leave the folder) or memory ran out.
+ *
+ ************************************************/
+char *buildRecordPath(const char *psFolder, const char *psShip, int nVoyageId,
+                      const char *psFileName) {
+    char *psPath = NULL;
+
+    if (NULL == psFolder || NULL == psShip || NULL == psFileName ||
+        NULL != strchr(psShip, PATH_SEPARATOR_CHAR) ||
+        NULL != strchr(psFileName, PATH_SEPARATOR_CHAR)) {
+        return NULL;
+    }
+    if (-1 == asprintf(&psPath, RECORD_PATH_FORMAT, psFolder, psShip, nVoyageId,
+                       psFileName)) {
+        return NULL;
+    }
+    return psPath;
+}
+
+/***********************************************
+ *
  * @Name : jobHasArgs
  * @Def : Checks that a job carries what its type needs.
  * @Arg : In: ptJob = job to check
@@ -621,9 +652,10 @@ static int jobHasArgs(const PoolJob *ptJob) {
  * @Name : verifyClaim
  * @Def : Ithaca job: receives the CLAIM image (the HEADER is already in
  *        tInfo), checks it is the object of the voyage and that it carries
- *        the glyph of the destination island, and always deletes the
- *        received file.
- * @Arg : In/Out: ptJob = psPath temp file, psFileName expected object name,
+ *        the glyph of the destination island. A valid image is kept as the
+ *        proof of the claim; an incomplete or rejected one is deleted.
+ * @Arg : In/Out: ptJob = psPath where the image is kept, psFileName
+ *        expected object name,
  *        psOwner destination island, tInfo the parsed HEADER
  * @Ret : TRANSFER_OK, TRANSFER_WRONG_FILE (name differs from the mission
  *        object), TRANSFER_GLYPH_ERROR (no glyph of the island, or the
@@ -644,9 +676,9 @@ static int verifyClaim(PoolJob *ptJob) {
         return nRet;
     }
     if (1 != SPHRAGIS_has_glyph(ptJob->psOwner, ptJob->psPath)) {
+        unlink(ptJob->psPath);
         nRet = TRANSFER_GLYPH_ERROR;
     }
-    unlink(ptJob->psPath);
     return nRet;
 }
 
@@ -654,10 +686,11 @@ static int verifyClaim(PoolJob *ptJob) {
  *
  * @Name : sealDelivery
  * @Def : Island job: receives the DELIVERY image (HEADER already in
- *        tInfo), seals it with the glyph of psOwner (this island) into a
- *        second temp file and sends it back as SIGNED. Both temp files are
- *        deleted at the end, as the spec forbids extra storage.
- * @Arg : In/Out: ptJob = psPath temp file for the received image, psOwner
+ *        tInfo), seals it with the glyph of psOwner (this island) into
+ *        <psPath>.signed and sends it back as SIGNED. After a complete
+ *        delivery the island keeps both images; if any step fails both are
+ *        deleted, so a partial image is never kept or sealed.
+ * @Arg : In/Out: ptJob = psPath where the received image is kept, psOwner
  *        island name, psFileName name used in the SIGNED HEADER (the
  *        received name if NULL), tInfo the parsed HEADER
  * @Ret : TRANSFER_OK, TRANSFER_GLYPH_ERROR if SPHRAGIS could not seal the
@@ -688,8 +721,10 @@ static int sealDelivery(PoolJob *ptJob) {
     } else {
         nRet = sendFile(ptJob->nFd, TRANSFER_SIGNED, psSignedPath, psName);
     }
-    unlink(ptJob->psPath);
-    unlink(psSignedPath);
+    if (TRANSFER_OK != nRet) {
+        unlink(ptJob->psPath);
+        unlink(psSignedPath);
+    }
     free(psSignedPath);
     return nRet;
 }

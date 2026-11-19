@@ -215,6 +215,7 @@ static void arravalIsland(Island *ptIsland, Message tMsg, int nFdClient) {
     ptIsland->atClients[ptIsland->tNumClients].tQueued = 0;
     ptIsland->atClients[ptIsland->tNumClients].ptJob = NULL;
     ptIsland->atClients[ptIsland->tNumClients].nDeliverPending = 0;
+    ptIsland->atClients[ptIsland->tNumClients].nDeliverVoyage = 0;
 
     if (-1 != asprintf(&psBuffer, MSG_APPROACHING, psName, ptIsland->psName)) {
         println(psBuffer);
@@ -714,6 +715,7 @@ static void deliverRequest(Island *ptIsland, Message tMsg, int nFd) {
     }
 
     ptIsland->atClients[nIndex].nDeliverPending = 1;
+    ptIsland->atClients[nIndex].nDeliverVoyage = atoi(psVoyage);
 
     if (-1 != asprintf(&psBuff, MSG_DELIVERY_REQUEST,
                        ptIsland->atClients[nIndex].psName, atoi(psVoyage))) {
@@ -740,7 +742,7 @@ static void deliverRequest(Island *ptIsland, Message tMsg, int nFd) {
 static void deliverHeader(Island *ptIsland, Message tMsg, int nFd) {
     FileInfo tInfo;
     PoolJob *ptJob = NULL;
-    char *psTempPath = NULL;
+    char *psRecordPath = NULL;
     int nIndex = findClientIndex(ptIsland, nFd);
 
     memset(&tInfo, 0, sizeof(FileInfo));
@@ -756,14 +758,15 @@ static void deliverHeader(Island *ptIsland, Message tMsg, int nFd) {
         return;
     }
 
-    if (-1 == asprintf(&psTempPath, DELIVER_TEMP_FORMAT, ptIsland->psFile,
-                       ptIsland->psName, nFd)) {
-        psTempPath = NULL;
-    }
-    if (NULL != psTempPath) {
-        ptJob = createJob(JOB_SEAL_DELIVERY, nFd, psTempPath, NULL,
+    // The island keeps the delivered image and its sealed copy
+    psRecordPath = buildRecordPath(ptIsland->psFile,
+                                   ptIsland->atClients[nIndex].psName,
+                                   ptIsland->atClients[nIndex].nDeliverVoyage,
+                                   tInfo.psFileName);
+    if (NULL != psRecordPath) {
+        ptJob = createJob(JOB_SEAL_DELIVERY, nFd, psRecordPath, NULL,
                           ptIsland->psName, &tInfo);
-        free(psTempPath);
+        free(psRecordPath);
     }
     if (NULL == ptJob) {
         freeFileInfo(&tInfo);

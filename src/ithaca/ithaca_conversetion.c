@@ -686,7 +686,7 @@ static void claimHeader(int nFdClient, Ithaca *ptIthaca, Message tMsg) {
     FileInfo tInfo;
     Voyage *ptVoyage = NULL;
     PoolJob *ptJob = NULL;
-    char *psTempPath = NULL;
+    char *psRecordPath = NULL;
     const char *psClaimError = NULL;
     int nClient = findClientIndex(ptIthaca, nFdClient);
 
@@ -725,15 +725,15 @@ static void claimHeader(int nFdClient, Ithaca *ptIthaca, Message tMsg) {
         return;
     }
 
-    if (-1 == asprintf(&psTempPath, CLAIM_TEMP_FORMAT, ptIthaca->psMission,
-                       ptVoyage->nId)) {
-        psTempPath = NULL;
-    }
-    if (NULL != psTempPath) {
-        ptJob = createJob(JOB_VERIFY_CLAIM, nFdClient, psTempPath,
+    // A valid claim image is kept in the mission folder as its proof
+    psRecordPath = buildRecordPath(ptIthaca->psMission,
+                                   ptIthaca->atClients[nClient].psName,
+                                   ptVoyage->nId, tInfo.psFileName);
+    if (NULL != psRecordPath) {
+        ptJob = createJob(JOB_VERIFY_CLAIM, nFdClient, psRecordPath,
                           fileBaseName(ptVoyage->psFile),
                           ptVoyage->psDestination, &tInfo);
-        free(psTempPath);
+        free(psRecordPath);
     }
     if (NULL == ptJob) {
         freeFileInfo(&tInfo);

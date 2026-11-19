@@ -25,7 +25,6 @@
 #define LOG_REQUESTED_VOYAGES " requested available voyages."
 #define LOG_OBJECT_FAILED " did not receive the object. The voyage is free again."
 #define CLAIM_OK_FORMAT "OK&%d" 
-#define CLAIM_TEMP_FORMAT "%s/.claim_%d.tmp"
 #define MSG_VOYAGE_COMPLETED ">>> Voyage %d completed by %s."
 #define MSG_SENDING_OBJECT ">>> Sending %s to %s..."
 #define MSG_OBJECT_SENT ">>> Object transferred successfully."

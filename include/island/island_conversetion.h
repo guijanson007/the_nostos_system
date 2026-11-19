@@ -46,7 +46,6 @@
 #define TRADE_OK_FORMAT "OK&%s&%d&%d"
 #define MAP_EMPTY_FORMAT "%s&%d&0"
 #define MAP_ROUTE_FORMAT "%s&%d&%zu&%zu&%s&%s&%d"
-#define DELIVER_TEMP_FORMAT "%s/.delivery_%s_%d.tmp"
 
 #define MSG_APPROACHING ">>> %s approaching %s."
 #define MSG_ENTERED_PORT ">>> %s entered the port."
