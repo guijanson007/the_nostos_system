@@ -1,9 +1,9 @@
 /***********************************************
  *
  * @File : odysseus_persistence.c
- * @Purpose : Saves and restores the gold and the cargo of the odysseus in
- *            a fixed-record binary file (one file per ship), using only
- *            open/read/write/lseek.
+ * @Purpose : Saves and restores the gold, the cargo and the active voyage
+ *            of the odysseus in a fixed-record binary file (one file per
+ *            ship), using only open/read/write/lseek.
  * @Author : Guilherme Rodrigues
  * @Date : 16/11/2026
  *
@@ -18,6 +18,8 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "odysseus/odysseus_conversation.h"
+#include "odysseus/odysseus_parser.h"
 #include "odysseus/odysseus_persistence.h"
 
 /***********************************************
@@ -94,14 +96,65 @@ static char *buildStatePath(const Odysseus *ptOdysseus) {
 
 /***********************************************
  *
- * @Name : encodeState
- * @Def : Serializes the gold and the cargo into a record.
- * @Arg : In: ptCargo = cargo to save
- *        Out: pcBuffer = buffer of STATE_RECORD_SIZE bytes
- * @Ret : 0 on success, -1 if the cargo doesn't fit in the record.
+ * @Name : putString
+ * @Def : Copies a string into a NUL padded field of the record.
+ * @Arg : Out: pcField = field of tSize bytes (already zeroed)
+ *        In: psValue = string to copy
+ *        In: tSize = size of the field
+ * @Ret : 0 on success, -1 if the string is missing or doesn't fit.
  *
  ************************************************/
-static int encodeState(const Cargo *ptCargo, unsigned char *pcBuffer) {
+static int putString(unsigned char *pcField, const char *psValue, size_t tSize) {
+    if (NULL == psValue || tSize <= strlen(psValue)) {
+        return -1;
+    }
+    memcpy(pcField, psValue, strlen(psValue));
+    return 0;
+}
+
+/***********************************************
+ *
+ * @Name : encodeVoyage
+ * @Def : Serializes the active voyage into its part of the record. A
+ *        voyage whose object has not arrived yet is not saved (that part
+ *        of the record stays zero: no voyage).
+ * @Arg : In: ptVoyage = active voyage
+ *        Out: pcBuffer = record (already zeroed)
+ * @Ret : 0 on success, -1 if a field doesn't fit in the record.
+ *
+ ************************************************/
+static int encodeVoyage(const OdysseusVoyage *ptVoyage, unsigned char *pcBuffer) {
+    if (0 >= ptVoyage->nId || NULL == ptVoyage->psObjectPath) {
+        return 0;
+    }
+    putField(pcBuffer + STATE_VOYAGE_OFFSET, (uint32_t)ptVoyage->nId);
+    putField(pcBuffer + STATE_VOYAGE_OFFSET + STATE_FIELD_SIZE,
+             (uint32_t)ptVoyage->nReward);
+    putField(pcBuffer + STATE_VOYAGE_OFFSET + 2 * STATE_FIELD_SIZE,
+             (uint32_t)(0 != ptVoyage->nDelivered));
+    if (0 != putString(pcBuffer + STATE_OBJECT_OFFSET, ptVoyage->psObject,
+                       STATE_NAME_SIZE) ||
+        0 != putString(pcBuffer + STATE_DESTINATION_OFFSET,
+                       ptVoyage->psDestination, STATE_NAME_SIZE) ||
+        0 != putString(pcBuffer + STATE_FILE_NAME_OFFSET, ptVoyage->psFileName,
+                       STATE_FILE_NAME_SIZE)) {
+        return -1;
+    }
+    return 0;
+}
+
+/***********************************************
+ *
+ * @Name : encodeState
+ * @Def : Serializes the gold, the cargo and the active voyage into a
+ *        record.
+ * @Arg : In: ptOdysseus = odysseus to save
+ *        Out: pcBuffer = buffer of STATE_RECORD_SIZE bytes
+ * @Ret : 0 on success, -1 if the state doesn't fit in the record.
+ *
+ ************************************************/
+static int encodeState(const Odysseus *ptOdysseus, unsigned char *pcBuffer) {
+    const Cargo *ptCargo = &ptOdysseus->tCargo;
     int i = 0;
     unsigned char *pcSlot = NULL;
 
@@ -126,6 +179,9 @@ static int encodeState(const Cargo *ptCargo, unsigned char *pcBuffer) {
         putField(pcSlot + STATE_NAME_SIZE,
                  (uint32_t)ptCargo->atSupplies[i].nAmount);
     }
+    if (0 != encodeVoyage(&ptOdysseus->tActiveVoyage, pcBuffer)) {
+        return -1;
+    }
     putField(pcBuffer + STATE_SUM_OFFSET, checksum(pcBuffer));
     return 0;
 }
@@ -133,7 +189,8 @@ static int encodeState(const Cargo *ptCargo, unsigned char *pcBuffer) {
 /***********************************************
  *
  * @Name : odysseusSaveState
- * @Def : Writes the gold and the cargo of the odysseus to its state file,
+ * @Def : Writes the gold, the cargo and the active voyage of the odysseus
+ *        to its state file,
  *        overwriting the previous record in place with one write. The file
  *        is cut to the record size afterwards, so a longer leftover file
  *        (e.g. a damaged one) becomes a valid record again.
@@ -150,7 +207,7 @@ int odysseusSaveState(const Odysseus *ptOdysseus) {
     psPath = buildStatePath(ptOdysseus);
     pcBuffer = malloc(STATE_RECORD_SIZE);
     if (NULL != psPath && NULL != pcBuffer &&
-        0 == encodeState(&ptOdysseus->tCargo, pcBuffer)) {
+        0 == encodeState(ptOdysseus, pcBuffer)) {
         nFd = open(psPath, O_WRONLY | O_CREAT, STATE_FILE_MODE);
         if (-1 != nFd) {
             if (-1 != lseek(nFd, 0, SEEK_SET) &&
@@ -209,6 +266,62 @@ static int readRecord(const char *psPath, unsigned char *pcBuffer,
 
 /***********************************************
  *
+ * @Name : getString
+ * @Def : Copies a NUL padded field of the record into a new string.
+ * @Arg : In: pcField = field of tSize bytes
+ *        In: tSize = size of the field
+ * @Ret : Allocated string (the caller frees it), or NULL if the field is
+ *        empty, not terminated or memory ran out.
+ *
+ ************************************************/
+static char *getString(const unsigned char *pcField, size_t tSize) {
+    if ('\0' == pcField[0] || NULL == memchr(pcField, '\0', tSize)) {
+        return NULL;
+    }
+    return strdup((const char *)pcField);
+}
+
+/***********************************************
+ *
+ * @Name : decodeVoyage
+ * @Def : Validates the voyage part of a record and builds the voyage it
+ *        describes (without the paths of its files).
+ * @Arg : In: pcBuffer = record of STATE_RECORD_SIZE bytes
+ *        Out: ptVoyage = voyage built (the caller frees it); all zero if
+ *             the record has no voyage
+ * @Ret : 0 on success, -1 if the voyage part is invalid.
+ *
+ ************************************************/
+static int decodeVoyage(const unsigned char *pcBuffer, OdysseusVoyage *ptVoyage) {
+    uint32_t nId = getField(pcBuffer + STATE_VOYAGE_OFFSET);
+    uint32_t nReward = getField(pcBuffer + STATE_VOYAGE_OFFSET + STATE_FIELD_SIZE);
+    uint32_t nDelivered =
+        getField(pcBuffer + STATE_VOYAGE_OFFSET + 2 * STATE_FIELD_SIZE);
+
+    memset(ptVoyage, 0, sizeof(OdysseusVoyage));
+    if (0 == nId) {
+        return 0;
+    }
+    if (INT32_MAX < nId || INT32_MAX < nReward || 1 < nDelivered) {
+        return -1;
+    }
+    ptVoyage->nId = (int)nId;
+    ptVoyage->nReward = (int)nReward;
+    ptVoyage->nDelivered = (int)nDelivered;
+    ptVoyage->psObject = getString(pcBuffer + STATE_OBJECT_OFFSET, STATE_NAME_SIZE);
+    ptVoyage->psDestination =
+        getString(pcBuffer + STATE_DESTINATION_OFFSET, STATE_NAME_SIZE);
+    ptVoyage->psFileName =
+        getString(pcBuffer + STATE_FILE_NAME_OFFSET, STATE_FILE_NAME_SIZE);
+    if (NULL == ptVoyage->psObject || NULL == ptVoyage->psDestination ||
+        NULL == ptVoyage->psFileName) {
+        return -1;
+    }
+    return 0;
+}
+
+/***********************************************
+ *
  * @Name : decodeState
  * @Def : Validates a record and builds the cargo it describes: magic,
  *        version, checksum, counts, names and amounts are all checked.
@@ -256,6 +369,58 @@ static int decodeState(const unsigned char *pcBuffer, Cargo *ptCargo) {
 
 /***********************************************
  *
+ * @Name : fileExists
+ * @Def : Checks that a file can be opened for reading.
+ * @Arg : In: psPath = path of the file
+ * @Ret : 1 if it can, 0 otherwise.
+ *
+ ************************************************/
+static int fileExists(const char *psPath) {
+    int nFd = open(psPath, O_RDONLY);
+
+    if (-1 == nFd) {
+        return 0;
+    }
+    close(nFd);
+    return 1;
+}
+
+/***********************************************
+ *
+ * @Name : attachVoyageFiles
+ * @Def : Gives a restored voyage the paths of its files in the ship
+ *        folder (the object, and the sealed image once delivered) and
+ *        checks that they are still there.
+ * @Arg : In: ptOdysseus = odysseus that owns the folder
+ *        In/Out: ptVoyage = restored voyage
+ * @Ret : 0 if every file the voyage needs is there, -1 otherwise.
+ *
+ ************************************************/
+static int attachVoyageFiles(const Odysseus *ptOdysseus, OdysseusVoyage *ptVoyage) {
+    if (-1 == asprintf(&ptVoyage->psObjectPath, OBJECT_FILE_FORMAT,
+                       ptOdysseus->psPath, ptOdysseus->psName)) {
+        ptVoyage->psObjectPath = NULL;
+        return -1;
+    }
+    if (0 == fileExists(ptVoyage->psObjectPath)) {
+        return -1;
+    }
+    if (0 == ptVoyage->nDelivered) {
+        return 0;
+    }
+    if (-1 == asprintf(&ptVoyage->psSignedPath, SIGNED_FILE_FORMAT,
+                       ptOdysseus->psPath, ptOdysseus->psName)) {
+        ptVoyage->psSignedPath = NULL;
+        return -1;
+    }
+    if (0 == fileExists(ptVoyage->psSignedPath)) {
+        return -1;
+    }
+    return 0;
+}
+
+/***********************************************
+ *
  * @Name : freeCargoSupplies
  * @Def : Frees the supplies of a cargo and leaves it empty.
  * @Arg : In/Out: ptCargo = cargo whose supplies are freed
@@ -277,9 +442,11 @@ static void freeCargoSupplies(Cargo *ptCargo) {
 /***********************************************
  *
  * @Name : odysseusLoadState
- * @Def : Restores the gold and the cargo saved by a previous execution,
- *        replacing the initial resources of the config file. A missing,
- *        truncated or corrupt file leaves the initial resources untouched.
+ * @Def : Restores the gold, the cargo and the active voyage saved by a
+ *        previous execution, replacing the initial resources of the config
+ *        file. A missing, truncated or corrupt file leaves the initial
+ *        resources untouched. A voyage whose files are gone is dropped
+ *        (the gold and the cargo are still restored).
  * @Arg : In/Out: ptOdysseus = odysseus to restore
  * @Ret : 1 if the state was restored, 0 if the initial resources are kept.
  *
@@ -288,6 +455,7 @@ int odysseusLoadState(Odysseus *ptOdysseus) {
     unsigned char *pcBuffer = NULL;
     char *psPath = NULL;
     Cargo tLoaded;
+    OdysseusVoyage tVoyage;
     int nMissing = 0;
     int nRet = 0;
 
@@ -299,16 +467,28 @@ int odysseusLoadState(Odysseus *ptOdysseus) {
         return 0;
     }
 
+    memset(&tLoaded, 0, sizeof(Cargo));
+    memset(&tVoyage, 0, sizeof(OdysseusVoyage));
     if (0 != readRecord(psPath, pcBuffer, &nMissing)) {
         if (0 == nMissing) {
             printErr(STATE_WARN_CORRUPT);
         }
-    } else if (0 != decodeState(pcBuffer, &tLoaded)) {
+    } else if (0 != decodeState(pcBuffer, &tLoaded) ||
+               0 != decodeVoyage(pcBuffer, &tVoyage)) {
         freeCargoSupplies(&tLoaded);
+        freeOdysseusVoyage(&tVoyage);
         printErr(STATE_WARN_CORRUPT);
     } else {
         freeCargoSupplies(&ptOdysseus->tCargo);
         ptOdysseus->tCargo = tLoaded;
+        if (0 != tVoyage.nId && 0 != attachVoyageFiles(ptOdysseus, &tVoyage)) {
+            // Without its files the voyage cannot go on (Ithaca fails it on
+            // the next LIST VOYAGES); whatever is left of them is deleted
+            printErr(STATE_WARN_FILES);
+            discardOdysseusVoyage(&tVoyage);
+        }
+        discardOdysseusVoyage(&ptOdysseus->tActiveVoyage);
+        ptOdysseus->tActiveVoyage = tVoyage;
         nRet = 1;
     }
     free(pcBuffer);
@@ -339,15 +519,17 @@ void odysseusResetState(const Odysseus *ptOdysseus) {
  * @Name : odysseusSaveOnExit
  * @Def : Final save when the process ends. A ship with no gold and no
  *        cargo (lost at sea or dead end, see 6.8) has nothing to
- *        continue with, so its state is reset instead of saved.
- * @Arg : In: ptOdysseus = odysseus that is exiting
+ *        continue with, so its state is reset instead of saved and its
+ *        voyage (object and sealed image) is lost.
+ * @Arg : In/Out: ptOdysseus = odysseus that is exiting
  * @Ret : None.
  *
  ************************************************/
-void odysseusSaveOnExit(const Odysseus *ptOdysseus) {
+void odysseusSaveOnExit(Odysseus *ptOdysseus) {
     if (0 >= ptOdysseus->tCargo.nTotalAmount &&
         0 >= ptOdysseus->tCargo.nGold) {
         odysseusResetState(ptOdysseus);
+        discardOdysseusVoyage(&ptOdysseus->tActiveVoyage);
     } else {
         odysseusSaveState(ptOdysseus);
     }

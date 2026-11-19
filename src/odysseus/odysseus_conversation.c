@@ -425,6 +425,8 @@ OdysseusStatus requestAcceptVoyage(Odysseus *ptOdysseus, int nVoyageId) {
         discardOdysseusVoyage(&ptOdysseus->tActiveVoyage);
         return eStatus;
     }
+    // The mission and its object survive a restart from now on
+    odysseusSaveState(ptOdysseus);
     return ODY_OK;
 }
 
@@ -1521,6 +1523,8 @@ OdysseusStatus receiveSigned(Odysseus *ptOdysseus) {
 
     ptVoyage->psSignedPath = psPath;
     ptVoyage->nDelivered = 1;
+    // The receipt survives a restart: CLAIM can come in a later run
+    odysseusSaveState(ptOdysseus);
     return ODY_OK;
 }
 
