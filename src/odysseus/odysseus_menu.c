@@ -85,6 +85,7 @@ int odysseusShowMenu(Odysseus *tOdysseus, volatile sig_atomic_t *pnQuit) {
     }
     if (-1 == nWait || -1 == readLine(STDIN_FILENO, &psInput)) {
         // Error reading input
+        resetInputField();
         printErr(ERROR_READ_COMMAND);
         return 0;
     }
