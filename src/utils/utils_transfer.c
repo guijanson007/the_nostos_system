@@ -187,7 +187,9 @@ static int sendFrame(int nFd, MessageType eType, unsigned char cFlags,
  * @Arg : In: nFd = socket
  *        In: eType = type the frame must have
  *        Out: ptMsg = frame received
- * @Ret : TRANSFER_OK If all worked fine or TRANSFER_PEER_GONE if the peer has left.
+ * @Ret : TRANSFER_OK if a frame of the expected type arrived,
+ *        TRANSFER_ERROR if the frame has another type, or
+ *        TRANSFER_PEER_GONE if the peer has left or timed out.
  *
  ************************************************/
 static int waitFrame(int nFd, MessageType eType, Message *ptMsg) {
@@ -195,6 +197,9 @@ static int waitFrame(int nFd, MessageType eType, Message *ptMsg) {
 
     if (-1 == nRet || RECEIVE_TIMEOUT == nRet) {
         return TRANSFER_PEER_GONE;
+    }
+    if (eType != ptMsg->type) {
+        return TRANSFER_ERROR;
     }
     return TRANSFER_OK;
 }
