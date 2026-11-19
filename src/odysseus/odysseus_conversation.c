@@ -1455,3 +1455,82 @@ OdysseusStatus receiveSigned(Odysseus *ptOdysseus) {
     ptVoyage->nDelivered = 1;
     return ODY_OK;
 }
+
+/***********************************************
+ *
+ * @Name : skipClaimReply
+ * @Def : After a failed CLAIM transfer Ithaca may still send the final
+ *        CLAIM error. Reads it (waiting only a short time) so it does not
+ *        get mixed with the answer of the next command.
+ * @Arg : In/Out: ptOdysseus = odysseus connected to Ithaca
+ * @Ret : None.
+ *
+ ************************************************/
+static void skipClaimReply(Odysseus *ptOdysseus) {
+    Message tMessage;
+
+    memset(&tMessage, 0, sizeof(Message));
+    receiveMessageTimeout(&tMessage, ptOdysseus->nIthacaSocket,
+                          CLAIM_REPLY_SECONDS);
+}
+
+/***********************************************
+ *
+ * @Name : requestClaim
+ * @Def : Sends the CLAIM request (<VoyageID>), the CLAIM transfer with the
+ *        object sealed by the island and reads Ithaca's verdict
+ *        (OK&<Reward>).
+ * @Arg : In/Out: ptOdysseus = odysseus connected to Ithaca with a
+ *        delivered voyage
+ *        Out: pnReward = reward paid by Ithaca
+ * @Ret : ODY_OK on success, ODY_ERR_TRANSFER if the transfer fails,
+ *        ODY_ERR_REMOTE if Ithaca refuses the claim (reason stored),
+ *        otherwise ODY_ERR_IO or ODY_ERR_PROTOCOL.
+ *
+ ************************************************/
+OdysseusStatus requestClaim(Odysseus *ptOdysseus, int *pnReward) {
+    Message tMessage;
+    OdysseusVoyage *ptVoyage = &ptOdysseus->tActiveVoyage;
+    OdysseusStatus eStatus = ODY_OK;
+    char *apsFields[CLAIM_REPLY_FIELDS];
+    char *psId = NULL;
+    int nResult = TRANSFER_ERROR;
+
+    memset(&tMessage, 0, sizeof(Message));
+    tMessage.type = MSG_CLAIM;
+    if (-1 == asprintf(&psId, INT_FORMAT, ptVoyage->nId)) {
+        return ODY_ERR_IO;
+    }
+    buildMessage(&tMessage, FLAG_NONE, psId);
+    free(psId);
+
+    if (0 != sendMessage(&tMessage, ptOdysseus->nIthacaSocket)) {
+        return ODY_ERR_IO;
+    }
+
+    nResult = sendFile(ptOdysseus->nIthacaSocket, TRANSFER_CLAIM,
+                       ptVoyage->psSignedPath, ptVoyage->psFileName);
+    if (TRANSFER_OK != nResult) {
+        // Ithaca answers a wrong size or MD5 with a final CLAIM error
+        if (TRANSFER_SIZE_ERROR == nResult || TRANSFER_MD5_ERROR == nResult) {
+            skipClaimReply(ptOdysseus);
+        }
+        return ODY_ERR_TRANSFER;
+    }
+    println(MSG_CLAIM_TRANSFERRED);
+
+    // Sent after Ithaca received and verified the image
+    eStatus = receiveIthacaResponse(ptOdysseus, &tMessage, MSG_CLAIM);
+    if (ODY_OK != eStatus) {
+        return eStatus;
+    }
+    if (CLAIM_REPLY_FIELDS !=
+            splitFields(tMessage.data, apsFields, CLAIM_REPLY_FIELDS) ||
+        0 != strcmp(apsFields[0], OK_RESPONSE) ||
+        (0 == isPositiveInteger(apsFields[1]) &&
+         0 != strcmp(apsFields[1], ZERO_STRING))) {
+        return ODY_ERR_PROTOCOL;
+    }
+    *pnReward = atoi(apsFields[1]);
+    return ODY_OK;
+}

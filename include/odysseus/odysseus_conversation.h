@@ -34,6 +34,10 @@
 // Seconds to wait for the final DELIVER error after a failed transfer
 #define DELIVER_REPLY_SECONDS 1
 #define INT_FORMAT "%d"
+// CLAIM response of Ithaca: OK&<Reward>
+#define CLAIM_REPLY_FIELDS 2
+// Seconds to wait for the final CLAIM error after a failed transfer
+#define CLAIM_REPLY_SECONDS 1
  
 #define VOYAGE_LIST_FIELDS 6
 #define VOYAGE_ACCEPT_FIELDS 5
@@ -76,6 +80,7 @@ OdysseusStatus waitingAtPort(Odysseus *ptOdysseus, int *pnArrival);
 OdysseusStatus leaveIsland(Odysseus *ptOdysseus);
 OdysseusStatus sendDelivery(Odysseus *ptOdysseus);
 OdysseusStatus receiveSigned(Odysseus *ptOdysseus);
+OdysseusStatus requestClaim(Odysseus *ptOdysseus, int *pnReward);
  
 
 #endif
