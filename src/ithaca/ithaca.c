@@ -315,19 +315,19 @@ static void acceptClient(Ithaca *ptIthaca) {
  *
  ************************************************/
 static void handleClient(Ithaca *ptIthaca, int nFd) {
-    int nResult = 0;
+    int nResult = RECEIVE_OK;
     Message tMsg = {0};
 
     nResult = receiveMessage(&tMsg, nFd);
-    if (-2 == nResult) {
+    if (RECEIVE_BAD_LENGTH == nResult) {
         sendNack(nFd, NACK_INVALID_LENGTH);
         return;
     }
-    if (-3 == nResult) {
+    if (RECEIVE_BAD_FLAGS == nResult) {
         sendNack(nFd, NACK_INVALID_FLAGS);
         return;
     }
-    if (0 != nResult) {
+    if (RECEIVE_OK != nResult) {
         if (0 != removeClient(ptIthaca, nFd)) {
             // Never registered: drop the socket anyway
             close(nFd);

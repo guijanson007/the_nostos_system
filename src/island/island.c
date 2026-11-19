@@ -379,18 +379,18 @@ static void acceptClient(Island *ptIsland) {
  *
  ************************************************/
 static void handleClient(Island *ptIsland, int nFd) {
-    int nResult = -1;
+    int nResult = RECEIVE_ERROR;
     Message tMsg = {0};
 
     nResult = receiveMessage(&tMsg, nFd);
 
-    if (-1 == nResult) {
+    if (RECEIVE_ERROR == nResult) {
         clientLeaves(ptIsland, nFd);
         return;
-    } else if (-2 == nResult) {
+    } else if (RECEIVE_BAD_LENGTH == nResult) {
         sendNack(nFd, NACK_INVALID_LENGTH);
         return;
-    } else if (-3 == nResult) {
+    } else if (RECEIVE_BAD_FLAGS == nResult) {
         sendNack(nFd, NACK_INVALID_FLAGS);
         return;
     }
