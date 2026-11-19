@@ -11,11 +11,14 @@
  ************************************************/
  
 // System includes
+#include <errno.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
  
@@ -35,7 +38,10 @@
 #define ERROR_FILE_CONFIG "ERROR: config file couldn't be open"
 #define ERROR_FILE_STOCK "ERROR: stock file couldn't be open"
 #define ERROR_LOAD_CONFIG "ERROR: data from the config file could not been open"
-#define ERROR_POOL "ERROR: the worker pool could not be created\n"
+#define ERROR_POOL "ERROR: the worker pool could not be created"
+#define ERROR_FOLDER "ERROR: the folder of the island could not be created"
+// Permissions of the island folder if it has to be created
+#define ISLAND_FOLDER_MODE 0755
 #define MSG_ISLAND_FINISHED "\nIsland process finished."
  
 #define WELCOME "Island %s initialized.\nPort capacity: %d ships.\n%d sea routes loaded.\n%d products available."

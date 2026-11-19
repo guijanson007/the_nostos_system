@@ -13,7 +13,7 @@
 
 #include "island/island.h"
 
-static volatile int nEvQuit = 0;
+static volatile sig_atomic_t nEvQuit = 0;
 
 /***********************************************
  *
@@ -47,7 +47,8 @@ void freeRoute(Route *ptRoute) {
  *
  * @Name : freeIsland
  * @Def : Frees all the dynamic memory of the island and the sphragis
- *        island. Safe to call more than once.
+ *        island. Safe to call more than once. The stock file descriptor is
+ *        kept (it is closed by closeFiles).
  * @Arg : In/Out: ptIsland = island to free
  *        In/Out: ptSphragis = sphragis island to free
  * @Ret : None.
@@ -55,6 +56,7 @@ void freeRoute(Route *ptRoute) {
  ************************************************/
 void freeIsland(Island *ptIsland, SPHRAGIS_Island *ptSphragis) {
     size_t i = 0;
+    int nFdStock = -1;
 
     if (NULL != ptIsland) {
         free(ptIsland->psName);
@@ -66,7 +68,11 @@ void freeIsland(Island *ptIsland, SPHRAGIS_Island *ptSphragis) {
             }
             free(ptIsland->atRoutes);
         }
+        // The stock file is closed by closeFiles: keep its descriptor,
+        // otherwise it would become 0 and close(0) would close stdin
+        nFdStock = ptIsland->nFdStock;
         memset(ptIsland, 0, sizeof(*ptIsland));
+        ptIsland->nFdStock = nFdStock;
     }
 
     if (NULL != ptSphragis) {
@@ -289,9 +295,10 @@ static int openFiles(char *argv[], int *pnFdConfig, int *pnFdStock) {
 /***********************************************
  *
  * @Name : startServer
- * @Def : Opens the listening socket, prepares the set of descriptors and
- *        prints the welcome message. If the socket fails, it closes the
- *        files and frees the island.
+ * @Def : Creates the island folder if needed, opens the listening socket,
+ *        prepares the set of descriptors and the worker pool and prints the
+ *        welcome message. On error, it closes the files and frees the
+ *        island.
  * @Arg : In/Out: ptIsland = island that will listen for connections
  *        In/Out: pnFdConfig = pointer to the config file descriptor
  *        In/Out: ptSphragis = sphragis island to free on error
@@ -302,9 +309,19 @@ static int startServer(Island *ptIsland, int *pnFdConfig,
                        SPHRAGIS_Island *ptSphragis) {
     char *psBuff = NULL;
 
+    // The island keeps its temporary transfer files in its folder (line 2
+    // of the config file)
+    if (-1 == mkdir(ptIsland->psFile, ISLAND_FOLDER_MODE) && EEXIST != errno) {
+        printErr(ERROR_FOLDER);
+        closeFiles(pnFdConfig, &ptIsland->nFdStock);
+        freeStock(&ptIsland->atStock);
+        freeIsland(ptIsland, ptSphragis);
+        return -1;
+    }
+
     ptIsland->nServerFd = openListenConn(ptIsland->psIp, ptIsland->nPort);
     if (0 > ptIsland->nServerFd) {
-        write(STDOUT_FILENO, ERROR_SOCKET, strlen(ERROR_SOCKET));
+        write(STDERR_FILENO, ERROR_SOCKET, strlen(ERROR_SOCKET));
         closeFiles(pnFdConfig, &ptIsland->nFdStock);
         freeStock(&ptIsland->atStock);
         freeIsland(ptIsland, ptSphragis);
@@ -326,14 +343,14 @@ static int startServer(Island *ptIsland, int *pnFdConfig,
     
     FD_SET(poolNotifyFd(&ptIsland->tPool), &ptIsland->tFdsClients);
 
+    ptIsland->nMaxFd = ptIsland->nServerFd;
     if (poolNotifyFd(&ptIsland->tPool) > ptIsland->nMaxFd) {
         ptIsland->nMaxFd = poolNotifyFd(&ptIsland->tPool);
     }
 
-    ptIsland->nMaxFd = ptIsland->nServerFd;
-
     if (-1 == asprintf(&psBuff, WELCOME, ptIsland->psName, ptIsland->nCapacity,
                        (int)ptIsland->tNumRoutes, (int)ptIsland->tNumStock)) {
+        poolDestroy(&ptIsland->tPool);
         close(ptIsland->nServerFd);
         closeFiles(pnFdConfig, &ptIsland->nFdStock);
         freeStock(&ptIsland->atStock);
@@ -359,7 +376,12 @@ static void acceptClient(Island *ptIsland) {
 
     nFdClient = accept(ptIsland->nServerFd, NULL, NULL);
     if (0 > nFdClient) {
-        write(STDOUT_FILENO, ERROR_SOCKET, strlen(ERROR_SOCKET));
+        write(STDERR_FILENO, ERROR_SOCKET, strlen(ERROR_SOCKET));
+        return;
+    }
+    // select() cannot watch descriptors past FD_SETSIZE
+    if (FD_SETSIZE <= nFdClient) {
+        close(nFdClient);
         return;
     }
     FD_SET(nFdClient, &ptIsland->tFdsClients);
@@ -380,8 +402,9 @@ static void acceptClient(Island *ptIsland) {
  ************************************************/
 static void handleClient(Island *ptIsland, int nFd) {
     int nResult = RECEIVE_ERROR;
-    Message tMsg = {0};
+    Message tMsg;
 
+    memset(&tMsg, 0, sizeof(Message));
     nResult = receiveMessage(&tMsg, nFd);
 
     if (RECEIVE_ERROR == nResult) {
@@ -509,9 +532,11 @@ static void closeIsland(Island *ptIsland, int *pnFdConfig,
  ************************************************/
 int main(int argc, char *argv[]) {
     int nFdConfig = -1;
-    Island tIsland = {0};
-    SPHRAGIS_Island tSphragis = {0};
+    Island tIsland;
+    SPHRAGIS_Island tSphragis;
 
+    memset(&tIsland, 0, sizeof(Island));
+    memset(&tSphragis, 0, sizeof(SPHRAGIS_Island));
     tIsland.nFdStock = -1;
 
     if (0 != checkArgcIsland(argc, argv)) {
