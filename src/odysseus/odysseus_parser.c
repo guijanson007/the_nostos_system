@@ -31,10 +31,13 @@ static int buildSupplies(Odysseus *ptOdysseus, char **apsLines, size_t tOutCount
     Supply *ptSupply = NULL;
  
     if (0 < ptOdysseus->tCargo.nNumSupplies) {
-        ptOdysseus->tCargo.atSupplies = calloc(ptOdysseus->tCargo.nNumSupplies, sizeof(Supply));
+        ptOdysseus->tCargo.atSupplies =
+            malloc((size_t)ptOdysseus->tCargo.nNumSupplies * sizeof(Supply));
         if (NULL == ptOdysseus->tCargo.atSupplies) {
             return 0;
         } else {
+            memset(ptOdysseus->tCargo.atSupplies, 0,
+                   (size_t)ptOdysseus->tCargo.nNumSupplies * sizeof(Supply));
             while (tLine < tOutCount &&
                    (tLine - SUPPLIES_FIRST_LINE) <
                        (size_t)ptOdysseus->tCargo.nNumSupplies) {
@@ -100,10 +103,11 @@ static void parseIpPort(Odysseus *ptOdysseus, const char *psLine) {
  *
  ************************************************/
 Odysseus odysseusParseFile(int nFd) {
-    Odysseus tOdysseus = {0};
+    Odysseus tOdysseus;
     size_t tOutCount = 0;
     char **apsLines = NULL;
  
+    memset(&tOdysseus, 0, sizeof(tOdysseus));
     tOdysseus.nIthacaSocket = NO_SOCKET;
     tOdysseus.nIslandSocket = NO_SOCKET;
  

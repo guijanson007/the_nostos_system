@@ -53,10 +53,11 @@ static int odysseusInitState(Odysseus *ptOdysseus) {
     ptOdysseus->nIslandSocket = NO_SOCKET;
 
     // Map with one island: Aeaea
-    ptOdysseus->tMap.atConnections = calloc(1, sizeof(KnownIsland));
+    ptOdysseus->tMap.atConnections = malloc(sizeof(KnownIsland));
     if (NULL == ptOdysseus->tMap.atConnections) {
         return -1;
     }
+    memset(ptOdysseus->tMap.atConnections, 0, sizeof(KnownIsland));
     psCopy = strdup(ptOdysseus->psInitialInfo);
     if (NULL == psCopy) {
         return -1;
@@ -176,8 +177,9 @@ void closeConnections(Odysseus *ptOdysseus) {
  ************************************************/
 int main(int argc, char *argv[]) {
     int nFd = -1;
-    Odysseus tOdysseus = {0};
+    Odysseus tOdysseus;
 
+    memset(&tOdysseus, 0, sizeof(tOdysseus));
     if (EXPECTED_ARGC != argc) {
         printErr(ERROR_ARGC);
         return EXIT_FAILURE;

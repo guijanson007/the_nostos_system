@@ -231,7 +231,10 @@ CommandValidationResult validateOdysseusCommand(const OdysseusCommand *ptCommand
             break;
     }
  
-    return NULL == *ppsErrorMessage ? COMMAND_VALID : COMMAND_INVALID_ARGUMENTS;
+    if (NULL != *ppsErrorMessage) {
+        return COMMAND_INVALID_ARGUMENTS;
+    }
+    return COMMAND_VALID;
 }
 
 /*************************************************

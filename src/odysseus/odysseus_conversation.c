@@ -85,9 +85,10 @@ static OdysseusStatus receiveIslandResponse(Odysseus *ptOdysseus,
  *
  ************************************************/
 OdysseusStatus connectToIthaca(Odysseus *ptOdysseus) {
-    struct sockaddr_in stAddr = {0};
+    struct sockaddr_in stAddr;
     int nSocketFd = -1;
 
+    memset(&stAddr, 0, sizeof(stAddr));
     nSocketFd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (0 > nSocketFd) {
         odysseusSetErrnoError(ptOdysseus, ERROR_CREATE_SOCKET, errno);
@@ -245,7 +246,10 @@ static int handleVoyageFrame(char *psData, char **apsFields, int i,
             *peStatus = ODY_ERR_PROTOCOL;
             return 1;
         }
-        *patVoyages = calloc((size_t)*pnTotal, sizeof(OdysseusVoyage));
+        *patVoyages = malloc((size_t)*pnTotal * sizeof(OdysseusVoyage));
+        if (NULL != *patVoyages) {
+            memset(*patVoyages, 0, (size_t)*pnTotal * sizeof(OdysseusVoyage));
+        }
     }
 
     if (NULL == *patVoyages) {
@@ -273,7 +277,7 @@ static int handleVoyageFrame(char *psData, char **apsFields, int i,
  *
  ************************************************/
 OdysseusStatus requestListOfVoyages(Odysseus *ptOdysseus) {
-    Message tMessage = {0};
+    Message tMessage;
     char **apsFields = NULL;
     OdysseusVoyage *atVoyages = NULL;
     OdysseusStatus eStatus = ODY_OK;
@@ -281,13 +285,15 @@ OdysseusStatus requestListOfVoyages(Odysseus *ptOdysseus) {
     int nTotal = 0;
     int i = 0;
 
+    memset(&tMessage, 0, sizeof(tMessage));
     tMessage.type = MSG_LIST_VOYAGES;
     tMessage.flag = FLAG_NONE;
 
-    apsFields = calloc(VOYAGE_LIST_FIELDS, sizeof(char *));
+    apsFields = malloc(VOYAGE_LIST_FIELDS * sizeof(char *));
     if (NULL == apsFields) {
         return ODY_ERR_IO;
     }
+    memset(apsFields, 0, VOYAGE_LIST_FIELDS * sizeof(char *));
     if (0 != sendMessage(&tMessage, ptOdysseus->nIthacaSocket)) {
         free(apsFields);
         return ODY_ERR_IO;
@@ -365,12 +371,14 @@ static OdysseusStatus receiveObject(Odysseus *ptOdysseus) {
  *
  ************************************************/
 OdysseusStatus requestAcceptVoyage(Odysseus *ptOdysseus, int nVoyageId) {
-    Message tMessage = {0};
-    OdysseusVoyage tVoyage = {0};
+    Message tMessage;
+    OdysseusVoyage tVoyage;
     OdysseusStatus eStatus = ODY_OK;
     char **apsFields = NULL;
     char *psId = NULL;
 
+    memset(&tMessage, 0, sizeof(tMessage));
+    memset(&tVoyage, 0, sizeof(tVoyage));
     tMessage.type = MSG_ACCEPT;
     tMessage.flag = FLAG_NONE;
     if (-1 == asprintf(&psId, INT_FORMAT, nVoyageId)) {
@@ -387,10 +395,11 @@ OdysseusStatus requestAcceptVoyage(Odysseus *ptOdysseus, int nVoyageId) {
         return eStatus;
     }
 
-    apsFields = calloc(VOYAGE_ACCEPT_FIELDS, sizeof(char *));
+    apsFields = malloc(VOYAGE_ACCEPT_FIELDS * sizeof(char *));
     if (NULL == apsFields) {
         return ODY_ERR_IO;
     }
+    memset(apsFields, 0, VOYAGE_ACCEPT_FIELDS * sizeof(char *));
     // OK&<VoyageID>&<Object>&<Destination>&<Reward>
     if (VOYAGE_ACCEPT_FIELDS !=
             splitFields(tMessage.data, apsFields, VOYAGE_ACCEPT_FIELDS) ||
@@ -427,9 +436,10 @@ OdysseusStatus requestAcceptVoyage(Odysseus *ptOdysseus, int nVoyageId) {
  *
  ************************************************/
 OdysseusStatus disconnectFromIthaca(Odysseus *ptOdysseus) {
-    Message tMessage = {0};
+    Message tMessage;
     OdysseusStatus eStatus = ODY_OK;
 
+    memset(&tMessage, 0, sizeof(tMessage));
     if (NO_SOCKET == ptOdysseus->nIthacaSocket) {
         return ODY_OK;
     }
@@ -462,9 +472,10 @@ OdysseusStatus disconnectFromIthaca(Odysseus *ptOdysseus) {
  *
  ************************************************/
 OdysseusStatus arriveAtIsland(Odysseus *ptOdysseus, int *pnArrival) {
-    Message tMessage = {0};
+    Message tMessage;
     OdysseusStatus eStatus = ODY_OK;
 
+    memset(&tMessage, 0, sizeof(tMessage));
     tMessage.type = MSG_ARRIVAL_ISLAND;
     tMessage.flag = FLAG_NONE;
     buildMessage(&tMessage, FLAG_NONE, ptOdysseus->psName);
@@ -500,8 +511,9 @@ OdysseusStatus arriveAtIsland(Odysseus *ptOdysseus, int *pnArrival) {
  *
  ************************************************/
 OdysseusStatus notifyConnection(Odysseus *ptOdysseus) {
-    Message tMessage = {0};
+    Message tMessage;
 
+    memset(&tMessage, 0, sizeof(tMessage));
     tMessage.type = MSG_CONNECT_ITHACA;
     tMessage.flag = FLAG_NONE;
     buildMessage(&tMessage, FLAG_NONE, ptOdysseus->psName);
@@ -576,8 +588,9 @@ static int consumeRation(Odysseus *ptOdysseus) {
  *
  ************************************************/
 static OdysseusStatus readPortMessage(Odysseus *ptOdysseus, int *pnArrival) {
-    Message tMessage = {0};
+    Message tMessage;
 
+    memset(&tMessage, 0, sizeof(tMessage));
     if (0 != receiveMessage(&tMessage, ptOdysseus->nIslandSocket)) {
         return ODY_ERR_IO;
     }
@@ -650,12 +663,13 @@ static int handleWaitingInputs(Odysseus *ptOdysseus) {
  ************************************************/
 OdysseusStatus waitingAtPort(Odysseus *ptOdysseus, int *pnArrival) {
     fd_set tReadFds;
-    struct timeval stTimeout = {0};
+    struct timeval stTimeout;
     OdysseusStatus eStatus = ODY_OK;
     int nReady = 0;
     int nResult = 0;
     int nWatchInputs = 1;
 
+    memset(&stTimeout, 0, sizeof(stTimeout));
     *pnArrival = ARRIVAL_NONE;
     resetTimeout(&stTimeout);
 
@@ -692,7 +706,10 @@ OdysseusStatus waitingAtPort(Odysseus *ptOdysseus, int *pnArrival) {
         if (0 != nWatchInputs && FD_ISSET(STDIN_FILENO, &tReadFds)) {
             nResult = handleWaitingInputs(ptOdysseus);
             if (-1 == nResult) {
-                return (EINTR == errno) ? ODY_OK : ODY_ERR_IO;
+                if (EINTR == errno) {
+                    return ODY_OK;
+                }
+                return ODY_ERR_IO;
             }
             if (1 == nResult) {
                 nWatchInputs = 0;
@@ -838,7 +855,7 @@ static void useMarketLine(const char *psProduct, int nAmount, int nPrice,
  ************************************************/
 static OdysseusStatus queryMarket(Odysseus *ptOdysseus, int nPrint,
                                   const char *psWanted, int *pnPrice) {
-    Message tMessage = {0};
+    Message tMessage;
     OdysseusStatus eStatus = ODY_OK;
     char *psProduct = NULL;
     int nIndex = 0;
@@ -847,6 +864,7 @@ static OdysseusStatus queryMarket(Odysseus *ptOdysseus, int nPrint,
     int nAmount = 0;
     int nPrice = 0;
 
+    memset(&tMessage, 0, sizeof(tMessage));
     tMessage.type = MSG_LIST_MARKET;
     tMessage.flag = FLAG_NONE;
 
@@ -987,13 +1005,14 @@ static OdysseusStatus checkEnoughGold(Odysseus *ptOdysseus,
  ************************************************/
 OdysseusStatus buyProducts(Odysseus *ptOdysseus, const char *psProduct,
                            const char *psAmount) {
-    Message tMessage = {0};
+    Message tMessage;
     OdysseusStatus eStatus = ODY_OK;
     char *psBuffer = NULL;
     char *psBought = NULL;
     int nAmount = 0;
     int nCost = 0;
 
+    memset(&tMessage, 0, sizeof(tMessage));
     eStatus = checkEnoughGold(ptOdysseus, psProduct, psAmount);
     if (ODY_OK != eStatus) {
         return eStatus;
@@ -1113,10 +1132,11 @@ static int parseMapRoute(char *psData, int nReceived, int *pnTotal,
     int nResult = 0;
 
     *pnIsRoute = 0;
-    apsFields = calloc(MAP_FIELDS_ROUTE, sizeof(char *));
+    apsFields = malloc(MAP_FIELDS_ROUTE * sizeof(char *));
     if (NULL == apsFields) {
         return -1;
     }
+    memset(apsFields, 0, MAP_FIELDS_ROUTE * sizeof(char *));
     nFields = splitFields(psData, apsFields, MAP_FIELDS_ROUTE);
 
     if (MAP_FIELDS_EMPTY > nFields || 0 != strcmp(apsFields[0], OK_RESPONSE) ||
@@ -1177,10 +1197,11 @@ static OdysseusStatus appendRoute(MapRoute **patRoutes, int *pnReceived,
 static OdysseusStatus receiveMapRoutes(Odysseus *ptOdysseus, Message *ptMessage,
                                        MapRoute **patRoutes, int *pnReceived) {
     OdysseusStatus eStatus = ODY_OK;
-    MapRoute tRoute = {0};
+    MapRoute tRoute;
     int nTotal = NO_TOTAL;
     int nIsRoute = 0;
 
+    memset(&tRoute, 0, sizeof(tRoute));
     while (ODY_OK == eStatus && (NO_TOTAL == nTotal || *pnReceived < nTotal)) {
         eStatus = receiveIslandResponse(ptOdysseus, ptMessage, MSG_BUY_MAP);
         if (ODY_OK != eStatus) {
@@ -1207,12 +1228,13 @@ static OdysseusStatus receiveMapRoutes(Odysseus *ptOdysseus, Message *ptMessage,
  *
  ************************************************/
 OdysseusStatus buyMap(Odysseus *ptOdysseus) {
-    Message tMessage = {0};
+    Message tMessage;
     OdysseusStatus eStatus = ODY_OK;
     MapRoute *atRoutes = NULL;
     char *psBuffer = NULL;
     int nReceived = 0;
 
+    memset(&tMessage, 0, sizeof(tMessage));
     tMessage.type = MSG_BUY_MAP;
     if (-1 == asprintf(&psBuffer, INT_FORMAT, MAP_AMOUNT)) {
         return ODY_ERR_IO;
@@ -1262,9 +1284,10 @@ OdysseusStatus buyMap(Odysseus *ptOdysseus) {
  *
  ************************************************/
 OdysseusStatus departFromIsland(Odysseus *ptOdysseus) {
-    Message tMessage = {0};
+    Message tMessage;
     OdysseusStatus eStatus = ODY_OK;
 
+    memset(&tMessage, 0, sizeof(tMessage));
     if (NO_SOCKET == ptOdysseus->nIslandSocket) {
         return ODY_OK;
     }
@@ -1303,12 +1326,13 @@ OdysseusStatus departFromIsland(Odysseus *ptOdysseus) {
  ************************************************/
 OdysseusStatus sellProduct(Odysseus *ptOdysseus, const char *psProduct,
                            int nAmount) {
-    Message tMessage = {0};
+    Message tMessage;
     OdysseusStatus eStatus = ODY_OK;
     char *psBuffer = NULL;
     char *psSold = NULL;
     int nIncome = 0;
 
+    memset(&tMessage, 0, sizeof(tMessage));
     tMessage.type = MSG_SELL;
 
     if (-1 == asprintf(&psBuffer, TRADE_SELL_FORMAT, psProduct, nAmount)) {
