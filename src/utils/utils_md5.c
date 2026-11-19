@@ -15,7 +15,7 @@
  ************************************************/
 char *computeMd5(const char *psPath) {
     pid_t nPid = 0;
-    int anPipe[2];
+    int anPipe[MD5_PIPE_ENDS];
     int nStatus = 0;
     int nRead = 0;
     int nBytes = 0;
@@ -29,44 +29,46 @@ char *computeMd5(const char *psPath) {
     if (NULL == psMd5) {
         return NULL;
     }
-    if (-1 == pipe(anPipe)) {
+    // Close-on-exec: other workers' md5sum children must not inherit this
+    // pipe (they would delay its end of file) nor any other descriptor
+    if (-1 == pipe2(anPipe, O_CLOEXEC)) {
         free(psMd5);
         return NULL;
     }
 
     nPid = fork();
     if (0 > nPid) {
-        close(anPipe[0]);
-        close(anPipe[1]);
+        close(anPipe[MD5_PIPE_READ]);
+        close(anPipe[MD5_PIPE_WRITE]);
         free(psMd5);
         return NULL;
     }
     else if (0 == nPid) {
         // Child: nothing but fd plumbing before exec (we may come from a thread)
-        dup2(anPipe[1], STDOUT_FILENO);
-        close(anPipe[0]);
-        close(anPipe[1]);
-        nNull = open("/dev/null", O_WRONLY);
+        dup2(anPipe[MD5_PIPE_WRITE], STDOUT_FILENO);
+        close(anPipe[MD5_PIPE_READ]);
+        close(anPipe[MD5_PIPE_WRITE]);
+        nNull = open(MD5_NULL_DEVICE, O_WRONLY);
         if (0 <= nNull) {
             dup2(nNull, STDERR_FILENO);
             close(nNull);
         }
-        execlp("md5sum", "md5sum", psPath, NULL);
-        free(psMd5);
+        execlp(MD5_COMMAND, MD5_COMMAND, psPath, NULL);
+        // Only exit: the child of a threaded process must not touch malloc
         exit(EXIT_FAILURE);
     }
 
     // The parent must close its write end, otherwise a failing md5sum would
     // leave read() blocked forever instead of reaching end of file
-    close(anPipe[1]);
+    close(anPipe[MD5_PIPE_WRITE]);
     while (nRead < MD5_LENGTH) {
-        nBytes = read(anPipe[0], psMd5 + nRead, MD5_LENGTH - nRead);
+        nBytes = read(anPipe[MD5_PIPE_READ], psMd5 + nRead, MD5_LENGTH - nRead);
         if (0 >= nBytes) {
             break;
         }
         nRead += nBytes;
     }
-    close(anPipe[0]);
+    close(anPipe[MD5_PIPE_READ]);
 
     while (-1 == waitpid(nPid, &nStatus, 0)) {
         if (EINTR != errno) {
