@@ -1,5 +1,5 @@
 CC       = gcc
-CFLAGS   = -Wall -Wextra -std=c99 -g -I$(INCLUDE_DIR) -Ilib/sphragis
+CFLAGS   = -Wall -Wextra -g -I$(INCLUDE_DIR) -Ilib/sphragis
 LDLIBS   = -lpthread
 
 # Executables

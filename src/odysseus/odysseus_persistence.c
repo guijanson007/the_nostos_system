@@ -32,7 +32,7 @@
  * @Ret : None.
  *
  ************************************************/
-static void putField(unsigned char *pcBuffer, uint32_t nValue) {
+void putField(unsigned char *pcBuffer, uint32_t nValue) {
     memcpy(pcBuffer, &nValue, STATE_FIELD_SIZE);
 }
 
@@ -45,7 +45,7 @@ static void putField(unsigned char *pcBuffer, uint32_t nValue) {
  * @Ret : The value read.
  *
  ************************************************/
-static uint32_t getField(const unsigned char *pcBuffer) {
+uint32_t getField(const unsigned char *pcBuffer) {
     uint32_t nValue = 0;
 
     memcpy(&nValue, pcBuffer, STATE_FIELD_SIZE);
@@ -60,7 +60,7 @@ static uint32_t getField(const unsigned char *pcBuffer) {
  * @Ret : The sum of the bytes.
  *
  ************************************************/
-static uint32_t checksum(const unsigned char *pcBuffer) {
+uint32_t checksum(const unsigned char *pcBuffer) {
     uint32_t nSum = 0;
     int i = 0;
 
@@ -80,7 +80,7 @@ static uint32_t checksum(const unsigned char *pcBuffer) {
  * @Ret : Allocated path (the caller frees it), or NULL on failure.
  *
  ************************************************/
-static char *buildStatePath(const Odysseus *ptOdysseus) {
+char *buildStatePath(const Odysseus *ptOdysseus) {
     char *psPath = NULL;
 
     if (NULL == ptOdysseus->psName || '\0' == ptOdysseus->psName[0] ||
@@ -104,7 +104,7 @@ static char *buildStatePath(const Odysseus *ptOdysseus) {
  * @Ret : 0 on success, -1 if the string is missing or doesn't fit.
  *
  ************************************************/
-static int putString(unsigned char *pcField, const char *psValue, size_t tSize) {
+int putString(unsigned char *pcField, const char *psValue, size_t tSize) {
     if (NULL == psValue || tSize <= strlen(psValue)) {
         return -1;
     }
@@ -123,7 +123,7 @@ static int putString(unsigned char *pcField, const char *psValue, size_t tSize) 
  * @Ret : 0 on success, -1 if a field doesn't fit in the record.
  *
  ************************************************/
-static int encodeVoyage(const OdysseusVoyage *ptVoyage, unsigned char *pcBuffer) {
+int encodeVoyage(const OdysseusVoyage *ptVoyage, unsigned char *pcBuffer) {
     if (0 >= ptVoyage->nId || NULL == ptVoyage->psObjectPath) {
         return 0;
     }
@@ -153,7 +153,7 @@ static int encodeVoyage(const OdysseusVoyage *ptVoyage, unsigned char *pcBuffer)
  * @Ret : 0 on success, -1 if the state doesn't fit in the record.
  *
  ************************************************/
-static int encodeState(const Odysseus *ptOdysseus, unsigned char *pcBuffer) {
+int encodeState(const Odysseus *ptOdysseus, unsigned char *pcBuffer) {
     const Cargo *ptCargo = &ptOdysseus->tCargo;
     int i = 0;
     unsigned char *pcSlot = NULL;
@@ -237,8 +237,7 @@ int odysseusSaveState(const Odysseus *ptOdysseus) {
  * @Ret : 0 if a record of the right size was read, -1 otherwise.
  *
  ************************************************/
-static int readRecord(const char *psPath, unsigned char *pcBuffer,
-                      int *pnMissing) {
+int readRecord(const char *psPath, unsigned char *pcBuffer, int *pnMissing) {
     unsigned char cExtra = 0;
     ssize_t tRead = 0;
     size_t tTotal = 0;
@@ -274,7 +273,7 @@ static int readRecord(const char *psPath, unsigned char *pcBuffer,
  *        empty, not terminated or memory ran out.
  *
  ************************************************/
-static char *getString(const unsigned char *pcField, size_t tSize) {
+char *getString(const unsigned char *pcField, size_t tSize) {
     if ('\0' == pcField[0] || NULL == memchr(pcField, '\0', tSize)) {
         return NULL;
     }
@@ -292,9 +291,10 @@ static char *getString(const unsigned char *pcField, size_t tSize) {
  * @Ret : 0 on success, -1 if the voyage part is invalid.
  *
  ************************************************/
-static int decodeVoyage(const unsigned char *pcBuffer, OdysseusVoyage *ptVoyage) {
+int decodeVoyage(const unsigned char *pcBuffer, OdysseusVoyage *ptVoyage) {
     uint32_t nId = getField(pcBuffer + STATE_VOYAGE_OFFSET);
-    uint32_t nReward = getField(pcBuffer + STATE_VOYAGE_OFFSET + STATE_FIELD_SIZE);
+    uint32_t nReward =
+        getField(pcBuffer + STATE_VOYAGE_OFFSET + STATE_FIELD_SIZE);
     uint32_t nDelivered =
         getField(pcBuffer + STATE_VOYAGE_OFFSET + 2 * STATE_FIELD_SIZE);
 
@@ -308,7 +308,8 @@ static int decodeVoyage(const unsigned char *pcBuffer, OdysseusVoyage *ptVoyage)
     ptVoyage->nId = (int)nId;
     ptVoyage->nReward = (int)nReward;
     ptVoyage->nDelivered = (int)nDelivered;
-    ptVoyage->psObject = getString(pcBuffer + STATE_OBJECT_OFFSET, STATE_NAME_SIZE);
+    ptVoyage->psObject =
+        getString(pcBuffer + STATE_OBJECT_OFFSET, STATE_NAME_SIZE);
     ptVoyage->psDestination =
         getString(pcBuffer + STATE_DESTINATION_OFFSET, STATE_NAME_SIZE);
     ptVoyage->psFileName =
@@ -330,7 +331,7 @@ static int decodeVoyage(const unsigned char *pcBuffer, OdysseusVoyage *ptVoyage)
  * @Ret : 0 on success, -1 if the record is invalid.
  *
  ************************************************/
-static int decodeState(const unsigned char *pcBuffer, Cargo *ptCargo) {
+int decodeState(const unsigned char *pcBuffer, Cargo *ptCargo) {
     const unsigned char *pcSlot = NULL;
     uint32_t nNum = 0;
     uint32_t nGold = 0;
@@ -375,7 +376,7 @@ static int decodeState(const unsigned char *pcBuffer, Cargo *ptCargo) {
  * @Ret : 1 if it can, 0 otherwise.
  *
  ************************************************/
-static int fileExists(const char *psPath) {
+int fileExists(const char *psPath) {
     int nFd = open(psPath, O_RDONLY);
 
     if (-1 == nFd) {
@@ -396,7 +397,7 @@ static int fileExists(const char *psPath) {
  * @Ret : 0 if every file the voyage needs is there, -1 otherwise.
  *
  ************************************************/
-static int attachVoyageFiles(const Odysseus *ptOdysseus, OdysseusVoyage *ptVoyage) {
+int attachVoyageFiles(const Odysseus *ptOdysseus, OdysseusVoyage *ptVoyage) {
     if (-1 == asprintf(&ptVoyage->psObjectPath, OBJECT_FILE_FORMAT,
                        ptOdysseus->psPath, ptOdysseus->psName)) {
         ptVoyage->psObjectPath = NULL;
@@ -427,7 +428,7 @@ static int attachVoyageFiles(const Odysseus *ptOdysseus, OdysseusVoyage *ptVoyag
  * @Ret : None.
  *
  ************************************************/
-static void freeCargoSupplies(Cargo *ptCargo) {
+void freeCargoSupplies(Cargo *ptCargo) {
     int i = 0;
 
     for (i = 0; i < ptCargo->nNumSupplies; i++) {
@@ -526,8 +527,7 @@ void odysseusResetState(const Odysseus *ptOdysseus) {
  *
  ************************************************/
 void odysseusSaveOnExit(Odysseus *ptOdysseus) {
-    if (0 >= ptOdysseus->tCargo.nTotalAmount &&
-        0 >= ptOdysseus->tCargo.nGold) {
+    if (0 >= ptOdysseus->tCargo.nTotalAmount && 0 >= ptOdysseus->tCargo.nGold) {
         odysseusResetState(ptOdysseus);
         discardOdysseusVoyage(&ptOdysseus->tActiveVoyage);
     } else {

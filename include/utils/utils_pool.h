@@ -64,7 +64,7 @@ typedef struct {
     char *psFileName; // name of the file in the transfer
     char *psOwner;    // island whose glyph is applied or expected
     FileInfo tInfo;
-    int nResult;      // JOB_RESULT_OK or JOB_RESULT_ERROR, set by the worker
+    int nResult; // JOB_RESULT_OK or JOB_RESULT_ERROR, set by the worker
 } PoolJob;
 
 // Runs one job (a switch over ptJob->eType) and sets ptJob->nResult. It is
@@ -87,7 +87,9 @@ typedef struct {
     int anNotify[POOL_PIPE_ENDS]; // finished jobs, one pointer each
 } ThreadPool;
 
-PoolJob *createJob(JobType eType, int nFd, const char *psPath, const char *psFileName, const char *psOwner, FileInfo *ptInfo);
+PoolJob *createJob(JobType eType, int nFd, const char *psPath,
+                   const char *psFileName, const char *psOwner,
+                   FileInfo *ptInfo);
 void freeJob(PoolJob *ptJob);
 int poolCreate(ThreadPool *ptPool, int nWorkers, int nCapacity);
 int poolSubmit(ThreadPool *ptPool, PoolJob *ptJob);

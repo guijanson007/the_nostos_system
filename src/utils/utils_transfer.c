@@ -21,9 +21,8 @@
  * @Ret : TRANSFER_OK, or TRANSFER_ERROR if the kind is unknown.
  *
  ************************************************/
-static int transferSettings(TransferType eType, const char **ppsKind,
-                            unsigned char *pcHeaderFlags,
-                            unsigned char *pcDataFlags) {
+int transferSettings(TransferType eType, const char **ppsKind,
+                     unsigned char *pcHeaderFlags, unsigned char *pcDataFlags) {
 
     switch (eType) {
         case TRANSFER_CLAIM:
@@ -57,7 +56,7 @@ static int transferSettings(TransferType eType, const char **ppsKind,
  * @Ret : 1 if it is a valid MD5, 0 otherwise.
  *
  ************************************************/
-static int isMd5Text(const char *psText) {
+int isMd5Text(const char *psText) {
     int i = 0;
 
     if (MD5_LENGTH != strlen(psText)) {
@@ -171,8 +170,8 @@ void freeFileInfo(FileInfo *ptInfo) {
  * @Ret : TRANSFER_OK, or TRANSFER_PEER_GONE if the write failed.
  *
  ************************************************/
-static int sendFrame(int nFd, MessageType eType, unsigned char cFlags,
-                     const char *psText) {
+int sendFrame(int nFd, MessageType eType, unsigned char cFlags,
+              const char *psText) {
     Message tMsg;
 
     memset(&tMsg, 0, sizeof(Message));
@@ -196,7 +195,7 @@ static int sendFrame(int nFd, MessageType eType, unsigned char cFlags,
  *        TRANSFER_PEER_GONE if the peer has left or timed out.
  *
  ************************************************/
-static int waitFrame(int nFd, MessageType eType, Message *ptMsg) {
+int waitFrame(int nFd, MessageType eType, Message *ptMsg) {
     int nRet = RECEIVE_ERROR;
 
     // A malformed frame leaves ptMsg untouched: never check a stale frame
@@ -221,7 +220,7 @@ static int waitFrame(int nFd, MessageType eType, Message *ptMsg) {
  * @Ret : Bytes read (less than nWanted only at end of file or on error).
  *
  ************************************************/
-static int readChunk(int nFile, char *pcBuffer, int nWanted) {
+int readChunk(int nFile, char *pcBuffer, int nWanted) {
     int nTotal = 0;
     int nBytes = 0;
 
@@ -249,8 +248,7 @@ static int readChunk(int nFile, char *pcBuffer, int nWanted) {
  *        TRANSFER_PEER_GONE if a write failed.
  *
  ************************************************/
-static int streamFileOut(int nFd, int nFile, long nSize,
-                         unsigned char cDataFlags) {
+int streamFileOut(int nFd, int nFile, long nSize, unsigned char cDataFlags) {
     Message tMsg;
     long nSent = 0;
     int nChunk = 0;
@@ -284,7 +282,7 @@ static int streamFileOut(int nFd, int nFile, long nSize,
  * @Ret : Size in bytes, or -1 on error.
  *
  ************************************************/
-static long readFileSize(int nFile) {
+long readFileSize(int nFile) {
     off_t tSize = lseek(nFile, 0, SEEK_END);
 
     if (0 > tSize || 0 > lseek(nFile, 0, SEEK_SET)) {
@@ -396,7 +394,7 @@ int rejectTransfer(int nFd, const char *psReason) {
  * @Ret : 1 if everything was written, 0 otherwise.
  *
  ************************************************/
-static int writeChunk(int nFile, const char *pcBuffer, int nLength) {
+int writeChunk(int nFile, const char *pcBuffer, int nLength) {
     int nTotal = 0;
     int nBytes = 0;
 
@@ -426,8 +424,7 @@ static int writeChunk(int nFile, const char *pcBuffer, int nLength) {
  *        closed, timed out or a frame broke the protocol.
  *
  ************************************************/
-static int streamFileIn(int nFd, int nFile, long nSize,
-                        unsigned char cDataFlags) {
+int streamFileIn(int nFd, int nFile, long nSize, unsigned char cDataFlags) {
     Message tMsg;
     long nFrames = (nSize + MESSAGE_DATA_MAX - 1) / MESSAGE_DATA_MAX;
     long nReceived = 0;
@@ -629,7 +626,7 @@ char *buildRecordPath(const char *psFolder, const char *psShip, int nVoyageId,
  * @Ret : 1 if usable, 0 otherwise.
  *
  ************************************************/
-static int jobHasArgs(const PoolJob *ptJob) {
+int jobHasArgs(const PoolJob *ptJob) {
     if (NULL == ptJob->psPath || 0 > ptJob->nFd) {
         return 0;
     }
@@ -662,7 +659,7 @@ static int jobHasArgs(const PoolJob *ptJob) {
  *        image cannot be read), or any code of receiveBody.
  *
  ************************************************/
-static int verifyClaim(PoolJob *ptJob) {
+int verifyClaim(PoolJob *ptJob) {
     int nRet = TRANSFER_OK;
 
     if (NULL != ptJob->psFileName &&
@@ -698,7 +695,7 @@ static int verifyClaim(PoolJob *ptJob) {
  *        receiveBody / sendFile.
  *
  ************************************************/
-static int sealDelivery(PoolJob *ptJob) {
+int sealDelivery(PoolJob *ptJob) {
     char *psSignedPath = NULL;
     const char *psName = ptJob->psFileName;
     int nRet = receiveBody(ptJob->nFd, TRANSFER_DELIVERY, ptJob->psPath,
@@ -735,7 +732,7 @@ static int sealDelivery(PoolJob *ptJob) {
  * @Def : Runs one pool job on the worker thread and stores a TRANSFER_*
  *        code in ptJob->nResult (TRANSFER_OK is JOB_RESULT_OK). Only this
  *        worker touches ptJob->nFd meanwhile. Everything is reentrant: no
- *        static buffers and no strtok.
+ *         buffers and no strtok.
  *        JOB_SEND_FILE sends psPath as an OBJECT (Ithaca after ACCEPT);
  *        JOB_RECEIVE_FILE waits for a CLAIM HEADER itself and stores the
  *        file in psPath, keeping it (the caller owns it);

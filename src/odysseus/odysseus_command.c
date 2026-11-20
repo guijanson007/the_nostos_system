@@ -1,7 +1,8 @@
 /***********************************************
  *
  * @File : odysseus_command.c
- * @Purpose : parses, validates and executes the commands typed in the odysseus menu
+ * @Purpose : parses, validates and executes the commands typed in the odysseus
+ * menu
  * @Author : Guilherme Rodrigues
  * @Date : 25/10/2026
  *
@@ -20,12 +21,12 @@
  * @Ret : Corresponding CommandType enum value, or COMMAND_UNKNOWN if not found.
  *
  ************************************************/
-static CommandType commandTypeFromName(char *psName) {
+CommandType commandTypeFromName(char *psName) {
     CommandType eOut = COMMAND_UNKNOWN;
- 
+
     // Ignore case when comparing command names
     strToUpper(psName);
- 
+
     if (0 == strcmp(psName, CMD_MAP)) {
         return COMMAND_MAP;
     }
@@ -71,24 +72,24 @@ static CommandType commandTypeFromName(char *psName) {
  **************************************************/
 int parseOdysseusCommand(char *psLine, OdysseusCommand *ptCommand) {
     char *psToken = NULL;
- 
+
     ptCommand->type = COMMAND_UNKNOWN;
     ptCommand->argc = 0;
- 
+
     psToken = strtok(psLine, COMMAND_DELIMITERS);
     if (NULL == psToken) {
         return 0;
     }
- 
+
     ptCommand->type = commandTypeFromName(psToken);
- 
+
     while (NULL != (psToken = strtok(NULL, COMMAND_DELIMITERS))) {
         if (ptCommand->argc < ODYSSEUS_MAX_ARGS) {
             ptCommand->argv[ptCommand->argc] = psToken;
         }
         ptCommand->argc++;
     }
- 
+
     return 1;
 }
 
@@ -100,7 +101,7 @@ int parseOdysseusCommand(char *psLine, OdysseusCommand *ptCommand) {
  * @Ret : Returns 1 if the command has exactly zero arguments, 0 otherwise.
  *
  ****************************************************************/
-static int hasExactlyZeroArguments(const OdysseusCommand *ptCommand) {
+int hasExactlyZeroArguments(const OdysseusCommand *ptCommand) {
     return 0 == ptCommand->argc;
 }
 /*****************************************************************
@@ -111,7 +112,7 @@ static int hasExactlyZeroArguments(const OdysseusCommand *ptCommand) {
  * @Ret : Returns 1 if the command has exactly one argument, 0 otherwise.
  *
  ****************************************************************/
-static int hasExactlyOneArgument(const OdysseusCommand *ptCommand) {
+int hasExactlyOneArgument(const OdysseusCommand *ptCommand) {
     return 1 == ptCommand->argc;
 }
 
@@ -123,7 +124,7 @@ static int hasExactlyOneArgument(const OdysseusCommand *ptCommand) {
  * @Ret : Returns 1 if the command has exactly two arguments, 0 otherwise.
  *
  ****************************************************************/
-static int hasExactlyTwoArguments(const OdysseusCommand *ptCommand) {
+int hasExactlyTwoArguments(const OdysseusCommand *ptCommand) {
     return 2 == ptCommand->argc;
 }
 /*************************************************
@@ -131,13 +132,15 @@ static int hasExactlyTwoArguments(const OdysseusCommand *ptCommand) {
  * @Name : validateOdysseusCommand
  * @Def : Validates the arguments of an OdysseusCommand.
  * @Arg : In: ptCommand = pointer to OdysseusCommand structure to validate
- *        Out: ppsErrorMessage = pointer to a string describing the error, if any
+ *        Out: ppsErrorMessage = pointer to a string describing the error, if
+ * any
  * @Ret : Returns COMMAND_VALID if the command is valid, or an appropriate
  * CommandValidationResult value if invalid.
  *
  **************************************************/
-CommandValidationResult validateOdysseusCommand(const OdysseusCommand *ptCommand,
-                                                const char **ppsErrorMessage) {
+CommandValidationResult
+validateOdysseusCommand(const OdysseusCommand *ptCommand,
+                        const char **ppsErrorMessage) {
     *ppsErrorMessage = NULL;
 
     // Keywords are compared ignoring case; the other arguments (islands,
@@ -146,39 +149,39 @@ CommandValidationResult validateOdysseusCommand(const OdysseusCommand *ptCommand
         *ppsErrorMessage = ERROR_UNKNOWN_COMMAND;
         return COMMAND_UNKNOWN_COMMAND;
     }
- 
+
     switch (ptCommand->type) {
         case COMMAND_MAP:
             if (0 == hasExactlyZeroArguments(ptCommand)) {
                 *ppsErrorMessage = USAGE_MAP;
             }
             break;
- 
+
         case COMMAND_STATUS:
             if (0 == hasExactlyZeroArguments(ptCommand)) {
                 *ppsErrorMessage = USAGE_STATUS;
             }
             break;
- 
+
         case COMMAND_DELIVER:
             if (0 == hasExactlyZeroArguments(ptCommand)) {
                 *ppsErrorMessage = USAGE_DELIVER;
             }
             break;
- 
+
         case COMMAND_CLAIM:
             if (0 == hasExactlyZeroArguments(ptCommand)) {
                 *ppsErrorMessage = USAGE_CLAIM;
             }
             break;
- 
+
         case COMMAND_CONNECT:
             if (0 == hasExactlyOneArgument(ptCommand) ||
                 0 != strcasecmp(ptCommand->argv[0], ARG_ITHACA)) {
                 *ppsErrorMessage = USAGE_CONNECT;
             }
             break;
- 
+
         case COMMAND_LIST:
             if (0 == hasExactlyOneArgument(ptCommand) ||
                 (0 != strcasecmp(ptCommand->argv[0], ARG_VOYAGES) &&
@@ -186,7 +189,7 @@ CommandValidationResult validateOdysseusCommand(const OdysseusCommand *ptCommand
                 *ppsErrorMessage = USAGE_LIST;
             }
             break;
- 
+
         case COMMAND_ACCEPT:
             if (0 == hasExactlyOneArgument(ptCommand)) {
                 *ppsErrorMessage = USAGE_ACCEPT;
@@ -194,13 +197,13 @@ CommandValidationResult validateOdysseusCommand(const OdysseusCommand *ptCommand
                 *ppsErrorMessage = ERROR_VOYAGE_ID;
             }
             break;
- 
+
         case COMMAND_SAIL:
             if (0 == hasExactlyOneArgument(ptCommand)) {
                 *ppsErrorMessage = USAGE_SAIL;
             }
             break;
- 
+
         case COMMAND_BUY:
             if (0 == hasExactlyTwoArguments(ptCommand)) {
                 *ppsErrorMessage = USAGE_BUY;
@@ -210,7 +213,7 @@ CommandValidationResult validateOdysseusCommand(const OdysseusCommand *ptCommand
                 *ppsErrorMessage = ERROR_AMOUNT;
             }
             break;
- 
+
         case COMMAND_SELL:
             if (0 == hasExactlyTwoArguments(ptCommand)) {
                 *ppsErrorMessage = USAGE_SELL;
@@ -220,14 +223,14 @@ CommandValidationResult validateOdysseusCommand(const OdysseusCommand *ptCommand
                 *ppsErrorMessage = ERROR_AMOUNT;
             }
             break;
- 
+
         case COMMAND_UNKNOWN:
             break;
- 
+
         default:
             break;
     }
- 
+
     if (NULL != *ppsErrorMessage) {
         return COMMAND_INVALID_ARGUMENTS;
     }
@@ -274,7 +277,8 @@ OdysseusStatus executeOdysseusCommand(Odysseus *tOdysseus,
             return odysseusBuy(tOdysseus, ptCommand->argv[0],
                                ptCommand->argv[1]);
         case COMMAND_SELL:
-            return odysseusSell(tOdysseus, ptCommand->argv[0], ptCommand->argv[1]);
+            return odysseusSell(tOdysseus, ptCommand->argv[0],
+                                ptCommand->argv[1]);
         case COMMAND_UNKNOWN:
             break;
         default:

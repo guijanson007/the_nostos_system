@@ -21,7 +21,7 @@
  * @Ret : None.
  *
  ************************************************/
-static void removeSupplyAt(Cargo *ptCargo, int nIndex) {
+void removeSupplyAt(Cargo *ptCargo, int nIndex) {
     int j = 0;
 
     free(ptCargo->atSupplies[nIndex].psName);
@@ -70,7 +70,7 @@ void consumeFood(Cargo *ptCargo) {
  ************************************************/
 void calculateTotalAmount(Cargo *ptCargo) {
     int i = 0;
- 
+
     for (i = 0; i < ptCargo->nNumSupplies; i++) {
         ptCargo->nTotalAmount += ptCargo->atSupplies[i].nAmount;
     }
@@ -93,7 +93,7 @@ int addSupply(Cargo *ptCargo, const char *psName, int nAmount) {
     Supply *atTmp = NULL;
     char *psCopy = NULL;
     int i = 0;
- 
+
     for (i = 0; i < ptCargo->nNumSupplies; i++) {
         if (0 == strcasecmp(ptCargo->atSupplies[i].psName, psName)) {
             ptCargo->atSupplies[i].nAmount += nAmount;
@@ -101,27 +101,27 @@ int addSupply(Cargo *ptCargo, const char *psName, int nAmount) {
             return 0;
         }
     }
- 
+
     psCopy = strdup(psName);
     if (NULL == psCopy) {
         return -1;
     }
- 
-    atTmp = realloc(ptCargo->atSupplies, sizeof(Supply) * (ptCargo->nNumSupplies + 1));
+
+    atTmp = realloc(ptCargo->atSupplies,
+                    sizeof(Supply) * (ptCargo->nNumSupplies + 1));
     if (NULL == atTmp) {
         free(psCopy);
         return -1;
     }
- 
+
     ptCargo->atSupplies = atTmp;
     ptCargo->atSupplies[ptCargo->nNumSupplies].psName = psCopy;
     ptCargo->atSupplies[ptCargo->nNumSupplies].nAmount = nAmount;
     ptCargo->nNumSupplies++;
     ptCargo->nTotalAmount += nAmount;
- 
+
     return 0;
 }
-
 
 /***********************************************
  *
@@ -143,20 +143,20 @@ int removeSuplies(Cargo *ptCargo, const char *psName, int nAmount) {
             break;
         }
     }
- 
+
     if (i == ptCargo->nNumSupplies) {
         return -1;
     }
     if (ptCargo->atSupplies[i].nAmount < nAmount) {
         return -1;
     }
- 
+
     ptCargo->atSupplies[i].nAmount -= nAmount;
     ptCargo->nTotalAmount -= nAmount;
- 
+
     if (0 == ptCargo->atSupplies[i].nAmount) {
         removeSupplyAt(ptCargo, i);
     }
- 
+
     return 0;
 }

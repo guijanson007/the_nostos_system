@@ -30,7 +30,7 @@
  * @Ret : None.
  *
  ************************************************/
-static void printWithName(const char *psFormat, const char *psName) {
+void printWithName(const char *psFormat, const char *psName) {
     char *psBuffer = NULL;
 
     if (-1 != asprintf(&psBuffer, psFormat, psName)) {
@@ -48,7 +48,7 @@ static void printWithName(const char *psFormat, const char *psName) {
  * @Ret : None.
  *
  ************************************************/
-static void returnToIthaca(Odysseus *ptOdysseus) {
+void returnToIthaca(Odysseus *ptOdysseus) {
     if (AT_ITHACA == ptOdysseus->nWhereAmI) {
         return;
     }
@@ -182,7 +182,7 @@ void odysseusStatus(Odysseus *ptOdysseus) {
  * @Ret : None.
  *
  ************************************************/
-static void dropIslandOnError(Odysseus *ptOdysseus, OdysseusStatus eStatus) {
+void dropIslandOnError(Odysseus *ptOdysseus, OdysseusStatus eStatus) {
     if ((ODY_ERR_IO == eStatus || ODY_ERR_ISLAND_PROTOCOL == eStatus ||
          ODY_ERR_PROTOCOL == eStatus) &&
         NO_SOCKET != ptOdysseus->nIslandSocket) {
@@ -223,8 +223,8 @@ OdysseusStatus odysseusDeliver(Odysseus *ptOdysseus) {
         return ODY_ERR_ALREADY_DELIVERED;
     }
 
-    if (-1 != asprintf(&psBuffer, MSG_DELIVERING, ptVoyage->psObject,
-                       psIsland)) {
+    if (-1 !=
+        asprintf(&psBuffer, MSG_DELIVERING, ptVoyage->psObject, psIsland)) {
         println(psBuffer);
         free(psBuffer);
     }
@@ -442,7 +442,7 @@ OdysseusStatus odysseusAcceptVoyage(Odysseus *ptOdysseus,
  * @Ret : None.
  *
  ************************************************/
-static void leaveCurrentPlace(Odysseus *ptOdysseus) {
+void leaveCurrentPlace(Odysseus *ptOdysseus) {
     if (AT_ITHACA == ptOdysseus->nWhereAmI) {
         println(MSG_LEAVING_ITHACA);
         disconnectFromIthaca(ptOdysseus);
@@ -465,7 +465,7 @@ static void leaveCurrentPlace(Odysseus *ptOdysseus) {
  * @Ret : ODY_OK on success, otherwise the status code of the failure.
  *
  ************************************************/
-static OdysseusStatus dockAtIsland(Odysseus *ptOdysseus, int *pnArrival) {
+OdysseusStatus dockAtIsland(Odysseus *ptOdysseus, int *pnArrival) {
     OdysseusStatus eStatus = ODY_OK;
 
     eStatus = arriveAtIsland(ptOdysseus, pnArrival);
@@ -490,7 +490,7 @@ static OdysseusStatus dockAtIsland(Odysseus *ptOdysseus, int *pnArrival) {
  * @Ret : ODY_LOST_AT_SEA.
  *
  ************************************************/
-static OdysseusStatus lostAtSea(Odysseus *ptOdysseus) {
+OdysseusStatus lostAtSea(Odysseus *ptOdysseus) {
     printWithName(MSG_LOST_AT_SEA, ptOdysseus->psName);
     // The ship and its treasure are lost: forget the saved state (restart
     // uses the initial resources) and empty the memory copy so the final
@@ -514,7 +514,7 @@ static OdysseusStatus lostAtSea(Odysseus *ptOdysseus) {
  * @Ret : None.
  *
  ************************************************/
-static void printArrival(Odysseus *ptOdysseus, KnownIsland *ptDestination) {
+void printArrival(Odysseus *ptOdysseus, KnownIsland *ptDestination) {
     char *psBuffer = NULL;
 
     printWithName(MSG_GRANTED_ACCESS, ptDestination->psName);

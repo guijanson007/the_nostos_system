@@ -22,7 +22,7 @@
  * @Ret : None.
  *
  ************************************************/
-static void sendError(Message *ptMsg, int nFd, const char *psReason) {
+void sendError(Message *ptMsg, int nFd, const char *psReason) {
     buildMessage(ptMsg, FLAG_RESPONSE | FLAG_ERROR, psReason);
     sendMessage(ptMsg, nFd);
 }
@@ -36,7 +36,7 @@ static void sendError(Message *ptMsg, int nFd, const char *psReason) {
  * @Ret : Index of the client in the list, or -1 if it isn't there.
  *
  ************************************************/
-static int findClientIndex(const Island *ptIsland, int nFd) {
+int findClientIndex(const Island *ptIsland, int nFd) {
     size_t i = 0;
 
     for (i = 0; i < ptIsland->tNumClients; i++) {
@@ -57,7 +57,7 @@ static int findClientIndex(const Island *ptIsland, int nFd) {
  * @Ret : 1 if the client is docked, 0 otherwise.
  *
  ************************************************/
-static int isClientDocked(const Island *ptIsland, int nFd) {
+int isClientDocked(const Island *ptIsland, int nFd) {
     int nIndex = findClientIndex(ptIsland, nFd);
 
     return (-1 != nIndex &&
@@ -100,7 +100,7 @@ void removeClient(Island *ptIsland, int nFd) {
  * @Ret : 0 if the client was docked, -1 if the message couldn't be sent.
  *
  ************************************************/
-static int dockClient(Island *ptIsland, size_t tIndex) {
+int dockClient(Island *ptIsland, size_t tIndex) {
     Message tMsg;
 
     memset(&tMsg, 0, sizeof(Message));
@@ -123,7 +123,7 @@ static int dockClient(Island *ptIsland, size_t tIndex) {
  * @Ret : Result of sendMessage (0 if the message was sent).
  *
  ************************************************/
-static int queueClient(Island *ptIsland, size_t tIndex) {
+int queueClient(Island *ptIsland, size_t tIndex) {
     Message tMsg;
 
     memset(&tMsg, 0, sizeof(Message));
@@ -145,7 +145,7 @@ static int queueClient(Island *ptIsland, size_t tIndex) {
  * @Ret : None.
  *
  ************************************************/
-static void decideState(Island *ptIsland, size_t tIndex) {
+void decideState(Island *ptIsland, size_t tIndex) {
     char *psBuffer = NULL;
 
     if (ptIsland->nNumDocked < ptIsland->nCapacity) {
@@ -178,7 +178,7 @@ static void decideState(Island *ptIsland, size_t tIndex) {
  * @Ret : None.
  *
  ************************************************/
-static void arravalIsland(Island *ptIsland, Message tMsg, int nFdClient) {
+void arravalIsland(Island *ptIsland, Message tMsg, int nFdClient) {
     Client *atTmp = NULL;
     char *psName = NULL;
     char *psBuffer = NULL;
@@ -234,7 +234,7 @@ static void arravalIsland(Island *ptIsland, Message tMsg, int nFdClient) {
  * @Ret : None.
  *
  ************************************************/
-static void admitNextShips(Island *ptIsland) {
+void admitNextShips(Island *ptIsland) {
     char *psBuffer = NULL;
     int nBest = -1;
     size_t i = 0;
@@ -275,7 +275,7 @@ static void admitNextShips(Island *ptIsland) {
  * @Ret : None.
  *
  ************************************************/
-static void listMarket(Island *ptIsland, Message tMsg, int nFd) {
+void listMarket(Island *ptIsland, Message tMsg, int nFd) {
     char *psBuff = NULL;
     size_t i = 0;
 
@@ -332,8 +332,8 @@ static void listMarket(Island *ptIsland, Message tMsg, int nFd) {
  * @Ret : 0 if the request is valid, -1 otherwise.
  *
  ************************************************/
-static int parseTradeRequest(char *psData, int nLength, char **ppsProduct,
-                             int *pnAmount) {
+int parseTradeRequest(char *psData, int nLength, char **ppsProduct,
+                      int *pnAmount) {
     char *psAmount = NULL;
 
     if (NULL == psData || 0 >= nLength || MAX_TRADE_DATA < nLength) {
@@ -367,7 +367,7 @@ static int parseTradeRequest(char *psData, int nLength, char **ppsProduct,
  * @Ret : 0 if the entry was written, -1 otherwise.
  *
  ************************************************/
-static int saveStockEntry(int nFdStock, size_t tIndex, Stock *ptItem) {
+int saveStockEntry(int nFdStock, size_t tIndex, Stock *ptItem) {
     int nWritten = 0;
 
     if (-1 == lseek(nFdStock, tIndex * sizeof(Stock), SEEK_SET)) {
@@ -399,8 +399,8 @@ static int saveStockEntry(int nFdStock, size_t tIndex, Stock *ptItem) {
  * @Ret : 0 if the trade can be done, -1 otherwise.
  *
  ************************************************/
-static int prepareTrade(Island *ptIsland, Message *ptMsg, int nFd, char nType,
-                        int *pnAmount, size_t *ptIndex) {
+int prepareTrade(Island *ptIsland, Message *ptMsg, int nFd, char nType,
+                 int *pnAmount, size_t *ptIndex) {
     char *psProduct = NULL;
     size_t i = 0;
 
@@ -443,7 +443,7 @@ static int prepareTrade(Island *ptIsland, Message *ptMsg, int nFd, char nType,
  * @Ret : 1 if the trade fits in an int, 0 otherwise.
  *
  ************************************************/
-static int tradeFits(const Stock *ptItem, int nAmount, int nSelling) {
+int tradeFits(const Stock *ptItem, int nAmount, int nSelling) {
     if (0 < ptItem->nPrice && nAmount > INT_MAX / ptItem->nPrice) {
         return 0;
     }
@@ -469,9 +469,8 @@ static int tradeFits(const Stock *ptItem, int nAmount, int nSelling) {
  * @Ret : None.
  *
  ************************************************/
-static void completeTrade(Island *ptIsland, Message *ptMsg, int nFd,
-                          size_t tIndex, int nAmount, int nOldQuantity,
-                          char *psVerb) {
+void completeTrade(Island *ptIsland, Message *ptMsg, int nFd, size_t tIndex,
+                   int nAmount, int nOldQuantity, char *psVerb) {
     Stock *ptItem = &ptIsland->atStock[tIndex];
     char *psBuff = NULL;
     int nIndex = 0;
@@ -512,7 +511,7 @@ static void completeTrade(Island *ptIsland, Message *ptMsg, int nFd,
  * @Ret : None.
  *
  ************************************************/
-static void buyProduct(Island *ptIsland, Message tMsg, int nFd) {
+void buyProduct(Island *ptIsland, Message tMsg, int nFd) {
     int nAmount = 0;
     size_t i = 0;
 
@@ -543,7 +542,7 @@ static void buyProduct(Island *ptIsland, Message tMsg, int nFd) {
  * @Ret : None.
  *
  ************************************************/
-static void sellProduct(Island *ptIsland, Message tMsg, int nFd) {
+void sellProduct(Island *ptIsland, Message tMsg, int nFd) {
     int nAmount = 0;
     size_t i = 0;
 
@@ -571,7 +570,7 @@ static void sellProduct(Island *ptIsland, Message tMsg, int nFd) {
  * @Ret : 0 if every frame was sent, -1 otherwise.
  *
  ************************************************/
-static int sendMapRoutes(Island *ptIsland, Message *ptMsg, int nFd) {
+int sendMapRoutes(Island *ptIsland, Message *ptMsg, int nFd) {
     char *psBuff = NULL;
     size_t i = 0;
 
@@ -616,7 +615,7 @@ static int sendMapRoutes(Island *ptIsland, Message *ptMsg, int nFd) {
  * @Ret : None.
  *
  ************************************************/
-static void buyMap(Island *ptIsland, Message tMsg, int nFd) {
+void buyMap(Island *ptIsland, Message tMsg, int nFd) {
     char *psBuff = NULL;
     int nIndex = 0;
 
@@ -655,7 +654,7 @@ static void buyMap(Island *ptIsland, Message tMsg, int nFd) {
  * @Ret : None.
  *
  ************************************************/
-static void departure(Island *ptIsland, Message tMsg, int nFd) {
+void departure(Island *ptIsland, Message tMsg, int nFd) {
     char *psBuff = NULL;
     int nIndex = findClientIndex(ptIsland, nFd);
 
@@ -693,7 +692,7 @@ static void departure(Island *ptIsland, Message tMsg, int nFd) {
  * @Ret : None.
  *
  ************************************************/
-static void deliverRequest(Island *ptIsland, Message tMsg, int nFd) {
+void deliverRequest(Island *ptIsland, Message tMsg, int nFd) {
     int nIndex = findClientIndex(ptIsland, nFd);
     char *psVoyage = NULL;
     char *psObject = NULL;
@@ -739,7 +738,7 @@ static void deliverRequest(Island *ptIsland, Message tMsg, int nFd) {
  * @Ret : None.
  *
  ************************************************/
-static void deliverHeader(Island *ptIsland, Message tMsg, int nFd) {
+void deliverHeader(Island *ptIsland, Message tMsg, int nFd) {
     FileInfo tInfo;
     PoolJob *ptJob = NULL;
     char *psRecordPath = NULL;
@@ -759,10 +758,9 @@ static void deliverHeader(Island *ptIsland, Message tMsg, int nFd) {
     }
 
     // The island keeps the delivered image and its sealed copy
-    psRecordPath = buildRecordPath(ptIsland->psFile,
-                                   ptIsland->atClients[nIndex].psName,
-                                   ptIsland->atClients[nIndex].nDeliverVoyage,
-                                   tInfo.psFileName);
+    psRecordPath = buildRecordPath(
+        ptIsland->psFile, ptIsland->atClients[nIndex].psName,
+        ptIsland->atClients[nIndex].nDeliverVoyage, tInfo.psFileName);
     if (NULL != psRecordPath) {
         ptJob = createJob(JOB_SEAL_DELIVERY, nFd, psRecordPath, NULL,
                           ptIsland->psName, &tInfo);
@@ -795,7 +793,7 @@ static void deliverHeader(Island *ptIsland, Message tMsg, int nFd) {
  * @Ret : None.
  *
  ************************************************/
-static void finishDelivery(Island *ptIsland, int nIndex, const PoolJob *ptJob) {
+void finishDelivery(Island *ptIsland, int nIndex, const PoolJob *ptJob) {
     Message tMsg;
     char *psBuffer = NULL;
     const char *psShip = ptIsland->atClients[nIndex].psName;

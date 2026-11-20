@@ -40,7 +40,7 @@ void quitProgram(int nSignum) {
  * @Ret : 0 if everything went well, -1 otherwise.
  *
  ************************************************/
-static int odysseusInitState(Odysseus *ptOdysseus) {
+int odysseusInitState(Odysseus *ptOdysseus) {
     char *psCopy = NULL;
     char *psName = NULL;
     char *psIp = NULL;
@@ -165,7 +165,7 @@ int isOdysseusValid(Odysseus *ptOdysseus) {
  * @Ret : 0 if the folder exists or was created, -1 otherwise (printed).
  *
  ************************************************/
-static int createShipFolder(const Odysseus *ptOdysseus) {
+int createShipFolder(const Odysseus *ptOdysseus) {
     char *psError = NULL;
 
     if (0 == mkdir(ptOdysseus->psPath, SHIP_FOLDER_MODE) || EEXIST == errno) {
@@ -245,7 +245,8 @@ int main(int argc, char *argv[]) {
     }
 
     // Restore gold, cargo and active voyage of a previous execution; if there
-    // is no usable saved state the initial resources of the config file are kept
+    // is no usable saved state the initial resources of the config file are
+    // kept
     odysseusLoadState(&tOdysseus);
 
     // odysseusPrintInfo(&tOdysseus);

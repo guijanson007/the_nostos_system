@@ -13,7 +13,7 @@
 
 #include "island/island.h"
 
-static volatile sig_atomic_t nEvQuit = 0;
+volatile sig_atomic_t nEvQuit = 0;
 
 /***********************************************
  *
@@ -23,7 +23,7 @@ static volatile sig_atomic_t nEvQuit = 0;
  * @Ret : None.
  *
  ************************************************/
-static void onSigint(int nSignum) {
+void onSigint(int nSignum) {
     (void)nSignum;
     nEvQuit = 1;
 }
@@ -275,7 +275,7 @@ int checkArgcIsland(int argc, char *argv[]) {
  * @Ret : 0 if both files were opened, -1 otherwise.
  *
  ************************************************/
-static int openFiles(char *argv[], int *pnFdConfig, int *pnFdStock) {
+int openFiles(char *argv[], int *pnFdConfig, int *pnFdStock) {
     *pnFdConfig = open(argv[1], O_RDONLY);
     if (-1 == *pnFdConfig) {
         printErr(ERROR_FILE_CONFIG);
@@ -305,8 +305,8 @@ static int openFiles(char *argv[], int *pnFdConfig, int *pnFdStock) {
  * @Ret : 0 if the server is ready, -1 otherwise.
  *
  ************************************************/
-static int startServer(Island *ptIsland, int *pnFdConfig,
-                       SPHRAGIS_Island *ptSphragis) {
+int startServer(Island *ptIsland, int *pnFdConfig,
+                SPHRAGIS_Island *ptSphragis) {
     char *psBuff = NULL;
 
     // The island keeps its temporary transfer files in its folder (line 2
@@ -331,16 +331,17 @@ static int startServer(Island *ptIsland, int *pnFdConfig,
     FD_ZERO(&ptIsland->tFdsClients);
     FD_SET(ptIsland->nServerFd, &ptIsland->tFdsClients);
 
-    if (POOL_OK != poolCreate(&ptIsland->tPool, POOL_DEFAULT_WORKERS,POOL_DEFAULT_CAPACITY)) {
+    if (POOL_OK != poolCreate(&ptIsland->tPool, POOL_DEFAULT_WORKERS,
+                              POOL_DEFAULT_CAPACITY)) {
         printErr(ERROR_POOL);
         close(ptIsland->nServerFd);
         closeFiles(pnFdConfig, &ptIsland->nFdStock);
         freeStock(&ptIsland->atStock);
         freeIsland(ptIsland, ptSphragis);
-        
+
         return -1;
     }
-    
+
     FD_SET(poolNotifyFd(&ptIsland->tPool), &ptIsland->tFdsClients);
 
     ptIsland->nMaxFd = ptIsland->nServerFd;
@@ -371,7 +372,7 @@ static int startServer(Island *ptIsland, int *pnFdConfig,
  * @Ret : None.
  *
  ************************************************/
-static void acceptClient(Island *ptIsland) {
+void acceptClient(Island *ptIsland) {
     int nFdClient = -1;
 
     nFdClient = accept(ptIsland->nServerFd, NULL, NULL);
@@ -400,7 +401,7 @@ static void acceptClient(Island *ptIsland) {
  * @Ret : None.
  *
  ************************************************/
-static void handleClient(Island *ptIsland, int nFd) {
+void handleClient(Island *ptIsland, int nFd) {
     int nResult = RECEIVE_ERROR;
     Message tMsg;
 
@@ -430,10 +431,10 @@ static void handleClient(Island *ptIsland, int nFd) {
  * @Ret : None.
  *
  ************************************************/
-static void runServer(Island *ptIsland) {
+void runServer(Island *ptIsland) {
     int nFd = 0;
     int nNotifyFd = poolNotifyFd(&ptIsland->tPool);
-    PoolJob *ptJob = NULL;    
+    PoolJob *ptJob = NULL;
     fd_set tReadFds;
 
     memset(&tReadFds, 0, sizeof(fd_set));
@@ -452,7 +453,7 @@ static void runServer(Island *ptIsland) {
 
             if (nFd == ptIsland->nServerFd) {
                 acceptClient(ptIsland);
-            }else if (nFd == nNotifyFd) {
+            } else if (nFd == nNotifyFd) {
                 if (POOL_OK == poolCollect(&ptIsland->tPool, &ptJob)) {
                     finishJob(ptIsland, ptJob);
                 }
@@ -474,8 +475,8 @@ static void runServer(Island *ptIsland) {
  * @Ret : None.
  *
  ************************************************/
-static void closeIsland(Island *ptIsland, int *pnFdConfig,
-                        SPHRAGIS_Island *ptSphragis) {
+void closeIsland(Island *ptIsland, int *pnFdConfig,
+                 SPHRAGIS_Island *ptSphragis) {
     int nFd = 0;
     char *psFarewell = NULL;
     int nNotifyFd = poolNotifyFd(&ptIsland->tPool);

@@ -11,7 +11,7 @@
  * @Ret : 1 if there is something to read, 0 on timeout, signal or error.
  *
  ************************************************/
-static int waitFrameRest(int nFd) {
+int waitFrameRest(int nFd) {
     fd_set tReadFds;
     struct timeval stTimeout;
 
@@ -39,7 +39,7 @@ static int waitFrameRest(int nFd) {
  * @Ret : Number of bytes read (less than tSize on error, close or timeout).
  *
  ************************************************/
-static size_t readFull(int nFd, unsigned char *pbyBuffer, size_t tSize) {
+size_t readFull(int nFd, unsigned char *pbyBuffer, size_t tSize) {
     size_t tRead = 0;
     ssize_t nBytes = 0;
 
@@ -69,7 +69,7 @@ static size_t readFull(int nFd, unsigned char *pbyBuffer, size_t tSize) {
  * @Ret : Number of bytes written (less than tSize on error).
  *
  ************************************************/
-static size_t writeFull(int nFd, const unsigned char *pbyBuffer, size_t tSize) {
+size_t writeFull(int nFd, const unsigned char *pbyBuffer, size_t tSize) {
     size_t tWritten = 0;
     ssize_t nBytes = 0;
 
@@ -98,11 +98,11 @@ static size_t writeFull(int nFd, const unsigned char *pbyBuffer, size_t tSize) {
  * @Ret : -
  *
  ************************************************/
-void buildBinaryMessage(Message *ptMsg, unsigned char cFlags, const char *pData, int nLength) {
+void buildBinaryMessage(Message *ptMsg, unsigned char cFlags, const char *pData,
+                        int nLength) {
     if (0 > nLength) {
         nLength = 0;
-    }
-    else if (MESSAGE_DATA_MAX < nLength) {
+    } else if (MESSAGE_DATA_MAX < nLength) {
         nLength = MESSAGE_DATA_MAX;
     }
 

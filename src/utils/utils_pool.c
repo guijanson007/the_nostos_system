@@ -40,7 +40,7 @@
  * @Ret : 1 if it worked, 0 if memory ran out.
  *
  ************************************************/
-static int copyText(char **ppsDest, const char *psSource) {
+int copyText(char **ppsDest, const char *psSource) {
     if (NULL == psSource) {
         *ppsDest = NULL;
         return 1;
@@ -63,7 +63,9 @@ static int copyText(char **ppsDest, const char *psSource) {
  * @Ret : The new job, or NULL if memory ran out.
  *
  ************************************************/
-PoolJob *createJob(JobType eType, int nFd, const char *psPath, const char *psFileName, const char *psOwner, FileInfo *ptInfo) {
+PoolJob *createJob(JobType eType, int nFd, const char *psPath,
+                   const char *psFileName, const char *psOwner,
+                   FileInfo *ptInfo) {
     PoolJob *ptJob = malloc(sizeof(PoolJob));
 
     if (NULL == ptJob) {
@@ -75,7 +77,7 @@ PoolJob *createJob(JobType eType, int nFd, const char *psPath, const char *psFil
     ptJob->eType = eType;
     ptJob->nFd = nFd;
 
-     if (!copyText(&ptJob->psPath, psPath) ||
+    if (!copyText(&ptJob->psPath, psPath) ||
         !copyText(&ptJob->psFileName, psFileName) ||
         !copyText(&ptJob->psOwner, psOwner)) {
         freeJob(ptJob);
@@ -120,7 +122,7 @@ void freeJob(PoolJob *ptJob) {
  * @Ret : NULL.
  *
  ************************************************/
-static void *poolWorker(void *pvArg) {
+void *poolWorker(void *pvArg) {
     ThreadPool *ptPool = (ThreadPool *)pvArg;
     PoolJob *ptJob;
     int nRunning = POOL_TRUE;
@@ -163,7 +165,7 @@ static void *poolWorker(void *pvArg) {
  * @Ret : None.
  *
  ************************************************/
-static void poolInit(ThreadPool *ptPool, int nWorkers, int nCapacity) {
+void poolInit(ThreadPool *ptPool, int nWorkers, int nCapacity) {
     memset(ptPool, 0, sizeof(*ptPool));
     ptPool->nWorkers = nWorkers;
     ptPool->nCapacity = nCapacity;
@@ -179,7 +181,7 @@ static void poolInit(ThreadPool *ptPool, int nWorkers, int nCapacity) {
  * @Ret : POOL_OK on success, POOL_ERROR if an allocation fails.
  *
  ************************************************/
-static int poolAllocate(ThreadPool *ptPool) {
+int poolAllocate(ThreadPool *ptPool) {
     size_t tThreadsSize = (size_t)ptPool->nWorkers * sizeof(pthread_t);
     size_t tQueueSize = (size_t)ptPool->nCapacity * sizeof(PoolJob *);
 
@@ -203,7 +205,7 @@ static int poolAllocate(ThreadPool *ptPool) {
  *        the failure is released by poolDestroy.
  *
  ************************************************/
-static int poolOpenSync(ThreadPool *ptPool) {
+int poolOpenSync(ThreadPool *ptPool) {
     if (SEM_WRAP_OK != semCreate(&ptPool->tItems, POOL_ITEMS_INITIAL)) {
         return POOL_ERROR;
     }
@@ -232,7 +234,7 @@ static int poolOpenSync(ThreadPool *ptPool) {
  *        that did start are counted in nStarted and joined by poolDestroy).
  *
  ************************************************/
-static int poolStartWorkers(ThreadPool *ptPool) {
+int poolStartWorkers(ThreadPool *ptPool) {
     sigset_t tAll;
     sigset_t tOld;
     int nRet = POOL_OK;

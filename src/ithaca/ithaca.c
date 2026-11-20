@@ -16,7 +16,7 @@
 #include "ithaca/ithaca_parser.h"
 #include "utils/utils.h"
 
-static volatile sig_atomic_t nEvQuit = 0;
+volatile sig_atomic_t nEvQuit = 0;
 
 /***********************************************
  *
@@ -27,7 +27,7 @@ static volatile sig_atomic_t nEvQuit = 0;
  * @Ret : None.
  *
  ************************************************/
-static void onSigint(int nSignum) {
+void onSigint(int nSignum) {
     (void)nSignum;
     nEvQuit = 1;
 }
@@ -202,7 +202,7 @@ int checkArgcIthaca(int argc, char *argv[]) {
  * @Ret : 0 if both files were opened, -1 otherwise.
  *
  ************************************************/
-static int openFiles(char *argv[], int *pnFdIthaca, int *pnFdVoyage) {
+int openFiles(char *argv[], int *pnFdIthaca, int *pnFdVoyage) {
     *pnFdIthaca = open(argv[1], O_RDONLY);
     if (-1 == *pnFdIthaca) {
         printErr(ERROR_FILE_ITHACA);
@@ -231,8 +231,7 @@ static int openFiles(char *argv[], int *pnFdIthaca, int *pnFdVoyage) {
  * @Ret : 0 if the server is ready, -1 otherwise.
  *
  ************************************************/
-static int startServer(Ithaca *ptIthaca, Voyage **patVoyages,
-                       size_t *ptNumVoyages) {
+int startServer(Ithaca *ptIthaca, Voyage **patVoyages, size_t *ptNumVoyages) {
     char *psBuff = NULL;
 
     ptIthaca->nServerFd = openListenConn(ptIthaca->psIp, ptIthaca->nPort);
@@ -251,7 +250,8 @@ static int startServer(Ithaca *ptIthaca, Voyage **patVoyages,
 
     ptIthaca->nMaxFd = ptIthaca->nServerFd;
 
-    if (POOL_OK != poolCreate(&ptIthaca->tPool, POOL_DEFAULT_WORKERS,POOL_DEFAULT_CAPACITY)) {
+    if (POOL_OK != poolCreate(&ptIthaca->tPool, POOL_DEFAULT_WORKERS,
+                              POOL_DEFAULT_CAPACITY)) {
         printErr(ERROR_POOL);
         close(ptIthaca->nServerFd);
         freeIthaca(ptIthaca);
@@ -288,7 +288,7 @@ static int startServer(Ithaca *ptIthaca, Voyage **patVoyages,
  * @Ret : None.
  *
  ************************************************/
-static void acceptClient(Ithaca *ptIthaca) {
+void acceptClient(Ithaca *ptIthaca) {
     int nFdClient = -1;
 
     nFdClient = accept(ptIthaca->nServerFd, NULL, NULL);
@@ -312,7 +312,7 @@ static void acceptClient(Ithaca *ptIthaca) {
  * @Ret : None.
  *
  ************************************************/
-static void handleClient(Ithaca *ptIthaca, int nFd) {
+void handleClient(Ithaca *ptIthaca, int nFd) {
     int nResult = RECEIVE_OK;
     Message tMsg;
 
@@ -347,7 +347,7 @@ static void handleClient(Ithaca *ptIthaca, int nFd) {
  * @Ret : None.
  *
  ************************************************/
-static void runServer(Ithaca *ptIthaca) {
+void runServer(Ithaca *ptIthaca) {
     int nFd = 0;
     PoolJob *ptJob = NULL;
     fd_set tReadFds;

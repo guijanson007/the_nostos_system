@@ -20,7 +20,7 @@
  * @Ret : Index of the client in the list, or -1 if it isn't there.
  *
  ************************************************/
-static int findClientIndex(Ithaca *ptIthaca, int nFd) {
+int findClientIndex(Ithaca *ptIthaca, int nFd) {
     size_t i = 0;
 
     for (i = 0; i < ptIthaca->tNumClients; i++) {
@@ -40,7 +40,7 @@ static int findClientIndex(Ithaca *ptIthaca, int nFd) {
  * @Ret : None.
  *
  ************************************************/
-static void sendReadyError(int nFdClient, const char *psReason) {
+void sendReadyError(int nFdClient, const char *psReason) {
     Message tMsg;
 
     memset(&tMsg, 0, sizeof(Message));
@@ -57,7 +57,7 @@ static void sendReadyError(int nFdClient, const char *psReason) {
  * @Ret : Pointer inside psFilePath to its file name.
  *
  ************************************************/
-static char *fileBaseName(char *psFilePath) {
+char *fileBaseName(char *psFilePath) {
     char *psBaseName = psFilePath;
     int i = 0;
 
@@ -80,7 +80,7 @@ static char *fileBaseName(char *psFilePath) {
  * @Ret : None.
  *
  ************************************************/
-static void disconectIthaca(int nFdClient, Ithaca *ptIthaca, Message tMsg) {
+void disconectIthaca(int nFdClient, Ithaca *ptIthaca, Message tMsg) {
     int nIndex = findClientIndex(ptIthaca, nFdClient);
 
     tMsg.type = MSG_DISCONNECT_ITHACA;
@@ -107,15 +107,15 @@ static void disconectIthaca(int nFdClient, Ithaca *ptIthaca, Message tMsg) {
  * @Ret : None.
  *
  ************************************************/
-static void releaseVoyage(Voyage *ptVoyage) {
+void releaseVoyage(Voyage *ptVoyage) {
     free(ptVoyage->psOwner);
     ptVoyage->psOwner = NULL;
     ptVoyage->eState = VOYAGE_AVAILABLE;
 }
 
-static Voyage *findVoyage(Ithaca *ptIthaca, int nId);
-static Voyage *findActiveVoyage(Ithaca *ptIthaca, const char *psName);
-static void replyError(int nFdClient, Message *ptMsg, char *psReason);
+Voyage *findVoyage(Ithaca *ptIthaca, int nId);
+Voyage *findActiveVoyage(Ithaca *ptIthaca, const char *psName);
+void replyError(int nFdClient, Message *ptMsg, char *psReason);
 
 /***********************************************
  *
@@ -127,7 +127,7 @@ static void replyError(int nFdClient, Message *ptMsg, char *psReason);
  * @Ret : The path (free it), or NULL if memory ran out.
  *
  ************************************************/
-static char *buildObjectPath(Ithaca *ptIthaca, Voyage *ptVoyage) {
+char *buildObjectPath(Ithaca *ptIthaca, Voyage *ptVoyage) {
     char *psPath = NULL;
 
     if (-1 == asprintf(&psPath, OBJECT_PATH_FORMAT, ptIthaca->psMission,
@@ -152,8 +152,8 @@ static char *buildObjectPath(Ithaca *ptIthaca, Voyage *ptVoyage) {
  * @Ret : None.
  *
  ************************************************/
-static void startObjectJob(Ithaca *ptIthaca, int nClient, Voyage *ptVoyage,
-                           PoolJob *ptJob) {
+void startObjectJob(Ithaca *ptIthaca, int nClient, Voyage *ptVoyage,
+                    PoolJob *ptJob) {
     Client *ptClient = &ptIthaca->atClients[nClient];
     char *psText = NULL;
 
@@ -177,7 +177,6 @@ static void startObjectJob(Ithaca *ptIthaca, int nClient, Voyage *ptVoyage,
     removeClient(ptIthaca, ptClient->nFd);
 }
 
-
 /***********************************************
  *
  * @Name : finishObject
@@ -189,7 +188,7 @@ static void startObjectJob(Ithaca *ptIthaca, int nClient, Voyage *ptVoyage,
  * @Ret : None.
  *
  ************************************************/
-static void finishObject(Ithaca *ptIthaca, int nClient, PoolJob *ptJob) {
+void finishObject(Ithaca *ptIthaca, int nClient, PoolJob *ptJob) {
     char *psName = ptIthaca->atClients[nClient].psName;
     Voyage *ptVoyage = findActiveVoyage(ptIthaca, psName);
 
@@ -215,7 +214,7 @@ static void finishObject(Ithaca *ptIthaca, int nClient, PoolJob *ptJob) {
  * @Ret : None.
  *
  ************************************************/
-static void finishClaim(Ithaca *ptIthaca, int nClient, PoolJob *ptJob) {
+void finishClaim(Ithaca *ptIthaca, int nClient, PoolJob *ptJob) {
     Message tMsg;
     Voyage *ptVoyage = NULL;
     char *psText = NULL;
@@ -255,8 +254,8 @@ static void finishClaim(Ithaca *ptIthaca, int nClient, PoolJob *ptJob) {
                 println(psText);
                 free(psText);
             }
-            if (-1 != asprintf(&psText, MSG_REWARD_GRANTED,
-                               ptVoyage->nReward)) {
+            if (-1 !=
+                asprintf(&psText, MSG_REWARD_GRANTED, ptVoyage->nReward)) {
                 println(psText);
                 free(psText);
             }
@@ -304,7 +303,7 @@ void finishJob(Ithaca *ptIthaca, PoolJob *ptJob) {
         }
     } else {
         FD_SET(ptJob->nFd, &ptIthaca->tFdsClients);
-        
+
         switch (ptJob->eType) {
             case JOB_VERIFY_CLAIM:
                 finishClaim(ptIthaca, nClient, ptJob);
@@ -329,7 +328,7 @@ void finishJob(Ithaca *ptIthaca, PoolJob *ptJob) {
  * @Ret : None.
  *
  ************************************************/
-static void replyError(int nFdClient, Message *ptMsg, char *psReason) {
+void replyError(int nFdClient, Message *ptMsg, char *psReason) {
     buildMessage(ptMsg, FLAG_RESPONSE | FLAG_ERROR, psReason);
     sendMessage(ptMsg, nFdClient);
 }
@@ -345,7 +344,7 @@ static void replyError(int nFdClient, Message *ptMsg, char *psReason) {
  * @Ret : None.
  *
  ************************************************/
-static void connectIthaca(int nFdClient, Ithaca *ptIthaca, Message tMsg) {
+void connectIthaca(int nFdClient, Ithaca *ptIthaca, Message tMsg) {
     Client *atTempClients = NULL;
     char *psName = NULL;
     size_t i = 0;
@@ -403,7 +402,7 @@ static void connectIthaca(int nFdClient, Ithaca *ptIthaca, Message tMsg) {
  * @Ret : Pointer to the voyage, or NULL if it doesn't exist.
  *
  ************************************************/
-static Voyage *findVoyage(Ithaca *ptIthaca, int nId) {
+Voyage *findVoyage(Ithaca *ptIthaca, int nId) {
     size_t i = 0;
 
     for (i = 0; i < ptIthaca->tNumVoyages; i++) {
@@ -423,7 +422,7 @@ static Voyage *findVoyage(Ithaca *ptIthaca, int nId) {
  * @Ret : Pointer to the voyage, or NULL if it has no active voyage.
  *
  ************************************************/
-static Voyage *findActiveVoyage(Ithaca *ptIthaca, const char *psName) {
+Voyage *findActiveVoyage(Ithaca *ptIthaca, const char *psName) {
     Voyage *ptVoyage = NULL;
     size_t i = 0;
 
@@ -445,7 +444,7 @@ static Voyage *findActiveVoyage(Ithaca *ptIthaca, const char *psName) {
  * @Ret : Number of available voyages.
  *
  ************************************************/
-static int countAvailableVoyages(Ithaca *ptIthaca) {
+int countAvailableVoyages(Ithaca *ptIthaca) {
     int nTotal = 0;
     size_t i = 0;
 
@@ -468,8 +467,8 @@ static int countAvailableVoyages(Ithaca *ptIthaca) {
  * @Ret : None.
  *
  ************************************************/
-static void sendAvailableVoyages(Ithaca *ptIthaca, Message *ptMsg,
-                                 int nFdClient, int nTotal) {
+void sendAvailableVoyages(Ithaca *ptIthaca, Message *ptMsg, int nFdClient,
+                          int nTotal) {
     char *psVoyageInfo = NULL;
     Voyage *ptVoyage = NULL;
     int nIndex = 0;
@@ -508,7 +507,7 @@ static void sendAvailableVoyages(Ithaca *ptIthaca, Message *ptMsg,
  * @Ret : None.
  *
  ************************************************/
-static void listVoyages(int nFdClient, Ithaca *ptIthaca, Message tMsg) {
+void listVoyages(int nFdClient, Ithaca *ptIthaca, Message tMsg) {
     const char *psName = NULL;
     Voyage *ptVoyage = NULL;
     int nTotal = 0;
@@ -555,8 +554,8 @@ static void listVoyages(int nFdClient, Ithaca *ptIthaca, Message tMsg) {
  *        left untouched and the error is sent).
  *
  ************************************************/
-static int assignVoyage(Voyage *ptVoyage, const char *psName, Message *ptMsg,
-                         int nFdClient) {
+int assignVoyage(Voyage *ptVoyage, const char *psName, Message *ptMsg,
+                 int nFdClient) {
     char *psVoyageInfo = NULL;
     char *psOwner = NULL;
 
@@ -603,7 +602,7 @@ static int assignVoyage(Voyage *ptVoyage, const char *psName, Message *ptMsg,
  * @Ret : None.
  *
  ************************************************/
-static void acceptVoyage(int nFdClient, Ithaca *ptIthaca, Message tMsg) {
+void acceptVoyage(int nFdClient, Ithaca *ptIthaca, Message tMsg) {
     const char *psName = NULL;
     Voyage *ptVoyage = NULL;
     PoolJob *ptJob = NULL;
@@ -682,7 +681,7 @@ static void acceptVoyage(int nFdClient, Ithaca *ptIthaca, Message tMsg) {
  * @Ret : None.
  *
  ************************************************/
-static void claimHeader(int nFdClient, Ithaca *ptIthaca, Message tMsg) {
+void claimHeader(int nFdClient, Ithaca *ptIthaca, Message tMsg) {
     FileInfo tInfo;
     Voyage *ptVoyage = NULL;
     PoolJob *ptJob = NULL;
@@ -764,7 +763,7 @@ static void claimHeader(int nFdClient, Ithaca *ptIthaca, Message tMsg) {
  * @Ret : None.
  *
  ************************************************/
-static void claimRequest(int nFdClient, Ithaca *ptIthaca, Message tMsg) {
+void claimRequest(int nFdClient, Ithaca *ptIthaca, Message tMsg) {
     int nClient = findClientIndex(ptIthaca, nFdClient);
     Client *ptClient = NULL;
     Voyage *ptVoyage = NULL;
@@ -792,8 +791,8 @@ static void claimRequest(int nFdClient, Ithaca *ptIthaca, Message tMsg) {
         return;
     }
 
-    if (-1 != asprintf(&psText, MSG_CLAIMS_VOYAGE, ptClient->psName,
-                       ptVoyage->nId)) {
+    if (-1 !=
+        asprintf(&psText, MSG_CLAIMS_VOYAGE, ptClient->psName, ptVoyage->nId)) {
         println(psText);
         free(psText);
     }
