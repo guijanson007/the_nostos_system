@@ -267,7 +267,7 @@ void *readUntilEmpty(int nFd, size_t tElementSize, size_t *ptOutCount) {
  *        -1 on a select error.
  *
  ************************************************/
-int waitReadable(int nFd, volatile sig_atomic_t *pnQuit) {
+int waitReadable(int nFd, sig_atomic_t *pnQuit) {
     fd_set tReadFds;
     struct timeval stTimeout;
     int nReady = 0;
@@ -564,4 +564,3 @@ int isPositiveInteger(const char *psString) {
     // Bounded length so atoi never overflows
     return MAX_INT_DIGITS >= strlen(psString) && 0 < atoi(psString);
 }
-

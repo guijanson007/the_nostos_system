@@ -66,7 +66,7 @@ void resetInputField() {
  * @Ret : Returns 1 to continue the menu, 0 to exit.
  *
  **************************************************/
-int odysseusShowMenu(Odysseus *tOdysseus, volatile sig_atomic_t *pnQuit) {
+int odysseusShowMenu(Odysseus *tOdysseus, sig_atomic_t *pnQuit) {
     OdysseusCommand tCommand;
     const char *psErrorMessage = NULL;
     OdysseusStatus eStatus = ODY_OK;

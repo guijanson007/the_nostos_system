@@ -16,7 +16,7 @@
 #include "ithaca/ithaca_parser.h"
 #include "utils/utils.h"
 
-volatile sig_atomic_t nEvQuit = 0;
+sig_atomic_t nEvQuit = 0;
 
 /***********************************************
  *

@@ -35,7 +35,6 @@
 #define WAIT_POLL_USEC 200000
 #define WAIT_QUIT 0
 
-
 #define ERROR_MALLOC "Malloc error"
 #define ERROR_REALLOC "Realloc error"
 #define ERROR_READ "Read error"
@@ -50,7 +49,7 @@ void print(const char *psMessage);
 void printErr(const char *psMessage);
 void strToUpper(char *psString);
 void *readUntilEmpty(int nFd, size_t tElementSize, size_t *ptOutCount);
-int waitReadable(int nFd, volatile sig_atomic_t *pnQuit);
+int waitReadable(int nFd, sig_atomic_t *pnQuit);
 int readLine(int nFd, char **ppsBuffer);
 char **readLines(int nFd, size_t *ptOutCount);
 void *readBinary(int nFd, size_t tElementSize, size_t *ptOutCount);

@@ -14,7 +14,7 @@
 #include "odysseus/odysseus_persistence.h"
 
 // event flag to indicate when to quit the program
-volatile sig_atomic_t gtEvQuit = 0;
+sig_atomic_t gtEvQuit = 0;
 
 /***********************************************
  *

@@ -13,7 +13,7 @@
 
 #include "island/island.h"
 
-volatile sig_atomic_t nEvQuit = 0;
+sig_atomic_t nEvQuit = 0;
 
 /***********************************************
  *
