@@ -734,6 +734,14 @@ void claimHeader(int nFdClient, Ithaca *ptIthaca, Message tMsg) {
                           ptVoyage->psDestination, &tInfo);
         free(psRecordPath);
     }
+    // The worker seals the original object to know the expected image
+    if (NULL != ptJob) {
+        ptJob->psSource = buildObjectPath(ptIthaca, ptVoyage);
+        if (NULL == ptJob->psSource) {
+            freeJob(ptJob);
+            ptJob = NULL;
+        }
+    }
     if (NULL == ptJob) {
         freeFileInfo(&tInfo);
         sendReadyError(nFdClient, ERROR_MEMORY_ALLOCATION);

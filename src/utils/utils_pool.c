@@ -107,6 +107,7 @@ void freeJob(PoolJob *ptJob) {
     free(ptJob->psPath);
     free(ptJob->psFileName);
     free(ptJob->psOwner);
+    free(ptJob->psSource);
     freeFileInfo(&ptJob->tInfo);
     free(ptJob);
 }

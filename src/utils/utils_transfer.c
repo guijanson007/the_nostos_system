@@ -636,9 +636,12 @@ int jobHasArgs(const PoolJob *ptJob) {
         case JOB_RECEIVE_FILE:
             return 1;
         case JOB_SEAL_DELIVERY:
-        case JOB_VERIFY_CLAIM:
             // The HEADER was read by the server loop and travels in tInfo
             return NULL != ptJob->psOwner && NULL != ptJob->tInfo.psMd5 &&
+                   NULL != ptJob->tInfo.psFileName;
+        case JOB_VERIFY_CLAIM:
+            return NULL != ptJob->psOwner && NULL != ptJob->psSource &&
+                   NULL != ptJob->tInfo.psMd5 &&
                    NULL != ptJob->tInfo.psFileName;
     }
     return 0;
@@ -646,20 +649,52 @@ int jobHasArgs(const PoolJob *ptJob) {
 
 /***********************************************
  *
+ * @Name : expectedClaimMd5
+ * @Def : Seals Ithaca's own copy of the voyage object with the glyph of
+ *        the destination island and returns the MD5 of the result. SPHRAGIS
+ *        sealing is deterministic, so this is exactly the image the island
+ *        handed to the ship. The sealed copy is written to the record path,
+ *        where the received image overwrites it (no extra file is left).
+ * @Arg : In: ptJob = psSource original object, psOwner destination island,
+ *        psPath record path of the claim
+ * @Ret : Allocated MD5 text (the caller frees it), or NULL if the object
+ *        could not be sealed or hashed (the record path is removed).
+ *
+ ************************************************/
+char *expectedClaimMd5(PoolJob *ptJob) {
+    char *psMd5 = NULL;
+
+    if (SPHRAGIS_OK ==
+        SPHRAGIS_sign_with_glyph(ptJob->psOwner, ptJob->psSource,
+                                 ptJob->psPath)) {
+        psMd5 = computeMd5(ptJob->psPath);
+    }
+    if (NULL == psMd5) {
+        unlink(ptJob->psPath);
+    }
+    return psMd5;
+}
+
+/***********************************************
+ *
  * @Name : verifyClaim
  * @Def : Ithaca job: receives the CLAIM image (the HEADER is already in
- *        tInfo), checks it is the object of the voyage and that it carries
- *        the glyph of the destination island. A valid image is kept as the
- *        proof of the claim; an incomplete or rejected one is deleted.
+ *        tInfo), checks it carries the glyph of the destination island and
+ *        that it is the object of the voyage sealed by that island (same
+ *        MD5 as Ithaca's own seal of the object), so a sealed image of
+ *        another object is refused. A valid image is kept as the proof of
+ *        the claim; an incomplete or rejected one is deleted.
  * @Arg : In/Out: ptJob = psPath where the image is kept, psFileName
- *        expected object name,
- *        psOwner destination island, tInfo the parsed HEADER
- * @Ret : TRANSFER_OK, TRANSFER_WRONG_FILE (name differs from the mission
- *        object), TRANSFER_GLYPH_ERROR (no glyph of the island, or the
- *        image cannot be read), or any code of receiveBody.
+ *        expected object name, psSource original object, psOwner
+ *        destination island, tInfo the parsed HEADER
+ * @Ret : TRANSFER_OK, TRANSFER_WRONG_FILE (name or content differs from the
+ *        mission object), TRANSFER_GLYPH_ERROR (no glyph of the island, or
+ *        the image cannot be read), TRANSFER_ERROR (the object could not be
+ *        sealed), or any code of receiveBody.
  *
  ************************************************/
 int verifyClaim(PoolJob *ptJob) {
+    char *psExpectedMd5 = NULL;
     int nRet = TRANSFER_OK;
 
     if (NULL != ptJob->psFileName &&
@@ -667,15 +702,25 @@ int verifyClaim(PoolJob *ptJob) {
         rejectTransfer(ptJob->nFd, REPLY_BAD_HEADER);
         return TRANSFER_WRONG_FILE;
     }
+    psExpectedMd5 = expectedClaimMd5(ptJob);
+    if (NULL == psExpectedMd5) {
+        rejectTransfer(ptJob->nFd, REPLY_FILE_ERROR);
+        return TRANSFER_ERROR;
+    }
     nRet =
         receiveBody(ptJob->nFd, TRANSFER_CLAIM, ptJob->psPath, &ptJob->tInfo);
     if (TRANSFER_OK != nRet) {
-        return nRet;
-    }
-    if (1 != SPHRAGIS_has_glyph(ptJob->psOwner, ptJob->psPath)) {
+        // receiveBody may fail before opening the file: drop the seal too
+        unlink(ptJob->psPath);
+    } else if (1 != SPHRAGIS_has_glyph(ptJob->psOwner, ptJob->psPath)) {
         unlink(ptJob->psPath);
         nRet = TRANSFER_GLYPH_ERROR;
+    } else if (0 != strcasecmp(psExpectedMd5, ptJob->tInfo.psMd5)) {
+        // receiveBody checked the image matches the HEADER MD5
+        unlink(ptJob->psPath);
+        nRet = TRANSFER_WRONG_FILE;
     }
+    free(psExpectedMd5);
     return nRet;
 }
 

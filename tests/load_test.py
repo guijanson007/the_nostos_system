@@ -7,6 +7,7 @@ Starts ithaca + islands + odysseus processes in a temp directory. Not part of th
   badmd5/badsize   corrupted MD5 / short DATA frame in a DELIVERY and in a CLAIM
   wrongisland      CLAIM with an image sealed by another island
   othership        CLAIM of a voyage assigned to another ship
+  otherobject      CLAIM with another object sealed by the right island, under the mission name
   peerdies         ship dies in the middle of the OBJECT transfer
   objectrefused    ship answers the OBJECT with an error ACK (voyage is freed)
   concurrent       several ships transfer at once (pool of workers)
@@ -994,6 +995,49 @@ def scenario_othership(keep):
         cluster.check_alive()
     finally:
         for c in (owner, thief, idle):
+            if c:
+                c.close()
+        cluster.stop()
+        cluster.cleanup(keep)
+
+
+def scenario_otherobject(keep):
+    """CLAIM whose HEADER names the mission object and whose image carries the glyph of the
+    destination, but is another object (sealed for another voyage to the same island)."""
+    cluster = Cluster()
+    owner = thief = None
+    try:
+        cluster.start()
+        to_scheria = [v for v, d in sorted(cluster.destinations.items()) if d[1] == "Scheria"]
+        assert len(to_scheria) >= 2, "need two voyages to Scheria"
+        first, second = to_scheria[0], to_scheria[1]
+        # the generated objects are all the same picture: make the first one different
+        write_png(os.path.join(cluster.dir, cluster.objects[cluster.destinations[first][0]]), 150)
+        owner, _, _, signed = prepare_claim(cluster, "Owner", first)
+
+        thief = ithaca_login(cluster, "Thief")
+        got = accept_voyage(thief, second)
+        assert got, "ACCEPT %d refused" % second
+        thief_name, thief_data = got
+        result, final = claim_voyage(thief, second, thief_name, signed)
+        assert result == "rejected" or is_error(final), \
+            "claim with another sealed object: %s %s" % (result, final)
+        assert not completed(cluster), "a voyage was completed with the wrong object"
+        no_temp_files(cluster)
+        kept = os.path.join(cluster.dir, "objects", "Thief_%d_%s" % (second, thief_name))
+        assert not os.path.exists(kept), "the rejected image was kept"
+
+        # the real sealed object of the voyage is still accepted
+        result, real, final = island_deliver(cluster, "scheria", "Thief", second,
+                                             cluster.destinations[second][0],
+                                             thief_name, thief_data)
+        assert result == "ok" and real and is_ok(final), "DELIVER failed: %s %s" % (result, final)
+        result, final = claim_voyage(thief, second, thief_name, real[1])
+        assert is_ok(final), "real claim refused: %s" % (final,)
+        assert len(completed(cluster, 1)) == 1
+        cluster.check_alive()
+    finally:
+        for c in (owner, thief):
             if c:
                 c.close()
         cluster.stop()
@@ -2363,6 +2407,7 @@ SCENARIOS = {
     "badsize": scenario_badsize,
     "wrongisland": scenario_wrongisland,
     "othership": scenario_othership,
+    "otherobject": scenario_otherobject,
     "peerdies": scenario_peerdies,
     "objectrefused": scenario_objectrefused,
     "concurrent": scenario_concurrent,

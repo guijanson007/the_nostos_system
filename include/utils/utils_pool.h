@@ -51,7 +51,8 @@ typedef enum {
     JOB_SEND_FILE,     // send psPath through nFd
     JOB_RECEIVE_FILE,  // receive a file from nFd and store it in psPath
     JOB_SEAL_DELIVERY, // island: receive, seal with its glyph, send back
-    JOB_VERIFY_CLAIM   // ithaca: receive and check the glyph of psOwner
+    JOB_VERIFY_CLAIM   // ithaca: receive and check it is psSource sealed by
+                       // psOwner
 } JobType;
 
 // A job. The caller owns the struct and the strings it points to and must
@@ -63,6 +64,7 @@ typedef struct {
     char *psPath;     // file to send, or where to store the received one
     char *psFileName; // name of the file in the transfer
     char *psOwner;    // island whose glyph is applied or expected
+    char *psSource;   // ithaca claim: original object of the voyage
     FileInfo tInfo;
     int nResult; // JOB_RESULT_OK or JOB_RESULT_ERROR, set by the worker
 } PoolJob;
