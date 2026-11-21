@@ -49,20 +49,30 @@ Stop the process with CTRL+C to see the valgrind summary.
 Every process is configured only through its .dat file (IP and port); nothing
 is hardcoded, and nothing assumes that two processes share a machine.
 
-Lab layout (all machines are in 172.16.214.0/24, ports 8625-8629):
+Lab layout (Global Testing table; each server has its own port per machine):
 
-  Machine          Process     Port
-  172.16.214.18    Ithaca      8625
-  172.16.214.18    Aeolia      8628
-  172.16.214.20    Aeaea       8626
-  172.16.214.20    Scheria     8627
-  172.16.214.21    Ismarus     8629
-  172.16.214.21    Thrinacia   8625
-  172.16.214.21    Ogygia      8626
+  Machine                     Process      Port   Config
+  Montserrat 172.16.214.21    Ithaca       8625   ithaca.dat
+                              Thrinacia    8626   thrinacia.dat
+                              Polyphemus          odysseus.dat
+                              Eumaeus             eumaeus.dat
+  Matagalls  172.16.214.20    Aeaea        8625   aeaea.dat
+                              Aeolia       8626   aeolia.dat
+                              Telemachus          telemachus.dat
+  Puigpedros 172.16.214.18    Scheria      8625   scheria.dat
+                              Ogygia       8626   ogygia.dat
+                              Ismarus      8627   ismarus.dat
+                              Penelope            penelope.dat
 
 - Ithaca and Aeaea are on different machines, as required.
-- There are 7 servers and only 5 ports. A port is only unique per machine, so
-  Thrinacia and Ogygia reuse 8625 and 8626 on a machine where they are free.
+- Capacities: 1 berth on every island except Scheria (2).
+- Direct routes: Aeaea-Scheria, Aeaea-Thrinacia, Aeolia-Scheria,
+  Scheria-Ismarus, Thrinacia-Ogygia. Every ship connects to Ithaca on
+  Montserrat and starts at Aeaea.
+- A port is only unique per machine, so servers on different machines reuse
+  8625-8627.
 - Each server listens on the IP and port of its own .dat file, so it must be
   started on the machine whose IP it lists (or use 0.0.0.0 to listen anywhere).
 - Odysseus connects with plain IP addresses (no host names).
+- Every process uses its own folder (line 2 of its config) and every island
+  its own stocks/<Island>.db.
