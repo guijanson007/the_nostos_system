@@ -1,9 +1,8 @@
 Telemachus
 ./telemachus_files
-172.16.214.18 8625
-Aeaea 172.16.214.20 8626
+172.16.214.21 8625
+Aeaea 172.16.214.20 8625
 250
-3
-OliveOil 30
-DriedFish 50
-SeaSalt 20
+2
+Barley 40
+DriedFigs 60
