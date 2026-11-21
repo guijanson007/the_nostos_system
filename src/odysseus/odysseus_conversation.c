@@ -1439,11 +1439,14 @@ OdysseusStatus sendDelivery(Odysseus *ptOdysseus) {
     if (TRANSFER_OK == nResult) {
         return ODY_OK;
     }
-    // The island answers a wrong size or MD5 with a final DELIVER error
-    if (TRANSFER_SIZE_ERROR == nResult || TRANSFER_MD5_ERROR == nResult) {
-        skipDeliverReply(ptOdysseus);
-    } else if (TRANSFER_PEER_GONE == nResult) {
+    // Once its worker took the transfer, the island ends any failure with a
+    // final DELIVER error, also when it refused the file at READY (it could
+    // not create it). A refusal from the island loop has no final frame and
+    // only costs the short wait.
+    if (TRANSFER_PEER_GONE == nResult) {
         dropIsland(ptOdysseus);
+    } else {
+        skipDeliverReply(ptOdysseus);
     }
     return ODY_ERR_TRANSFER;
 }

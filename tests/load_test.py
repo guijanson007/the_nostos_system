@@ -2247,6 +2247,11 @@ def scenario_fileerrors(keep):
                 os.chmod(folder, 0o700)
             assert "mark of Scheria" not in out and "ERROR" in out, out
             assert c.alive()
+            # the island's final DELIVER error was consumed: the ship stays in step
+            out = c.send("LIST MARKET")
+            assert "Unexpected" not in out and "ERROR" not in out, out
+            out = c.send("DELIVER")
+            assert "mark of Scheria" in out, out
             cluster.check_alive()
         # nothing listening: CONNECT ITHACA and SAIL fail without killing the ship
         d = Ship(cluster, "Eumaeus", ithaca_port=free_port(), aeaea_port=free_port())
