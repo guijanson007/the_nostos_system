@@ -155,7 +155,11 @@ void odysseusStatus(Odysseus *ptOdysseus) {
                               ptOdysseus->tActiveVoyage.nReward)) {
         println(psBuffer);
         free(psBuffer);
-        if (NULL != ptOdysseus->tActiveVoyage.psObjectPath) {
+        // After DELIVER the island keeps the object; the ship carries its seal
+        if (0 != ptOdysseus->tActiveVoyage.nDelivered) {
+            printWithName(MSG_OBJECT_SEALED,
+                          ptOdysseus->tActiveVoyage.psDestination);
+        } else if (NULL != ptOdysseus->tActiveVoyage.psObjectPath) {
             println(MSG_OBJECT_STORED);
         }
     }

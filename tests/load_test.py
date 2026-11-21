@@ -1951,7 +1951,8 @@ def scenario_persist_mission(keep):
         obj_md5 = md5_of(ship.file(".object"))
         ship.restart()
         out = status(ship)[3]
-        assert "TridentOfPoseidon" in out and os.path.exists(ship.file(".object")), \
+        assert "TridentOfPoseidon" in out and "Object: on board" in out and \
+            os.path.exists(ship.file(".object")), \
             "after OBJECT + restart: mission/object not recovered: %r" % out
         assert md5_of(ship.file(".object")) == obj_md5, "object changed across the restart"
         ship.send("CONNECT ITHACA")
@@ -1962,7 +1963,8 @@ def scenario_persist_mission(keep):
         assert "mark of Scheria" in ship.send("DELIVER")
         ship.restart()
         gold, prov, cargo, out = status(ship)
-        assert "TridentOfPoseidon" in out and os.path.exists(ship.file(".signed")), \
+        assert "TridentOfPoseidon" in out and "sealed by Scheria" in out and \
+            os.path.exists(ship.file(".signed")), \
             "after SIGNED + restart: receipt not recovered: %r" % out
         assert (gold, prov, cargo) == traded, "cargo/gold not recovered with the mission"
         ship.send("CONNECT ITHACA")

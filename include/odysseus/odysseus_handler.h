@@ -24,6 +24,7 @@
 #define MSG_SUPPLY_LINE "%s: %d kg"
 #define MSG_TOTAL_PROVISIONS "\nTotal provisions: %d kg\n"
 #define MSG_OBJECT_STORED "Object: on board"
+#define MSG_OBJECT_SEALED "Object: sealed by %s, ready to claim"
 #define MSG_OBJECT_RECEIVED "Object received correctly."
 #define MSG_DELIVERING "Delivering %s to %s..."
 #define MSG_OBJECT_TRANSFERRED "Object transferred correctly.\n"
