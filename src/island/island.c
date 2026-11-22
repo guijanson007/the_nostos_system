@@ -309,8 +309,8 @@ int startServer(Island *ptIsland, int *pnFdConfig,
                 SPHRAGIS_Island *ptSphragis) {
     char *psBuff = NULL;
 
-    // The island keeps its temporary transfer files in its folder (line 2
-    // of the config file)
+    // The island keeps each delivered image and its sealed copy in its
+    // folder (line 2 of the config file)
     if (-1 == mkdir(ptIsland->psFile, ISLAND_FOLDER_MODE) && EEXIST != errno) {
         printErr(ERROR_FOLDER);
         closeFiles(pnFdConfig, &ptIsland->nFdStock);
