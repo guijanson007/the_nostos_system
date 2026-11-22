@@ -119,6 +119,16 @@ const char *odysseusStatusMessage(const Odysseus *ptOdysseus,
             return STATUS_ERROR_NOT_ENOUGH_CARGO;
         case ODY_ERR_NOT_IN_CARGO:
             return STATUS_ERROR_NOT_IN_CARGO;
+        case ODY_ERR_NO_VOYAGE:
+            return STATUS_ERROR_NO_VOYAGE;
+        case ODY_ERR_NOT_DESTINATION:
+            return STATUS_ERROR_NOT_DESTINATION;
+        case ODY_ERR_ALREADY_DELIVERED:
+            return STATUS_ERROR_ALREADY_DELIVERED;
+        case ODY_ERR_NOT_DELIVERED:
+            return STATUS_ERROR_NOT_DELIVERED;
+        case ODY_ERR_TRANSFER:
+            return STATUS_ERROR_TRANSFER;
         default:
             return STATUS_ERROR_UNKNOWN;
     }

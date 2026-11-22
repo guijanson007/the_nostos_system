@@ -24,9 +24,9 @@
  * @Ret : Index of the island in the map, or -1 if it isn't known.
  *
  ************************************************/
-static int findIsland(const Map *ptMap, const char *psName) {
+int findIsland(const Map *ptMap, const char *psName) {
     int i = 0;
- 
+
     for (i = 0; i < ptMap->nNumConnections; i++) {
         if (0 == strcasecmp(ptMap->atConnections[i].psName, psName)) {
             return i;
@@ -51,7 +51,7 @@ int findDestinationFromIsland(Odysseus *ptOdysseus, const char *psDestination) {
     const KnownIsland *ptHere = NULL;
     int nNeighbor = 0;
     int i = 0;
- 
+
     if (AT_ITHACA == ptOdysseus->nWhereAmI) {
         if (0 == strcasecmp(ptOdysseus->tMap.atConnections[0].psName,
                             psDestination)) {
@@ -59,9 +59,9 @@ int findDestinationFromIsland(Odysseus *ptOdysseus, const char *psDestination) {
         }
         return -1;
     }
- 
+
     ptHere = &ptOdysseus->tMap.atConnections[ptOdysseus->nWhereAmI];
- 
+
     for (i = 0; i < ptHere->nNumNeighbors; i++) {
         nNeighbor = ptHere->anNeighbors[i];
         if (0 == strcasecmp(ptOdysseus->tMap.atConnections[nNeighbor].psName,
@@ -72,7 +72,6 @@ int findDestinationFromIsland(Odysseus *ptOdysseus, const char *psDestination) {
     return -1;
 }
 
-
 /***********************************************
  *
  * @Name : addIsland
@@ -82,12 +81,12 @@ int findDestinationFromIsland(Odysseus *ptOdysseus, const char *psDestination) {
  * @Ret : Index of the new island, or -1 if memory ran out (map unchanged).
  *
  ************************************************/
-static int addIsland(Map *ptMap, const MapRoute *ptRoute) {
+int addIsland(Map *ptMap, const MapRoute *ptRoute) {
     KnownIsland *atTmp = NULL;
     KnownIsland *ptNew = NULL;
     char *psName = strdup(ptRoute->psName);
     char *psIp = strdup(ptRoute->psIp);
- 
+
     atTmp = realloc(ptMap->atConnections,
                     sizeof(KnownIsland) * (ptMap->nNumConnections + 1));
     if (NULL == psName || NULL == psIp || NULL == atTmp) {
@@ -98,7 +97,7 @@ static int addIsland(Map *ptMap, const MapRoute *ptRoute) {
         }
         return -1;
     }
- 
+
     ptMap->atConnections = atTmp;
     ptNew = &ptMap->atConnections[ptMap->nNumConnections];
     ptNew->psName = psName;
@@ -106,7 +105,7 @@ static int addIsland(Map *ptMap, const MapRoute *ptRoute) {
     ptNew->nPort = ptRoute->nPort;
     ptNew->nNumNeighbors = 0;
     ptNew->anNeighbors = NULL;
- 
+
     return ptMap->nNumConnections++;
 }
 
@@ -119,16 +118,16 @@ static int addIsland(Map *ptMap, const MapRoute *ptRoute) {
  * @Ret : 0 if everything went well, -1 if memory ran out.
  *
  ************************************************/
-static int addNeighbor(KnownIsland *ptIsland, int nNeighbor) {
+int addNeighbor(KnownIsland *ptIsland, int nNeighbor) {
     int *anTmp = NULL;
     int i = 0;
- 
+
     for (i = 0; i < ptIsland->nNumNeighbors; i++) {
         if (nNeighbor == ptIsland->anNeighbors[i]) {
             return 0;
         }
     }
- 
+
     anTmp = realloc(ptIsland->anNeighbors,
                     sizeof(int) * (ptIsland->nNumNeighbors + 1));
     if (NULL == anTmp) {
@@ -136,10 +135,9 @@ static int addNeighbor(KnownIsland *ptIsland, int nNeighbor) {
     }
     ptIsland->anNeighbors = anTmp;
     ptIsland->anNeighbors[ptIsland->nNumNeighbors++] = nNeighbor;
- 
+
     return 0;
 }
-
 
 /***********************************************
  *
@@ -159,7 +157,7 @@ int mergeRoutes(Odysseus *ptOdysseus, const MapRoute *atRoutes, int nRoutes) {
     int nHere = ptOdysseus->nWhereAmI;
     int nDestination = 0;
     int i = 0;
- 
+
     for (i = 0; i < nRoutes; i++) {
         if (0 == strcasecmp(ptMap->atConnections[nHere].psName,
                             atRoutes[i].psName)) {
@@ -189,14 +187,13 @@ int mergeRoutes(Odysseus *ptOdysseus, const MapRoute *atRoutes, int nRoutes) {
  ************************************************/
 void freeMapRoutes(MapRoute *atRoutes, int nRoutes) {
     int i = 0;
- 
+
     for (i = 0; i < nRoutes; i++) {
         free(atRoutes[i].psName);
         free(atRoutes[i].psIp);
     }
     free(atRoutes);
 }
-
 
 /***********************************************
  *
@@ -208,9 +205,9 @@ void freeMapRoutes(MapRoute *atRoutes, int nRoutes) {
  * @Ret : None.
  *
  ************************************************/
-static void freeSphragisIslands(SPHRAGIS_Island *atIslands, int nCount) {
+void freeSphragisIslands(SPHRAGIS_Island *atIslands, int nCount) {
     int i = 0;
- 
+
     for (i = 0; i < nCount; i++) {
         free(atIslands[i].known_islands);
     }
@@ -232,35 +229,38 @@ void displayMap(const Odysseus *ptOdysseus) {
     int nResult = SPHRAGIS_OK;
     int i = 0;
     int j = 0;
- 
-    atIslands = calloc(nCount, sizeof(SPHRAGIS_Island));
+
+    atIslands = malloc((size_t)nCount * sizeof(SPHRAGIS_Island));
     if (NULL == atIslands) {
         printErr(ERROR_MAP_DISPLAY);
         return;
     }
- 
+    memset(atIslands, 0, (size_t)nCount * sizeof(SPHRAGIS_Island));
+
     for (i = 0; i < nCount; i++) {
         ptKnown = &ptOdysseus->tMap.atConnections[i];
- 
+
         atIslands[i].name = ptKnown->psName;
         atIslands[i].known_island_count = ptKnown->nNumNeighbors;
         if (0 == ptKnown->nNumNeighbors) {
             continue;
         }
-        atIslands[i].known_islands = calloc(ptKnown->nNumNeighbors,
-                                            sizeof(char *));
+        atIslands[i].known_islands =
+            malloc((size_t)ptKnown->nNumNeighbors * sizeof(char *));
         if (NULL == atIslands[i].known_islands) {
             printErr(ERROR_MAP_DISPLAY);
             nCount = i;
             nResult = SPHRAGIS_ERROR_INVALID_CONNECTION;
             break;
         }
+        memset(atIslands[i].known_islands, 0,
+               (size_t)ptKnown->nNumNeighbors * sizeof(char *));
         for (j = 0; j < ptKnown->nNumNeighbors; j++) {
             atIslands[i].known_islands[j] =
                 ptOdysseus->tMap.atConnections[ptKnown->anNeighbors[j]].psName;
         }
     }
- 
+
     if (SPHRAGIS_OK == nResult) {
         nResult = SPHRAGIS_display_map(atIslands, nCount);
         if (SPHRAGIS_ERROR == nResult) {
@@ -269,6 +269,6 @@ void displayMap(const Odysseus *ptOdysseus) {
             printErr(ERROR_MAP_DISPLAY);
         }
     }
- 
+
     freeSphragisIslands(atIslands, nCount);
 }

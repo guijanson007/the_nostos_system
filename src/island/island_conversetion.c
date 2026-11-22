@@ -12,7 +12,6 @@
 
 #include "island/island_conversetion.h"
 
-
 /***********************************************
  *
  * @Name : sendError
@@ -23,11 +22,11 @@
  * @Ret : None.
  *
  ************************************************/
-static void sendError(Message *ptMsg, int nFd, const char *psReason) {
+void sendError(Message *ptMsg, int nFd, const char *psReason) {
     buildMessage(ptMsg, FLAG_RESPONSE | FLAG_ERROR, psReason);
     sendMessage(ptMsg, nFd);
 }
- 
+
 /***********************************************
  *
  * @Name : findClientIndex
@@ -37,18 +36,18 @@ static void sendError(Message *ptMsg, int nFd, const char *psReason) {
  * @Ret : Index of the client in the list, or -1 if it isn't there.
  *
  ************************************************/
-static int findClientIndex(const Island *ptIsland, int nFd) {
+int findClientIndex(const Island *ptIsland, int nFd) {
     size_t i = 0;
- 
+
     for (i = 0; i < ptIsland->tNumClients; i++) {
         if (nFd == ptIsland->atClients[i].nFd) {
             return (int)i;
         }
     }
- 
+
     return -1;
 }
- 
+
 /***********************************************
  *
  * @Name : isClientDocked
@@ -58,12 +57,13 @@ static int findClientIndex(const Island *ptIsland, int nFd) {
  * @Ret : 1 if the client is docked, 0 otherwise.
  *
  ************************************************/
-static int isClientDocked(const Island *ptIsland, int nFd) {
+int isClientDocked(const Island *ptIsland, int nFd) {
     int nIndex = findClientIndex(ptIsland, nFd);
- 
-    return (-1 != nIndex && CLIENT_DOCKED == ptIsland->atClients[nIndex].eState);
+
+    return (-1 != nIndex &&
+            CLIENT_DOCKED == ptIsland->atClients[nIndex].eState);
 }
- 
+
 /***********************************************
  *
  * @Name : removeClient
@@ -77,19 +77,20 @@ static int isClientDocked(const Island *ptIsland, int nFd) {
  ************************************************/
 void removeClient(Island *ptIsland, int nFd) {
     int nIndex = findClientIndex(ptIsland, nFd);
- 
+
     close(nFd);
     FD_CLR(nFd, &ptIsland->tFdsClients);
- 
+
     if (-1 == nIndex) {
         return;
     }
- 
+
     free(ptIsland->atClients[nIndex].psName);
-    ptIsland->atClients[nIndex] = ptIsland->atClients[ptIsland->tNumClients - 1];
+    ptIsland->atClients[nIndex] =
+        ptIsland->atClients[ptIsland->tNumClients - 1];
     ptIsland->tNumClients--;
 }
- 
+
 /***********************************************
  *
  * @Name : dockClient
@@ -99,9 +100,10 @@ void removeClient(Island *ptIsland, int nFd) {
  * @Ret : 0 if the client was docked, -1 if the message couldn't be sent.
  *
  ************************************************/
-static int dockClient(Island *ptIsland, size_t tIndex) {
-    Message tMsg = {0};
- 
+int dockClient(Island *ptIsland, size_t tIndex) {
+    Message tMsg;
+
+    memset(&tMsg, 0, sizeof(Message));
     tMsg.type = MSG_ARRIVAL_ISLAND;
     buildMessage(&tMsg, FLAG_RESPONSE, DOCKED);
     if (0 != sendMessage(&tMsg, ptIsland->atClients[tIndex].nFd)) {
@@ -111,7 +113,7 @@ static int dockClient(Island *ptIsland, size_t tIndex) {
     ptIsland->nNumDocked++;
     return 0;
 }
- 
+
 /***********************************************
  *
  * @Name : queueClient
@@ -121,17 +123,18 @@ static int dockClient(Island *ptIsland, size_t tIndex) {
  * @Ret : Result of sendMessage (0 if the message was sent).
  *
  ************************************************/
-static int queueClient(Island *ptIsland, size_t tIndex) {
-    Message tMsg = {0};
- 
+int queueClient(Island *ptIsland, size_t tIndex) {
+    Message tMsg;
+
+    memset(&tMsg, 0, sizeof(Message));
     ptIsland->atClients[tIndex].eState = CLIENT_WAITING;
     ptIsland->atClients[tIndex].tQueued = ptIsland->tArrivalCounter++;
- 
+
     tMsg.type = MSG_ARRIVAL_ISLAND;
     buildMessage(&tMsg, FLAG_RESPONSE, WAIT);
     return sendMessage(&tMsg, ptIsland->atClients[tIndex].nFd);
 }
- 
+
 /***********************************************
  *
  * @Name : decideState
@@ -142,9 +145,9 @@ static int queueClient(Island *ptIsland, size_t tIndex) {
  * @Ret : None.
  *
  ************************************************/
-static void decideState(Island *ptIsland, size_t tIndex) {
+void decideState(Island *ptIsland, size_t tIndex) {
     char *psBuffer = NULL;
- 
+
     if (ptIsland->nNumDocked < ptIsland->nCapacity) {
         if (0 == dockClient(ptIsland, tIndex)) {
             if (-1 != asprintf(&psBuffer, MSG_ENTERED_PORT,
@@ -163,7 +166,7 @@ static void decideState(Island *ptIsland, size_t tIndex) {
         }
     }
 }
- 
+
 /***********************************************
  *
  * @Name : arravalIsland
@@ -175,28 +178,28 @@ static void decideState(Island *ptIsland, size_t tIndex) {
  * @Ret : None.
  *
  ************************************************/
-static void arravalIsland(Island *ptIsland, Message tMsg, int nFdClient) {
+void arravalIsland(Island *ptIsland, Message tMsg, int nFdClient) {
     Client *atTmp = NULL;
     char *psName = NULL;
     char *psBuffer = NULL;
- 
+
     tMsg.type = MSG_ARRIVAL_ISLAND;
     if (FLAG_NONE != tMsg.flag || 0 == tMsg.dataLength) {
         sendError(&tMsg, nFdClient, ERROR_MESSAGE_FORMAT);
         return;
     }
- 
+
     if (-1 != findClientIndex(ptIsland, nFdClient)) {
         sendError(&tMsg, nFdClient, ERROR_ODYSSEUS_ALREDY_EXIST);
         return;
     }
- 
+
     psName = strdup(tMsg.data);
     if (NULL == psName) {
         sendError(&tMsg, nFdClient, ERROR_MEMORY);
         return;
     }
- 
+
     atTmp = realloc(ptIsland->atClients,
                     sizeof(Client) * (ptIsland->tNumClients + 1));
     if (NULL == atTmp) {
@@ -205,12 +208,15 @@ static void arravalIsland(Island *ptIsland, Message tMsg, int nFdClient) {
         return;
     }
     ptIsland->atClients = atTmp;
- 
+
     ptIsland->atClients[ptIsland->tNumClients].nFd = nFdClient;
     ptIsland->atClients[ptIsland->tNumClients].psName = psName;
     ptIsland->atClients[ptIsland->tNumClients].eState = CLIENT_NEW;
     ptIsland->atClients[ptIsland->tNumClients].tQueued = 0;
- 
+    ptIsland->atClients[ptIsland->tNumClients].ptJob = NULL;
+    ptIsland->atClients[ptIsland->tNumClients].nDeliverPending = 0;
+    ptIsland->atClients[ptIsland->tNumClients].nDeliverVoyage = 0;
+
     if (-1 != asprintf(&psBuffer, MSG_APPROACHING, psName, ptIsland->psName)) {
         println(psBuffer);
         free(psBuffer);
@@ -218,7 +224,7 @@ static void arravalIsland(Island *ptIsland, Message tMsg, int nFdClient) {
     ptIsland->tNumClients++;
     decideState(ptIsland, ptIsland->tNumClients - 1);
 }
- 
+
 /***********************************************
  *
  * @Name : admitNextShips
@@ -228,11 +234,11 @@ static void arravalIsland(Island *ptIsland, Message tMsg, int nFdClient) {
  * @Ret : None.
  *
  ************************************************/
-static void admitNextShips(Island *ptIsland) {
+void admitNextShips(Island *ptIsland) {
     char *psBuffer = NULL;
     int nBest = -1;
     size_t i = 0;
- 
+
     while (ptIsland->nNumDocked < ptIsland->nCapacity) {
         nBest = -1;
         for (i = 0; i < ptIsland->tNumClients; i++) {
@@ -245,7 +251,7 @@ static void admitNextShips(Island *ptIsland) {
         if (-1 == nBest) {
             return;
         }
- 
+
         if (0 == dockClient(ptIsland, (size_t)nBest)) {
             if (-1 != asprintf(&psBuffer, MSG_DOCKED_SENT,
                                ptIsland->atClients[nBest].psName)) {
@@ -257,7 +263,7 @@ static void admitNextShips(Island *ptIsland) {
         }
     }
 }
- 
+
 /***********************************************
  *
  * @Name : listMarket
@@ -269,12 +275,12 @@ static void admitNextShips(Island *ptIsland) {
  * @Ret : None.
  *
  ************************************************/
-static void listMarket(Island *ptIsland, Message tMsg, int nFd) {
+void listMarket(Island *ptIsland, Message tMsg, int nFd) {
     char *psBuff = NULL;
     size_t i = 0;
- 
+
     tMsg.type = MSG_LIST_MARKET;
- 
+
     if (0 == isClientDocked(ptIsland, nFd)) {
         sendError(&tMsg, nFd, ERROR_NOT_DOCKED);
         return;
@@ -283,34 +289,38 @@ static void listMarket(Island *ptIsland, Message tMsg, int nFd) {
         sendError(&tMsg, nFd, ERROR_MESSAGE_FORMAT);
         return;
     }
- 
+
     for (i = 0; i < ptIsland->tNumStock; i++) {
         psBuff = NULL;
         if (-1 == asprintf(&psBuff, MARKET_LINE_FORMAT, i + 1,
                            ptIsland->tNumStock + 1, ptIsland->atStock[i].sName,
                            ptIsland->atStock[i].nQuantity,
                            ptIsland->atStock[i].nPrice)) {
+            // The client is waiting for the rest of the list: end it
+            sendError(&tMsg, nFd, ERROR_MEMORY);
             return;
         }
- 
+
         buildMessage(&tMsg, FLAG_RESPONSE, psBuff);
         free(psBuff);
- 
+
         if (0 != sendMessage(&tMsg, nFd)) {
             return;
         }
     }
- 
+
     psBuff = NULL;
-    if (-1 != asprintf(&psBuff, MARKET_LINE_FORMAT, ptIsland->tNumStock + 1,
+    if (-1 == asprintf(&psBuff, MARKET_LINE_FORMAT, ptIsland->tNumStock + 1,
                        ptIsland->tNumStock + 1, MAP_PRODUCT, MAP_AMOUNT,
                        MAP_PRICE)) {
-        buildMessage(&tMsg, FLAG_RESPONSE, psBuff);
-        free(psBuff);
-        sendMessage(&tMsg, nFd);
+        sendError(&tMsg, nFd, ERROR_MEMORY);
+        return;
     }
+    buildMessage(&tMsg, FLAG_RESPONSE, psBuff);
+    free(psBuff);
+    sendMessage(&tMsg, nFd);
 }
- 
+
 /***********************************************
  *
  * @Name : parseTradeRequest
@@ -322,18 +332,18 @@ static void listMarket(Island *ptIsland, Message tMsg, int nFd) {
  * @Ret : 0 if the request is valid, -1 otherwise.
  *
  ************************************************/
-static int parseTradeRequest(char *psData, int nLength, char **ppsProduct,
-                             int *pnAmount) {
+int parseTradeRequest(char *psData, int nLength, char **ppsProduct,
+                      int *pnAmount) {
     char *psAmount = NULL;
- 
+
     if (NULL == psData || 0 >= nLength || MAX_TRADE_DATA < nLength) {
         return -1;
     }
     psData[nLength] = '\0';
- 
+
     *ppsProduct = strtok(psData, TRADE_DELIMITER);
     psAmount = strtok(NULL, TRADE_DELIMITER);
- 
+
     if (NULL == *ppsProduct || NULL == psAmount ||
         NULL != strtok(NULL, TRADE_DELIMITER)) {
         return -1;
@@ -341,12 +351,12 @@ static int parseTradeRequest(char *psData, int nLength, char **ppsProduct,
     if (0 == isPositiveInteger(psAmount)) {
         return -1;
     }
- 
+
     *pnAmount = atoi(psAmount);
- 
+
     return 0;
 }
- 
+
 /***********************************************
  *
  * @Name : saveStockEntry
@@ -357,13 +367,13 @@ static int parseTradeRequest(char *psData, int nLength, char **ppsProduct,
  * @Ret : 0 if the entry was written, -1 otherwise.
  *
  ************************************************/
-static int saveStockEntry(int nFdStock, size_t tIndex, Stock *ptItem) {
+int saveStockEntry(int nFdStock, size_t tIndex, Stock *ptItem) {
     int nWritten = 0;
- 
+
     if (-1 == lseek(nFdStock, tIndex * sizeof(Stock), SEEK_SET)) {
         return -1;
     }
- 
+
     nWritten = write(nFdStock, ptItem, sizeof(Stock));
     if (-1 == nWritten) {
         return -1;
@@ -371,10 +381,10 @@ static int saveStockEntry(int nFdStock, size_t tIndex, Stock *ptItem) {
     if (sizeof(Stock) != nWritten) {
         return -1;
     }
- 
+
     return 0;
 }
- 
+
 /***********************************************
  *
  * @Name : prepareTrade
@@ -389,39 +399,60 @@ static int saveStockEntry(int nFdStock, size_t tIndex, Stock *ptItem) {
  * @Ret : 0 if the trade can be done, -1 otherwise.
  *
  ************************************************/
-static int prepareTrade(Island *ptIsland, Message *ptMsg, int nFd, char nType,
-                        int *pnAmount, size_t *ptIndex) {
+int prepareTrade(Island *ptIsland, Message *ptMsg, int nFd, char nType,
+                 int *pnAmount, size_t *ptIndex) {
     char *psProduct = NULL;
     size_t i = 0;
- 
+
     ptMsg->type = nType;
     if (0 == isClientDocked(ptIsland, nFd)) {
         sendError(ptMsg, nFd, ERROR_NOT_DOCKED);
         return -1;
     }
- 
+
     if (FLAG_NONE != ptMsg->flag ||
         0 != parseTradeRequest(ptMsg->data, ptMsg->dataLength, &psProduct,
                                pnAmount)) {
         sendError(ptMsg, nFd, ERROR_MESSAGE_FORMAT);
         return -1;
     }
- 
+
     for (i = 0; i < ptIsland->tNumStock; i++) {
         if (0 == strcasecmp(psProduct, ptIsland->atStock[i].sName)) {
             break;
         }
     }
- 
+
     if (i == ptIsland->tNumStock) {
         sendError(ptMsg, nFd, ERROR_UNKNOWN_PRODUCT);
         return -1;
     }
- 
+
     *ptIndex = i;
     return 0;
 }
- 
+
+/***********************************************
+ *
+ * @Name : tradeFits
+ * @Def : Checks that a trade cannot overflow an int: the price of the
+ *        amount and, when selling, the new stock.
+ * @Arg : In: ptItem = product traded
+ *        In: nAmount = amount traded
+ *        In: nSelling = 1 if the amount is added to the stock
+ * @Ret : 1 if the trade fits in an int, 0 otherwise.
+ *
+ ************************************************/
+int tradeFits(const Stock *ptItem, int nAmount, int nSelling) {
+    if (0 < ptItem->nPrice && nAmount > INT_MAX / ptItem->nPrice) {
+        return 0;
+    }
+    if (nSelling && nAmount > INT_MAX - ptItem->nQuantity) {
+        return 0;
+    }
+    return 1;
+}
+
 /***********************************************
  *
  * @Name : completeTrade
@@ -432,20 +463,26 @@ static int prepareTrade(Island *ptIsland, Message *ptMsg, int nFd, char nType,
  *        In: nFd = socket of the client
  *        In: tIndex = index of the product in the stock
  *        In: nAmount = amount traded
+ *        In: nOldQuantity = stock before the trade, restored if the file
+ *            cannot be written
  *        In: psVerb = "bought" or "sold"
  * @Ret : None.
  *
  ************************************************/
-static void completeTrade(Island *ptIsland, Message *ptMsg, int nFd,
-                          size_t tIndex, int nAmount, char *psVerb) {
+void completeTrade(Island *ptIsland, Message *ptMsg, int nFd, size_t tIndex,
+                   int nAmount, int nOldQuantity, char *psVerb) {
     Stock *ptItem = &ptIsland->atStock[tIndex];
     char *psBuff = NULL;
     int nIndex = 0;
- 
+
+    // Memory and stock.db must agree: a trade that cannot be saved is undone
     if (0 != saveStockEntry(ptIsland->nFdStock, tIndex, ptItem)) {
         printErr(ERROR_UPDATE_STOCK);
+        ptItem->nQuantity = nOldQuantity;
+        sendError(ptMsg, nFd, ERROR_TRADE_NOT_SAVED);
+        return;
     }
- 
+
     if (-1 == asprintf(&psBuff, TRADE_OK_FORMAT, ptItem->sName, nAmount,
                        nAmount * ptItem->nPrice)) {
         return;
@@ -453,17 +490,16 @@ static void completeTrade(Island *ptIsland, Message *ptMsg, int nFd,
     buildMessage(ptMsg, FLAG_RESPONSE, psBuff);
     free(psBuff);
     sendMessage(ptMsg, nFd);
- 
+
     nIndex = findClientIndex(ptIsland, nFd);
-    if (-1 != nIndex &&
-        -1 != asprintf(&psBuff, MSG_TRADE_DONE,
-                       ptIsland->atClients[nIndex].psName, psVerb, nAmount,
-                       ptItem->sName)) {
+    if (-1 != nIndex && -1 != asprintf(&psBuff, MSG_TRADE_DONE,
+                                       ptIsland->atClients[nIndex].psName,
+                                       psVerb, nAmount, ptItem->sName)) {
         println(psBuff);
         free(psBuff);
     }
 }
- 
+
 /***********************************************
  *
  * @Name : buyProduct
@@ -475,10 +511,10 @@ static void completeTrade(Island *ptIsland, Message *ptMsg, int nFd,
  * @Ret : None.
  *
  ************************************************/
-static void buyProduct(Island *ptIsland, Message tMsg, int nFd) {
+void buyProduct(Island *ptIsland, Message tMsg, int nFd) {
     int nAmount = 0;
     size_t i = 0;
- 
+
     if (0 != prepareTrade(ptIsland, &tMsg, nFd, MSG_BUY, &nAmount, &i)) {
         return;
     }
@@ -486,11 +522,16 @@ static void buyProduct(Island *ptIsland, Message tMsg, int nFd) {
         sendError(&tMsg, nFd, ERROR_NOT_ENOUGH_STOCK);
         return;
     }
- 
+    if (0 == tradeFits(&ptIsland->atStock[i], nAmount, 0)) {
+        sendError(&tMsg, nFd, ERROR_AMOUNT_TOO_BIG);
+        return;
+    }
+
     ptIsland->atStock[i].nQuantity -= nAmount;
-    completeTrade(ptIsland, &tMsg, nFd, i, nAmount, VERB_BOUGHT);
+    completeTrade(ptIsland, &tMsg, nFd, i, nAmount,
+                  ptIsland->atStock[i].nQuantity + nAmount, VERB_BOUGHT);
 }
- 
+
 /***********************************************
  *
  * @Name : sellProduct
@@ -501,18 +542,23 @@ static void buyProduct(Island *ptIsland, Message tMsg, int nFd) {
  * @Ret : None.
  *
  ************************************************/
-static void sellProduct(Island *ptIsland, Message tMsg, int nFd) {
+void sellProduct(Island *ptIsland, Message tMsg, int nFd) {
     int nAmount = 0;
     size_t i = 0;
- 
+
     if (0 != prepareTrade(ptIsland, &tMsg, nFd, MSG_SELL, &nAmount, &i)) {
         return;
     }
- 
+    if (0 == tradeFits(&ptIsland->atStock[i], nAmount, 1)) {
+        sendError(&tMsg, nFd, ERROR_AMOUNT_TOO_BIG);
+        return;
+    }
+
     ptIsland->atStock[i].nQuantity += nAmount;
-    completeTrade(ptIsland, &tMsg, nFd, i, nAmount, VERB_SOLD);
+    completeTrade(ptIsland, &tMsg, nFd, i, nAmount,
+                  ptIsland->atStock[i].nQuantity - nAmount, VERB_SOLD);
 }
- 
+
 /***********************************************
  *
  * @Name : sendMapRoutes
@@ -524,10 +570,10 @@ static void sellProduct(Island *ptIsland, Message tMsg, int nFd) {
  * @Ret : 0 if every frame was sent, -1 otherwise.
  *
  ************************************************/
-static int sendMapRoutes(Island *ptIsland, Message *ptMsg, int nFd) {
+int sendMapRoutes(Island *ptIsland, Message *ptMsg, int nFd) {
     char *psBuff = NULL;
     size_t i = 0;
- 
+
     if (0 == ptIsland->tNumRoutes) {
         if (-1 == asprintf(&psBuff, MAP_EMPTY_FORMAT, OK_MESSAGE, MAP_PRICE)) {
             return -1;
@@ -538,14 +584,13 @@ static int sendMapRoutes(Island *ptIsland, Message *ptMsg, int nFd) {
             return -1;
         }
     }
- 
+
     for (i = 0; i < ptIsland->tNumRoutes; i++) {
         psBuff = NULL;
-        if (-1 == asprintf(&psBuff, MAP_ROUTE_FORMAT, OK_MESSAGE, MAP_PRICE,
-                           i + 1, ptIsland->tNumRoutes,
-                           ptIsland->atRoutes[i].psName,
-                           ptIsland->atRoutes[i].psIp,
-                           ptIsland->atRoutes[i].nPort)) {
+        if (-1 ==
+            asprintf(&psBuff, MAP_ROUTE_FORMAT, OK_MESSAGE, MAP_PRICE, i + 1,
+                     ptIsland->tNumRoutes, ptIsland->atRoutes[i].psName,
+                     ptIsland->atRoutes[i].psIp, ptIsland->atRoutes[i].nPort)) {
             return -1;
         }
         buildMessage(ptMsg, FLAG_RESPONSE, psBuff);
@@ -554,10 +599,10 @@ static int sendMapRoutes(Island *ptIsland, Message *ptMsg, int nFd) {
             return -1;
         }
     }
- 
+
     return 0;
 }
- 
+
 /***********************************************
  *
  * @Name : buyMap
@@ -570,10 +615,10 @@ static int sendMapRoutes(Island *ptIsland, Message *ptMsg, int nFd) {
  * @Ret : None.
  *
  ************************************************/
-static void buyMap(Island *ptIsland, Message tMsg, int nFd) {
+void buyMap(Island *ptIsland, Message tMsg, int nFd) {
     char *psBuff = NULL;
     int nIndex = 0;
- 
+
     tMsg.type = MSG_BUY_MAP;
     if (0 == isClientDocked(ptIsland, nFd)) {
         sendError(&tMsg, nFd, ERROR_NOT_DOCKED);
@@ -584,20 +629,19 @@ static void buyMap(Island *ptIsland, Message tMsg, int nFd) {
         sendError(&tMsg, nFd, ERROR_MESSAGE_FORMAT);
         return;
     }
- 
+
     if (0 != sendMapRoutes(ptIsland, &tMsg, nFd)) {
         return;
     }
- 
+
     nIndex = findClientIndex(ptIsland, nFd);
-    if (-1 != nIndex &&
-        -1 != asprintf(&psBuff, MSG_BOUGHT_MAP,
-                       ptIsland->atClients[nIndex].psName)) {
+    if (-1 != nIndex && -1 != asprintf(&psBuff, MSG_BOUGHT_MAP,
+                                       ptIsland->atClients[nIndex].psName)) {
         println(psBuff);
         free(psBuff);
     }
 }
- 
+
 /***********************************************
  *
  * @Name : departure
@@ -610,10 +654,10 @@ static void buyMap(Island *ptIsland, Message tMsg, int nFd) {
  * @Ret : None.
  *
  ************************************************/
-static void departure(Island *ptIsland, Message tMsg, int nFd) {
+void departure(Island *ptIsland, Message tMsg, int nFd) {
     char *psBuff = NULL;
     int nIndex = findClientIndex(ptIsland, nFd);
- 
+
     tMsg.type = MSG_DEPARTURE_ISLAND;
     if (0 == isClientDocked(ptIsland, nFd)) {
         sendError(&tMsg, nFd, ERROR_NOT_DOCKED);
@@ -623,20 +667,205 @@ static void departure(Island *ptIsland, Message tMsg, int nFd) {
         sendError(&tMsg, nFd, ERROR_MESSAGE_FORMAT);
         return;
     }
- 
+
     ptIsland->atClients[nIndex].eState = CLIENT_LEFT;
     ptIsland->nNumDocked--;
     buildMessage(&tMsg, FLAG_RESPONSE, OK_MESSAGE);
     sendMessage(&tMsg, nFd);
- 
-    if (-1 != asprintf(&psBuff, MSG_HAS_LEFT,
-                       ptIsland->atClients[nIndex].psName)) {
+
+    if (-1 !=
+        asprintf(&psBuff, MSG_HAS_LEFT, ptIsland->atClients[nIndex].psName)) {
         println(psBuff);
         free(psBuff);
     }
     admitNextShips(ptIsland);
 }
- 
+
+/***********************************************
+ *
+ * @Name : deliverRequest
+ * @Def : Handles a DELIVER request (<VoyageID>&<Object>): only a docked
+ *        ship can deliver. The file transfer follows with a FILE HEADER.
+ * @Arg : In/Out: ptIsland = island with the client list
+ *        In: tMsg = request received
+ *        In: nFd = socket of the client
+ * @Ret : None.
+ *
+ ************************************************/
+void deliverRequest(Island *ptIsland, Message tMsg, int nFd) {
+    int nIndex = findClientIndex(ptIsland, nFd);
+    char *psVoyage = NULL;
+    char *psObject = NULL;
+    char *psBuff = NULL;
+
+    tMsg.type = MSG_DELIVER;
+    if (0 == isClientDocked(ptIsland, nFd)) {
+        sendError(&tMsg, nFd, ERROR_NOT_DOCKED);
+        return;
+    }
+    // Only the main thread uses strtok
+    psVoyage = strtok(tMsg.data, TRADE_DELIMITER);
+    psObject = strtok(NULL, TRADE_DELIMITER);
+    if (FLAG_NONE != tMsg.flag || NULL == psVoyage || NULL == psObject ||
+        NULL != strtok(NULL, TRADE_DELIMITER) ||
+        0 == isPositiveInteger(psVoyage)) {
+        sendError(&tMsg, nFd, ERROR_MESSAGE_FORMAT);
+        return;
+    }
+
+    ptIsland->atClients[nIndex].nDeliverPending = 1;
+    ptIsland->atClients[nIndex].nDeliverVoyage = atoi(psVoyage);
+
+    if (-1 != asprintf(&psBuff, MSG_DELIVERY_REQUEST,
+                       ptIsland->atClients[nIndex].psName, atoi(psVoyage))) {
+        println(psBuff);
+        free(psBuff);
+    }
+    if (-1 != asprintf(&psBuff, MSG_RECEIVING_OBJECT, psObject)) {
+        println(psBuff);
+        free(psBuff);
+    }
+}
+
+/***********************************************
+ *
+ * @Name : deliverHeader
+ * @Def : Handles the FILE HEADER of a DELIVER and gives the transfer,
+ *        the sealing and the SIGNED reply to a worker.
+ * @Arg : In/Out: ptIsland = island with the clients and the pool
+ *        In: tMsg = header received
+ *        In: nFd = socket of the client
+ * @Ret : None.
+ *
+ ************************************************/
+void deliverHeader(Island *ptIsland, Message tMsg, int nFd) {
+    FileInfo tInfo;
+    PoolJob *ptJob = NULL;
+    char *psRecordPath = NULL;
+    int nIndex = findClientIndex(ptIsland, nFd);
+
+    memset(&tInfo, 0, sizeof(FileInfo));
+    if (0 == isClientDocked(ptIsland, nFd) ||
+        0 == ptIsland->atClients[nIndex].nDeliverPending) {
+        rejectTransfer(nFd, ERROR_DELIVER_NO_REQUEST);
+        return;
+    }
+    ptIsland->atClients[nIndex].nDeliverPending = 0;
+
+    if (TRANSFER_OK != parseHeader(&tMsg, TRANSFER_DELIVERY, &tInfo)) {
+        rejectTransfer(nFd, ERROR_DELIVER_HEADER);
+        return;
+    }
+
+    // The island keeps the delivered image and its sealed copy
+    psRecordPath = buildRecordPath(
+        ptIsland->psFile, ptIsland->atClients[nIndex].psName,
+        ptIsland->atClients[nIndex].nDeliverVoyage, tInfo.psFileName);
+    if (NULL != psRecordPath) {
+        ptJob = createJob(JOB_SEAL_DELIVERY, nFd, psRecordPath, NULL,
+                          ptIsland->psName, &tInfo);
+        free(psRecordPath);
+    }
+    if (NULL == ptJob) {
+        freeFileInfo(&tInfo);
+        rejectTransfer(nFd, ERROR_MEMORY);
+        return;
+    }
+
+    ptIsland->atClients[nIndex].ptJob = ptJob;
+    FD_CLR(nFd, &ptIsland->tFdsClients);
+
+    if (POOL_OK != poolSubmit(&ptIsland->tPool, ptJob)) {
+        FD_SET(nFd, &ptIsland->tFdsClients);
+        ptIsland->atClients[nIndex].ptJob = NULL;
+        freeJob(ptJob);
+        rejectTransfer(nFd, ERROR_DELIVER_BUSY);
+    }
+}
+
+/***********************************************
+ *
+ * @Name : finishDelivery
+ * @Def : Answers the DELIVER once the worker has finished.
+ * @Arg : In: ptIsland = island (for its name)
+ *        In: nIndex = index of the client
+ *        In: ptJob = finished job
+ * @Ret : None.
+ *
+ ************************************************/
+void finishDelivery(Island *ptIsland, int nIndex, const PoolJob *ptJob) {
+    Message tMsg;
+    char *psBuffer = NULL;
+    const char *psShip = ptIsland->atClients[nIndex].psName;
+
+    memset(&tMsg, 0, sizeof(Message));
+    tMsg.type = MSG_DELIVER;
+
+    switch (ptJob->nResult) {
+        case TRANSFER_OK:
+            buildMessage(&tMsg, FLAG_RESPONSE, OK_MESSAGE);
+            sendMessage(&tMsg, ptJob->nFd);
+
+            // The worker did every step; they are logged once it is done
+            println(MSG_OBJECT_RECEIVED);
+            if (-1 != asprintf(&psBuffer, MSG_STAMPING, ptIsland->psName)) {
+                println(psBuffer);
+                free(psBuffer);
+            }
+            if (-1 != asprintf(&psBuffer, MSG_OBJECT_SEALED, psShip,
+                               ptIsland->psName)) {
+                println(psBuffer);
+                free(psBuffer);
+            }
+            if (-1 != asprintf(&psBuffer, MSG_SENDING_STAMPED, psShip)) {
+                println(psBuffer);
+                free(psBuffer);
+            }
+            println(MSG_TRANSFER_COMPLETED);
+            break;
+        case TRANSFER_GLYPH_ERROR:
+            sendError(&tMsg, ptJob->nFd, ERROR_DELIVER_SEAL);
+            break;
+        default:
+            sendError(&tMsg, ptJob->nFd, ERROR_DELIVER_FAILED);
+            break;
+    }
+}
+
+/***********************************************
+ *
+ * @Name : finishJob
+ * @Def : Handles a job returned by the pool. A ship that vanished during
+ *        the transfer leaves; otherwise its socket
+ *        goes back to the select set and it gets its answer.
+ * @Arg : In/Out: ptIsland = island with the clients
+ *        In: ptJob = finished job (freed here)
+ * @Ret : None.
+ *
+ ************************************************/
+void finishJob(Island *ptIsland, PoolJob *ptJob) {
+    int nIndex = findClientIndex(ptIsland, ptJob->nFd);
+
+    if (-1 != nIndex) {
+        ptIsland->atClients[nIndex].ptJob = NULL;
+    }
+
+    if (TRANSFER_PEER_GONE == ptJob->nResult || -1 == nIndex) {
+        clientLeaves(ptIsland, ptJob->nFd);
+    } else {
+        FD_SET(ptJob->nFd, &ptIsland->tFdsClients);
+
+        switch (ptJob->eType) {
+            case JOB_SEAL_DELIVERY:
+                finishDelivery(ptIsland, nIndex, ptJob);
+                break;
+            default:
+                break;
+        }
+    }
+    freeJob(ptJob);
+}
+
 /***********************************************
  *
  * @Name : choseOption
@@ -669,8 +898,10 @@ void choseOption(Island *ptIsland, Message tMsg, int nFdClient) {
             buyMap(ptIsland, tMsg, nFdClient);
             break;
         case MSG_DELIVER:
-            // DELIVER (RESPONSE)
-            sendNack(nFdClient, NACK_INVALID_TYPE);
+            deliverRequest(ptIsland, tMsg, nFdClient);
+            break;
+        case MSG_FILE_HEADER:
+            deliverHeader(ptIsland, tMsg, nFdClient);
             break;
         case MSG_DEPARTURE_ISLAND:
             departure(ptIsland, tMsg, nFdClient);
@@ -680,7 +911,7 @@ void choseOption(Island *ptIsland, Message tMsg, int nFdClient) {
             break;
     }
 }
- 
+
 /***********************************************
  *
  * @Name : clientLeaves
@@ -694,7 +925,7 @@ void choseOption(Island *ptIsland, Message tMsg, int nFdClient) {
 void clientLeaves(Island *ptIsland, int nFd) {
     int nIndex = findClientIndex(ptIsland, nFd);
     char *psBuffer = NULL;
- 
+
     if (-1 != nIndex && CLIENT_DOCKED == ptIsland->atClients[nIndex].eState) {
         ptIsland->nNumDocked--;
         if (-1 != asprintf(&psBuffer, MSG_HAS_LEFT,
@@ -703,8 +934,7 @@ void clientLeaves(Island *ptIsland, int nFd) {
             free(psBuffer);
         }
     }
- 
+
     removeClient(ptIsland, nFd);
     admitNextShips(ptIsland);
 }
- 

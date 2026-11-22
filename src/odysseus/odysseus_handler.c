@@ -8,6 +8,8 @@
  ************************************************/
 #define _GNU_SOURCE
 
+#include <strings.h>
+
 // header
 #include "odysseus/odysseus_handler.h"
 
@@ -16,6 +18,7 @@
 #include "odysseus/odysseus_handler.h"
 #include "odysseus/odysseus_map.h"
 #include "odysseus/odysseus_parser.h"
+#include "odysseus/odysseus_persistence.h"
 #include "utils/utils_communication.h"
 
 /***********************************************
@@ -27,7 +30,7 @@
  * @Ret : None.
  *
  ************************************************/
-static void printWithName(const char *psFormat, const char *psName) {
+void printWithName(const char *psFormat, const char *psName) {
     char *psBuffer = NULL;
 
     if (-1 != asprintf(&psBuffer, psFormat, psName)) {
@@ -38,9 +41,29 @@ static void printWithName(const char *psFormat, const char *psName) {
 
 /***********************************************
  *
+ * @Name : returnToIthaca
+ * @Def : Leaves the current island and returns directly to Ithaca (7.1),
+ *        without connecting to it. Does nothing if already at Ithaca.
+ * @Arg : In/Out: ptOdysseus = Odysseus instance
+ * @Ret : None.
+ *
+ ************************************************/
+void returnToIthaca(Odysseus *ptOdysseus) {
+    if (AT_ITHACA == ptOdysseus->nWhereAmI) {
+        return;
+    }
+    printWithName(MSG_LEAVING,
+                  ptOdysseus->tMap.atConnections[ptOdysseus->nWhereAmI].psName);
+    departFromIsland(ptOdysseus);
+    ptOdysseus->nWhereAmI = AT_ITHACA;
+    println(MSG_RETURNING_ITHACA);
+}
+
+/***********************************************
+ *
  * @Name : odysseusConnect
  * @Def : Connects odysseus to Ithaca. If odysseus is at an island, it
- *        departs from it first.
+ *        returns directly to Ithaca first.
  * @Arg : In/Out: ptOdysseus = Odysseus instance
  * @Ret : ODY_OK on success, otherwise the status code of the failure.
  *
@@ -52,14 +75,7 @@ OdysseusStatus odysseusConnect(Odysseus *ptOdysseus) {
         return ODY_ERR_ALREADY_CONNECTED;
     }
 
-    if (AT_ITHACA != ptOdysseus->nWhereAmI) {
-        printWithName(
-            MSG_LEAVING,
-            ptOdysseus->tMap.atConnections[ptOdysseus->nWhereAmI].psName);
-        departFromIsland(ptOdysseus);
-        ptOdysseus->nWhereAmI = AT_ITHACA;
-        println(MSG_RETURNING_ITHACA);
-    }
+    returnToIthaca(ptOdysseus);
 
     eStatus = connectToIthaca(ptOdysseus);
     if (ODY_OK != eStatus) {
@@ -139,6 +155,13 @@ void odysseusStatus(Odysseus *ptOdysseus) {
                               ptOdysseus->tActiveVoyage.nReward)) {
         println(psBuffer);
         free(psBuffer);
+        // After DELIVER the island keeps the object; the ship carries its seal
+        if (0 != ptOdysseus->tActiveVoyage.nDelivered) {
+            printWithName(MSG_OBJECT_SEALED,
+                          ptOdysseus->tActiveVoyage.psDestination);
+        } else if (NULL != ptOdysseus->tActiveVoyage.psObjectPath) {
+            println(MSG_OBJECT_STORED);
+        }
     }
 
     if (AT_ITHACA == ptOdysseus->nWhereAmI) {
@@ -152,23 +175,145 @@ void odysseusStatus(Odysseus *ptOdysseus) {
 
 /***********************************************
  *
- * @Name : odysseusDeliver
- * @Def : Delivers the cargo of the current voyage. (Not yet implemented)
- * @Arg : In: ptOdysseus = Odysseus instance
+ * @Name : dropIslandOnError
+ * @Def : After an I/O or protocol error the island conversation is out of
+ *        sync (a late frame would be read as the answer of the next
+ *        command), so the connection is closed. Errors the island answered
+ *        in order (its own error replies, failed transfers that were
+ *        resynchronised) keep it.
+ * @Arg : In/Out: ptOdysseus = odysseus at the island
+ *        In: eStatus = result of the island command
  * @Ret : None.
  *
  ************************************************/
-void odysseusDeliver(Odysseus *ptOdysseus) { (void)ptOdysseus; }
+void dropIslandOnError(Odysseus *ptOdysseus, OdysseusStatus eStatus) {
+    if ((ODY_ERR_IO == eStatus || ODY_ERR_ISLAND_PROTOCOL == eStatus ||
+         ODY_ERR_PROTOCOL == eStatus) &&
+        NO_SOCKET != ptOdysseus->nIslandSocket) {
+        close(ptOdysseus->nIslandSocket);
+        ptOdysseus->nIslandSocket = NO_SOCKET;
+    }
+}
+
+/***********************************************
+ *
+ * @Name : odysseusDeliver
+ * @Def : Delivers the object of the active voyage to the island where
+ *        odysseus is docked: sends it, waits for the island to seal it and
+ *        stores the sealed object. Only allowed at the destination island,
+ *        once per voyage.
+ * @Arg : In/Out: ptOdysseus = Odysseus instance
+ * @Ret : ODY_OK on success, otherwise the status code of the failure.
+ *
+ ************************************************/
+OdysseusStatus odysseusDeliver(Odysseus *ptOdysseus) {
+    OdysseusStatus eStatus = ODY_OK;
+    OdysseusVoyage *ptVoyage = &ptOdysseus->tActiveVoyage;
+    const char *psIsland = NULL;
+    char *psBuffer = NULL;
+
+    if (NO_SOCKET == ptOdysseus->nIslandSocket ||
+        AT_ITHACA == ptOdysseus->nWhereAmI) {
+        return ODY_ERR_NOT_AT_ISLAND;
+    }
+    if (0 == ptVoyage->nId || NULL == ptVoyage->psObjectPath) {
+        return ODY_ERR_NO_VOYAGE;
+    }
+    psIsland = ptOdysseus->tMap.atConnections[ptOdysseus->nWhereAmI].psName;
+    if (0 != strcasecmp(ptVoyage->psDestination, psIsland)) {
+        return ODY_ERR_NOT_DESTINATION;
+    }
+    if (0 != ptVoyage->nDelivered) {
+        return ODY_ERR_ALREADY_DELIVERED;
+    }
+
+    if (-1 !=
+        asprintf(&psBuffer, MSG_DELIVERING, ptVoyage->psObject, psIsland)) {
+        println(psBuffer);
+        free(psBuffer);
+    }
+    eStatus = sendDelivery(ptOdysseus);
+    if (ODY_OK != eStatus) {
+        dropIslandOnError(ptOdysseus, eStatus);
+        return eStatus;
+    }
+    println(MSG_OBJECT_TRANSFERRED);
+    printWithName(MSG_STAMPING, psIsland);
+
+    eStatus = receiveSigned(ptOdysseus);
+    if (ODY_OK != eStatus) {
+        dropIslandOnError(ptOdysseus, eStatus);
+        return eStatus;
+    }
+    println(MSG_STAMPED_RECEIVED);
+    printWithName(MSG_DELIVERY_COMPLETED, psIsland);
+    return ODY_OK;
+}
 
 /***********************************************
  *
  * @Name : odysseusClaim
- * @Def : Claims the reward of the current voyage. (Not yet implemented)
- * @Arg : In: ptOdysseus = Odysseus instance
- * @Ret : None.
+ * @Def : Claims the reward of the active voyage from Ithaca by presenting
+ *        the object sealed by the island. Only allowed connected to Ithaca
+ *        after a delivery. On success the reward is added to the gold, the
+ *        voyage (and its files) is cleared and the state is saved.
+ * @Arg : In/Out: ptOdysseus = Odysseus instance
+ * @Ret : ODY_OK on success, otherwise the status code of the failure.
  *
  ************************************************/
-void odysseusClaim(Odysseus *ptOdysseus) { (void)ptOdysseus; }
+OdysseusStatus odysseusClaim(Odysseus *ptOdysseus) {
+    OdysseusStatus eStatus = ODY_OK;
+    OdysseusVoyage *ptVoyage = &ptOdysseus->tActiveVoyage;
+    char *psDestination = NULL;
+    char *psBuffer = NULL;
+    int nVoyageId = 0;
+    int nReward = 0;
+
+    if (NO_SOCKET == ptOdysseus->nIthacaSocket) {
+        return ODY_ERR_NOT_CONNECTED;
+    }
+    if (0 == ptVoyage->nId) {
+        return ODY_ERR_NO_VOYAGE;
+    }
+    if (0 == ptVoyage->nDelivered || NULL == ptVoyage->psSignedPath) {
+        return ODY_ERR_NOT_DELIVERED;
+    }
+
+    if (-1 != asprintf(&psBuffer, MSG_CLAIM_PRESENTING, ptVoyage->psObject)) {
+        println(psBuffer);
+        free(psBuffer);
+    }
+    eStatus = requestClaim(ptOdysseus, &nReward);
+    if (ODY_OK != eStatus) {
+        if (ODY_ERR_REMOTE != eStatus) {
+            // The Ithaca conversation is out of sync, drop it
+            close(ptOdysseus->nIthacaSocket);
+            ptOdysseus->nIthacaSocket = NO_SOCKET;
+        }
+        return eStatus;
+    }
+
+    // The voyage is cleared below, keep what the messages need
+    nVoyageId = ptVoyage->nId;
+    psDestination = strdup(ptVoyage->psDestination);
+    if (NULL != psDestination) {
+        printWithName(MSG_GLYPH_VERIFIED, psDestination);
+        free(psDestination);
+    }
+    if (-1 != asprintf(&psBuffer, MSG_VOYAGE_COMPLETED, nVoyageId)) {
+        println(psBuffer);
+        free(psBuffer);
+    }
+    if (-1 != asprintf(&psBuffer, MSG_REWARD_RECEIVED, nReward)) {
+        println(psBuffer);
+        free(psBuffer);
+    }
+
+    ptOdysseus->tCargo.nGold += nReward;
+    discardOdysseusVoyage(ptVoyage);
+    odysseusSaveState(ptOdysseus);
+    return ODY_OK;
+}
 
 /***********************************************
  *
@@ -288,6 +433,7 @@ OdysseusStatus odysseusAcceptVoyage(Odysseus *ptOdysseus,
         println(psBuffer);
         free(psBuffer);
     }
+    println(MSG_OBJECT_RECEIVED);
     return ODY_OK;
 }
 
@@ -300,7 +446,7 @@ OdysseusStatus odysseusAcceptVoyage(Odysseus *ptOdysseus,
  * @Ret : None.
  *
  ************************************************/
-static void leaveCurrentPlace(Odysseus *ptOdysseus) {
+void leaveCurrentPlace(Odysseus *ptOdysseus) {
     if (AT_ITHACA == ptOdysseus->nWhereAmI) {
         println(MSG_LEAVING_ITHACA);
         disconnectFromIthaca(ptOdysseus);
@@ -323,7 +469,7 @@ static void leaveCurrentPlace(Odysseus *ptOdysseus) {
  * @Ret : ODY_OK on success, otherwise the status code of the failure.
  *
  ************************************************/
-static OdysseusStatus dockAtIsland(Odysseus *ptOdysseus, int *pnArrival) {
+OdysseusStatus dockAtIsland(Odysseus *ptOdysseus, int *pnArrival) {
     OdysseusStatus eStatus = ODY_OK;
 
     eStatus = arriveAtIsland(ptOdysseus, pnArrival);
@@ -341,14 +487,22 @@ static OdysseusStatus dockAtIsland(Odysseus *ptOdysseus, int *pnArrival) {
 /***********************************************
  *
  * @Name : lostAtSea
- * @Def : Prints that the crew ran out of provisions and closes the socket
- *        of the island.
+ * @Def : Prints that the crew ran out of provisions, forgets the saved
+ *        state (6.8: restart with the initial resources) and closes the
+ *        socket of the island.
  * @Arg : In/Out: ptOdysseus = Odysseus instance
  * @Ret : ODY_LOST_AT_SEA.
  *
  ************************************************/
-static OdysseusStatus lostAtSea(Odysseus *ptOdysseus) {
+OdysseusStatus lostAtSea(Odysseus *ptOdysseus) {
     printWithName(MSG_LOST_AT_SEA, ptOdysseus->psName);
+    // The ship and its treasure are lost: forget the saved state (restart
+    // uses the initial resources) and empty the memory copy so the final
+    // save on exit does not bring it back
+    ptOdysseus->tCargo.nGold = 0;
+    odysseusResetState(ptOdysseus);
+    // Being lost at sea also loses the object (7.1)
+    discardOdysseusVoyage(&ptOdysseus->tActiveVoyage);
     close(ptOdysseus->nIslandSocket);
     ptOdysseus->nIslandSocket = NO_SOCKET;
     return ODY_LOST_AT_SEA;
@@ -364,7 +518,7 @@ static OdysseusStatus lostAtSea(Odysseus *ptOdysseus) {
  * @Ret : None.
  *
  ************************************************/
-static void printArrival(Odysseus *ptOdysseus, KnownIsland *ptDestination) {
+void printArrival(Odysseus *ptOdysseus, KnownIsland *ptDestination) {
     char *psBuffer = NULL;
 
     printWithName(MSG_GRANTED_ACCESS, ptDestination->psName);
@@ -396,6 +550,17 @@ OdysseusStatus odysseusSail(Odysseus *ptOdysseus, const char *psDestination) {
     KnownIsland *ptDestination = NULL;
     int nDestinationIndex = -1;
     int nArrival = ARRIVAL_NONE;
+
+    // From any island the ship can return directly to Ithaca (7.1); it
+    // connects to Ithaca later with CONNECT ITHACA
+    if (0 == strcasecmp(psDestination, ITHACA_NAME)) {
+        if (AT_ITHACA == ptOdysseus->nWhereAmI) {
+            printWithName(MSG_CANT_SAIL, ITHACA_NAME);
+        } else {
+            returnToIthaca(ptOdysseus);
+        }
+        return ODY_OK;
+    }
 
     nDestinationIndex = findDestinationFromIsland(ptOdysseus, psDestination);
 
@@ -484,6 +649,7 @@ OdysseusStatus odysseusBuy(Odysseus *ptOdysseus, const char *psProduct,
  ************************************************/
 OdysseusStatus odysseusSell(Odysseus *ptOdysseus, const char *psProduct,
                             const char *psAmount) {
+    OdysseusStatus eStatus = ODY_OK;
     int nAmount = atoi(psAmount);
     int i = 0;
 
@@ -495,10 +661,12 @@ OdysseusStatus odysseusSell(Odysseus *ptOdysseus, const char *psProduct,
     for (i = 0; i < ptOdysseus->tCargo.nNumSupplies; i++) {
         if (0 ==
             strcasecmp(ptOdysseus->tCargo.atSupplies[i].psName, psProduct)) {
-            if (nAmount <= ptOdysseus->tCargo.atSupplies[i].nAmount) {
-                return sellProduct(ptOdysseus, psProduct, nAmount);
+            if (nAmount > ptOdysseus->tCargo.atSupplies[i].nAmount) {
+                return ODY_ERR_NOT_ENOUGH_CARGO;
             }
-            return ODY_ERR_NOT_ENOUGH_CARGO;
+            eStatus = sellProduct(ptOdysseus, psProduct, nAmount);
+            dropIslandOnError(ptOdysseus, eStatus);
+            return eStatus;
         }
     }
 

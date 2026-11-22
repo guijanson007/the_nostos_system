@@ -12,7 +12,6 @@
 // header
 #include "odysseus/odysseus_parser.h"
 
-
 /***********************************************
  *
  * @Name : buildSupplies
@@ -25,16 +24,19 @@
  *        failure).
  *
  ************************************************/
-static int buildSupplies(Odysseus *ptOdysseus, char **apsLines, size_t tOutCount) {
+int buildSupplies(Odysseus *ptOdysseus, char **apsLines, size_t tOutCount) {
     size_t tLine = SUPPLIES_FIRST_LINE;
     char *psToken = NULL;
     Supply *ptSupply = NULL;
- 
+
     if (0 < ptOdysseus->tCargo.nNumSupplies) {
-        ptOdysseus->tCargo.atSupplies = calloc(ptOdysseus->tCargo.nNumSupplies, sizeof(Supply));
+        ptOdysseus->tCargo.atSupplies =
+            malloc((size_t)ptOdysseus->tCargo.nNumSupplies * sizeof(Supply));
         if (NULL == ptOdysseus->tCargo.atSupplies) {
             return 0;
         } else {
+            memset(ptOdysseus->tCargo.atSupplies, 0,
+                   (size_t)ptOdysseus->tCargo.nNumSupplies * sizeof(Supply));
             while (tLine < tOutCount &&
                    (tLine - SUPPLIES_FIRST_LINE) <
                        (size_t)ptOdysseus->tCargo.nNumSupplies) {
@@ -58,7 +60,6 @@ static int buildSupplies(Odysseus *ptOdysseus, char **apsLines, size_t tOutCount
     return 1;
 }
 
-
 /***********************************************
  *
  * @Name : parseIpPort
@@ -70,15 +71,15 @@ static int buildSupplies(Odysseus *ptOdysseus, char **apsLines, size_t tOutCount
  * @Ret : None.
  *
  ************************************************/
-static void parseIpPort(Odysseus *ptOdysseus, const char *psLine) {
+void parseIpPort(Odysseus *ptOdysseus, const char *psLine) {
     char *psIpPort = NULL;
     char *psToken = NULL;
- 
+
     psIpPort = strdup(psLine);
     if (NULL == psIpPort) {
         return;
     }
- 
+
     psToken = strtok(psIpPort, " ");
     if (NULL != psToken) {
         ptOdysseus->psIp = strdup(psToken);
@@ -100,27 +101,28 @@ static void parseIpPort(Odysseus *ptOdysseus, const char *psLine) {
  *
  ************************************************/
 Odysseus odysseusParseFile(int nFd) {
-    Odysseus tOdysseus = {0};
+    Odysseus tOdysseus;
     size_t tOutCount = 0;
     char **apsLines = NULL;
- 
+
+    memset(&tOdysseus, 0, sizeof(tOdysseus));
     tOdysseus.nIthacaSocket = NO_SOCKET;
     tOdysseus.nIslandSocket = NO_SOCKET;
- 
+
     apsLines = readLines(nFd, &tOutCount);
- 
+
     // Verify readLines didn't fail and we have the minimum required lines
     if (NULL == apsLines || MIN_CONFIG_LINES > tOutCount) {
         printErr(ERROR_INVALID_FILE);
         freeLines(apsLines, tOutCount);
         return tOdysseus;
     }
- 
+
     tOdysseus.psName = strdup(apsLines[0]);
     tOdysseus.psPath = strdup(apsLines[1]);
     parseIpPort(&tOdysseus, apsLines[2]);
     tOdysseus.psInitialInfo = strdup(apsLines[3]);
- 
+
     if (NULL == tOdysseus.psName || NULL == tOdysseus.psPath ||
         NULL == tOdysseus.psIp || NULL == tOdysseus.psPort ||
         NULL == tOdysseus.psInitialInfo) {
@@ -128,25 +130,24 @@ Odysseus odysseusParseFile(int nFd) {
         freeLines(apsLines, tOutCount);
         return tOdysseus;
     }
- 
+
     tOdysseus.tCargo.nGold = atoi(apsLines[4]);
     tOdysseus.tCargo.nNumSupplies = atoi(apsLines[5]);
- 
+
     if (0 == buildSupplies(&tOdysseus, apsLines, tOutCount)) {
         printErr(ERROR_ALLOC_SUPPLIES);
         freeLines(apsLines, tOutCount);
         return tOdysseus;
     }
- 
+
     calculateTotalAmount(&tOdysseus.tCargo);
     // We can free the lines now since we have copied the data we need
     freeLines(apsLines, tOutCount);
- 
+
     // tOdysseus is freed in main in case of error, or after the menu loop
     // ends, so we don't free it here
     return tOdysseus;
 }
-
 
 /***********************************************
  *
@@ -159,9 +160,31 @@ Odysseus odysseusParseFile(int nFd) {
 void freeOdysseusVoyage(OdysseusVoyage *ptVoyage) {
     free(ptVoyage->psObject);
     free(ptVoyage->psDestination);
+    free(ptVoyage->psFileName);
+    free(ptVoyage->psObjectPath);
+    free(ptVoyage->psSignedPath);
     memset(ptVoyage, 0, sizeof(*ptVoyage));
 }
 
+/***********************************************
+ *
+ * @Name : discardOdysseusVoyage
+ * @Def : Deletes the object and sealed files of a voyage (if they were
+ *        stored) and then frees it like freeOdysseusVoyage. Used when the
+ *        voyage ends or is lost, so its files must not outlive it.
+ * @Arg : In/Out: ptVoyage = voyage to discard
+ * @Ret : None.
+ *
+ ************************************************/
+void discardOdysseusVoyage(OdysseusVoyage *ptVoyage) {
+    if (NULL != ptVoyage->psObjectPath) {
+        unlink(ptVoyage->psObjectPath);
+    }
+    if (NULL != ptVoyage->psSignedPath) {
+        unlink(ptVoyage->psSignedPath);
+    }
+    freeOdysseusVoyage(ptVoyage);
+}
 
 /***********************************************
  *
@@ -173,7 +196,7 @@ void freeOdysseusVoyage(OdysseusVoyage *ptVoyage) {
  ************************************************/
 void freeListedVoyages(Odysseus *ptOdysseus) {
     int i = 0;
- 
+
     for (i = 0; i < ptOdysseus->nNumListedVoyages; i++) {
         freeOdysseusVoyage(&ptOdysseus->atListedVoyages[i]);
     }
@@ -181,8 +204,6 @@ void freeListedVoyages(Odysseus *ptOdysseus) {
     ptOdysseus->atListedVoyages = NULL;
     ptOdysseus->nNumListedVoyages = 0;
 }
-
-
 
 /***********************************************
  *
@@ -192,9 +213,9 @@ void freeListedVoyages(Odysseus *ptOdysseus) {
  * @Ret : None.
  *
  ************************************************/
-static void freeCargo(Cargo *ptCargo) {
+void freeCargo(Cargo *ptCargo) {
     int i = 0;
- 
+
     if (NULL != ptCargo->atSupplies) {
         for (i = 0; i < ptCargo->nNumSupplies; ++i) {
             free(ptCargo->atSupplies[i].psName);
@@ -207,7 +228,6 @@ static void freeCargo(Cargo *ptCargo) {
     ptCargo->nTotalAmount = 0;
 }
 
-
 /***********************************************
  *
  * @Name : freeMap
@@ -216,9 +236,9 @@ static void freeCargo(Cargo *ptCargo) {
  * @Ret : None.
  *
  ************************************************/
-static void freeMap(Map *ptMap) {
+void freeMap(Map *ptMap) {
     int i = 0;
- 
+
     for (i = 0; i < ptMap->nNumConnections; i++) {
         free(ptMap->atConnections[i].psName);
         free(ptMap->atConnections[i].psIp);
@@ -242,7 +262,7 @@ void freeOdysseus(Odysseus *ptOdysseus) {
     if (NULL == ptOdysseus) {
         return;
     }
- 
+
     free(ptOdysseus->psName);
     ptOdysseus->psName = NULL;
     free(ptOdysseus->psPath);
@@ -255,12 +275,14 @@ void freeOdysseus(Odysseus *ptOdysseus) {
     ptOdysseus->psInitialInfo = NULL;
     free(ptOdysseus->psLastError);
     ptOdysseus->psLastError = NULL;
- 
+
     freeListedVoyages(ptOdysseus);
+    // The files of the voyage stay in the ship folder: the saved state
+    // brings the voyage back on the next run (lost voyages were discarded)
     freeOdysseusVoyage(&ptOdysseus->tActiveVoyage);
     freeCargo(&ptOdysseus->tCargo);
     freeMap(&ptOdysseus->tMap);
- 
+
     if (NO_SOCKET != ptOdysseus->nIthacaSocket) {
         close(ptOdysseus->nIthacaSocket);
         ptOdysseus->nIthacaSocket = NO_SOCKET;

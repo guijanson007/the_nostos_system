@@ -11,10 +11,10 @@
  ************************************************/
 
 // Own includes
-#include "odysseus/odysseus_parser.h"
 #include "odysseus/odysseus_command.h"
+#include "odysseus/odysseus_parser.h"
 
-//Constants
+// Constants
 #define TEXT_BOLD "\033[1m"
 #define TEXT_RESET "\033[0m"
 #define PROMPT "$ "
@@ -22,8 +22,8 @@
 #define MSG_COMMAND_OK "Command OK"
 #define ERROR_READ_COMMAND "Failed to read command"
 
-//Functions
+// Functions
 void odysseusStartMenu(Odysseus tOdysseus);
-int odysseusShowMenu(Odysseus *tOdysseus);
+int odysseusShowMenu(Odysseus *tOdysseus, sig_atomic_t *pnQuit);
 
 #endif // !#ifndef __ODYSSEUS_MENU_H__

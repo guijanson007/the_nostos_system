@@ -11,9 +11,10 @@
 #include "odysseus/odysseus.h"
 #include "odysseus/odysseus_conversation.h"
 #include "odysseus/odysseus_menu.h"
+#include "odysseus/odysseus_persistence.h"
 
 // event flag to indicate when to quit the program
-volatile sig_atomic_t gtEvQuit = 0;
+sig_atomic_t gtEvQuit = 0;
 
 /***********************************************
  *
@@ -39,7 +40,7 @@ void quitProgram(int nSignum) {
  * @Ret : 0 if everything went well, -1 otherwise.
  *
  ************************************************/
-static int odysseusInitState(Odysseus *ptOdysseus) {
+int odysseusInitState(Odysseus *ptOdysseus) {
     char *psCopy = NULL;
     char *psName = NULL;
     char *psIp = NULL;
@@ -52,10 +53,11 @@ static int odysseusInitState(Odysseus *ptOdysseus) {
     ptOdysseus->nIslandSocket = NO_SOCKET;
 
     // Map with one island: Aeaea
-    ptOdysseus->tMap.atConnections = calloc(1, sizeof(KnownIsland));
+    ptOdysseus->tMap.atConnections = malloc(sizeof(KnownIsland));
     if (NULL == ptOdysseus->tMap.atConnections) {
         return -1;
     }
+    memset(ptOdysseus->tMap.atConnections, 0, sizeof(KnownIsland));
     psCopy = strdup(ptOdysseus->psInitialInfo);
     if (NULL == psCopy) {
         return -1;
@@ -116,36 +118,64 @@ int openConfigFile(char *psPath) {
  *
  ************************************************/
 void setupSignals(void) {
-    struct sigaction stAction = {0};
-
-    // No SA_RESTART: a blocking read() must return EINTR when SIGINT arrives
-    sigemptyset(&stAction.sa_mask);
-    stAction.sa_handler = quitProgram;
-    stAction.sa_flags = 0;
-    sigaction(SIGINT, &stAction, NULL);
+    // signal() restarts read(), so stdin is waited on with select() instead
+    // (see waitReadable), which always returns when a signal arrives
+    signal(SIGINT, quitProgram);
     signal(SIGPIPE, SIG_IGN);
 }
 
 /***********************************************
  *
  * @Name : isOdysseusValid
- * @Def : Checks that every field read from the config file was parsed.
+ * @Def : Checks that every field read from the config file was parsed,
+ *        including every supply (a missing line or a failed allocation
+ *        leaves a supply without name, and amounts must be positive).
  * @Arg : In: ptOdysseus = odysseus to check
  * @Ret : 1 if the odysseus is valid, 0 if something went wrong while
  *        parsing the file.
  *
  ************************************************/
 int isOdysseusValid(Odysseus *ptOdysseus) {
+    int i = 0;
+
     if (NULL == ptOdysseus->psName || NULL == ptOdysseus->psPath ||
         NULL == ptOdysseus->psIp || NULL == ptOdysseus->psPort ||
         NULL == ptOdysseus->psInitialInfo ||
+        0 > ptOdysseus->tCargo.nNumSupplies ||
         (0 < ptOdysseus->tCargo.nNumSupplies &&
-         (NULL == ptOdysseus->tCargo.atSupplies ||
-          NULL == ptOdysseus->tCargo.atSupplies->psName ||
-          0 == ptOdysseus->tCargo.atSupplies->nAmount))) {
+         NULL == ptOdysseus->tCargo.atSupplies)) {
         return 0;
     }
+    for (i = 0; i < ptOdysseus->tCargo.nNumSupplies; i++) {
+        if (NULL == ptOdysseus->tCargo.atSupplies[i].psName ||
+            0 >= ptOdysseus->tCargo.atSupplies[i].nAmount) {
+            return 0;
+        }
+    }
     return 1;
+}
+
+/***********************************************
+ *
+ * @Name : createShipFolder
+ * @Def : Creates the folder of the ship (line 2 of the config file) if it
+ *        does not exist. The object, the sealed object and the saved state
+ *        are kept there.
+ * @Arg : In: ptOdysseus = odysseus with the folder path
+ * @Ret : 0 if the folder exists or was created, -1 otherwise (printed).
+ *
+ ************************************************/
+int createShipFolder(const Odysseus *ptOdysseus) {
+    char *psError = NULL;
+
+    if (0 == mkdir(ptOdysseus->psPath, SHIP_FOLDER_MODE) || EEXIST == errno) {
+        return 0;
+    }
+    if (-1 != asprintf(&psError, ERROR_FOLDER, ptOdysseus->psPath)) {
+        printErr(psError);
+        free(psError);
+    }
+    return -1;
 }
 
 /***********************************************
@@ -179,8 +209,9 @@ void closeConnections(Odysseus *ptOdysseus) {
  ************************************************/
 int main(int argc, char *argv[]) {
     int nFd = -1;
-    Odysseus tOdysseus = {0};
+    Odysseus tOdysseus;
 
+    memset(&tOdysseus, 0, sizeof(tOdysseus));
     if (EXPECTED_ARGC != argc) {
         printErr(ERROR_ARGC);
         return EXIT_FAILURE;
@@ -197,6 +228,12 @@ int main(int argc, char *argv[]) {
 
     // Something went wrong while parsing the file, we should exit
     if (0 == isOdysseusValid(&tOdysseus)) {
+        printErr(ERROR_INVALID_CONFIG);
+        freeOdysseus(&tOdysseus);
+        return EXIT_FAILURE;
+    }
+
+    if (0 != createShipFolder(&tOdysseus)) {
         freeOdysseus(&tOdysseus);
         return EXIT_FAILURE;
     }
@@ -207,16 +244,25 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
     }
 
+    // Restore gold, cargo and active voyage of a previous execution; if there
+    // is no usable saved state the initial resources of the config file are
+    // kept
+    odysseusLoadState(&tOdysseus);
+
     // odysseusPrintInfo(&tOdysseus);
 
     // Print the initial message
     odysseusStartMenu(tOdysseus);
 
     while (0 == gtEvQuit) {
-        if (1 != odysseusShowMenu(&tOdysseus)) {
+        if (1 != odysseusShowMenu(&tOdysseus, &gtEvQuit)) {
             break;
         }
     }
+
+    // Final save on SIGINT / clean exit. A ship with no gold and no cargo
+    // (lost at sea or dead end, 6.8) resets the saved state instead
+    odysseusSaveOnExit(&tOdysseus);
 
     closeConnections(&tOdysseus);
     freeOdysseus(&tOdysseus);

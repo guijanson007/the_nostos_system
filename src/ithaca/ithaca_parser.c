@@ -3,7 +3,6 @@
 #include "../include/ithaca/ithaca_parser.h"
 #include "../include/utils/utils.h"
 
-
 /***********************************************
  *
  * @Name : loadIthacaData
@@ -19,7 +18,7 @@ int loadIthacaData(int nFd, Ithaca *ptIthaca) {
     char **apsLines = NULL;
     char *psIp = NULL;
     char *psPort = NULL;
- 
+
     apsLines = readLines(nFd, &tCount);
     if (NULL == apsLines) {
         return -1;
@@ -28,20 +27,20 @@ int loadIthacaData(int nFd, Ithaca *ptIthaca) {
         freeLines(apsLines, tCount);
         return -1;
     }
- 
+
     psIp = strtok(apsLines[2], " ");
     psPort = strtok(NULL, " ");
     if (NULL == psIp || NULL == psPort) {
         freeLines(apsLines, tCount);
         return -1;
     }
- 
+
     ptIthaca->psName = strdup(apsLines[0]);
     ptIthaca->psMission = strdup(apsLines[1]);
     ptIthaca->psIp = strdup(psIp);
     ptIthaca->nPort = atoi(psPort);
     freeLines(apsLines, tCount);
- 
+
     if (NULL == ptIthaca->psName || NULL == ptIthaca->psMission ||
         NULL == ptIthaca->psIp) {
         freeIthaca(ptIthaca);
@@ -49,7 +48,6 @@ int loadIthacaData(int nFd, Ithaca *ptIthaca) {
     }
     return 0;
 }
-
 
 /***********************************************
  *
@@ -61,14 +59,14 @@ int loadIthacaData(int nFd, Ithaca *ptIthaca) {
  * @Ret : 1 if a voyage was read, 0 if the line was empty, -1 on error.
  *
  ************************************************/
-static int parseVoyage(char *psLine, Voyage *ptVoyage, int nId) {
+int parseVoyage(char *psLine, Voyage *ptVoyage, int nId) {
     char *psObject = strtok(psLine, " ");
     char *psFile = NULL;
     char *psDestination = NULL;
     char *psReward = NULL;
- 
+
     if (NULL == psObject) {
-        return 0;   // empty line
+        return 0; // empty line
     }
     psFile = strtok(NULL, " ");
     psDestination = strtok(NULL, " ");
@@ -76,7 +74,7 @@ static int parseVoyage(char *psLine, Voyage *ptVoyage, int nId) {
     if (NULL == psFile || NULL == psDestination || NULL == psReward) {
         return -1;
     }
- 
+
     ptVoyage->nId = nId;
     ptVoyage->psObject = strdup(psObject);
     ptVoyage->psFile = strdup(psFile);
@@ -97,7 +95,8 @@ static int parseVoyage(char *psLine, Voyage *ptVoyage, int nId) {
 /***********************************************
  *
  * @Name : loadVoyageData
- * @Def : Reads the voyages file into a dynamic array of Voyage. Empty lines are skipped. On error everything allocated is freed.
+ * @Def : Reads the voyages file into a dynamic array of Voyage. Empty lines are
+ * skipped. On error everything allocated is freed.
  * @Arg : In: nFd = voyages file descriptor
  *        Out: patVoyages = pointer to the voyages array to fill
  *        Out: ptNumVoyages = number of voyages read
@@ -109,23 +108,24 @@ int loadVoyageData(int nFd, Voyage **patVoyages, size_t *ptNumVoyages) {
     size_t i = 0;
     char **apsLines = NULL;
     int nResult = 0;
- 
+
     *patVoyages = NULL;
     *ptNumVoyages = 0;
- 
+
     apsLines = readLines(nFd, &tCount);
     if (NULL == apsLines) {
         return -1;
     }
-    
+
     *patVoyages = malloc(sizeof(Voyage) * (tCount + 1));
     if (NULL == *patVoyages) {
         freeLines(apsLines, tCount);
         return -1;
     }
- 
+
     for (i = 0; i < tCount; i++) {
-        nResult = parseVoyage(apsLines[i], &(*patVoyages)[*ptNumVoyages], (int)*ptNumVoyages + 1);
+        nResult = parseVoyage(apsLines[i], &(*patVoyages)[*ptNumVoyages],
+                              (int)*ptNumVoyages + 1);
         if (-1 == nResult) {
             freeLines(apsLines, tCount);
             freeVoyage(patVoyages, ptNumVoyages);
@@ -133,7 +133,7 @@ int loadVoyageData(int nFd, Voyage **patVoyages, size_t *ptNumVoyages) {
         }
         *ptNumVoyages += (size_t)nResult;
     }
- 
+
     freeLines(apsLines, tCount);
     return 0;
 }

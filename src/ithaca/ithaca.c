@@ -10,16 +10,13 @@
  ************************************************/
 #define _GNU_SOURCE
 
-// header
-#include "ithaca/ithaca.h"
-
 // own headers
 #include "ithaca/ithaca.h"
 #include "ithaca/ithaca_conversetion.h"
 #include "ithaca/ithaca_parser.h"
 #include "utils/utils.h"
 
-static volatile int nEvQuit = 0;
+sig_atomic_t nEvQuit = 0;
 
 /***********************************************
  *
@@ -30,7 +27,7 @@ static volatile int nEvQuit = 0;
  * @Ret : None.
  *
  ************************************************/
-static void onSigint(int nSignum) {
+void onSigint(int nSignum) {
     (void)nSignum;
     nEvQuit = 1;
 }
@@ -185,8 +182,9 @@ void printData(Ithaca *ptIthaca, Voyage *atVoyages, size_t tNumVoyages) {
  *
  ************************************************/
 int checkArgcIthaca(int argc, char *argv[]) {
-    if (EXPECTED_ARGC != argc || 0 != strcmp(argv[1], ITHACA_FILE) ||
-        0 != strcmp(argv[2], VOYAGES_FILE)) {
+    (void)argv;
+    // Any file names are valid (e.g. ithaca.local.dat); open() checks them
+    if (EXPECTED_ARGC != argc) {
         printErr(ERROR_ARGC);
         return -1;
     }
@@ -204,7 +202,7 @@ int checkArgcIthaca(int argc, char *argv[]) {
  * @Ret : 0 if both files were opened, -1 otherwise.
  *
  ************************************************/
-static int openFiles(char *argv[], int *pnFdIthaca, int *pnFdVoyage) {
+int openFiles(char *argv[], int *pnFdIthaca, int *pnFdVoyage) {
     *pnFdIthaca = open(argv[1], O_RDONLY);
     if (-1 == *pnFdIthaca) {
         printErr(ERROR_FILE_ITHACA);
@@ -233,8 +231,7 @@ static int openFiles(char *argv[], int *pnFdIthaca, int *pnFdVoyage) {
  * @Ret : 0 if the server is ready, -1 otherwise.
  *
  ************************************************/
-static int startServer(Ithaca *ptIthaca, Voyage **patVoyages,
-                       size_t *ptNumVoyages) {
+int startServer(Ithaca *ptIthaca, Voyage **patVoyages, size_t *ptNumVoyages) {
     char *psBuff = NULL;
 
     ptIthaca->nServerFd = openListenConn(ptIthaca->psIp, ptIthaca->nPort);
@@ -253,8 +250,25 @@ static int startServer(Ithaca *ptIthaca, Voyage **patVoyages,
 
     ptIthaca->nMaxFd = ptIthaca->nServerFd;
 
+    if (POOL_OK != poolCreate(&ptIthaca->tPool, POOL_DEFAULT_WORKERS,
+                              POOL_DEFAULT_CAPACITY)) {
+        printErr(ERROR_POOL);
+        close(ptIthaca->nServerFd);
+        freeIthaca(ptIthaca);
+        freeVoyage(patVoyages, ptNumVoyages);
+        ptIthaca->atVoyages = NULL;
+        return -1;
+    }
+
+    // Finished jobs are announced through this pipe, so select() must watch it
+    FD_SET(poolNotifyFd(&ptIthaca->tPool), &ptIthaca->tFdsClients);
+    if (poolNotifyFd(&ptIthaca->tPool) > ptIthaca->nMaxFd) {
+        ptIthaca->nMaxFd = poolNotifyFd(&ptIthaca->tPool);
+    }
+
     if (-1 == asprintf(&psBuff, WELCOME, (int)ptIthaca->tNumVoyages)) {
         close(ptIthaca->nServerFd);
+        poolDestroy(&ptIthaca->tPool);
         ptIthaca->atVoyages = NULL;
         freeIthaca(ptIthaca);
         freeVoyage(patVoyages, ptNumVoyages);
@@ -274,7 +288,7 @@ static int startServer(Ithaca *ptIthaca, Voyage **patVoyages,
  * @Ret : None.
  *
  ************************************************/
-static void acceptClient(Ithaca *ptIthaca) {
+void acceptClient(Ithaca *ptIthaca) {
     int nFdClient = -1;
 
     nFdClient = accept(ptIthaca->nServerFd, NULL, NULL);
@@ -298,20 +312,21 @@ static void acceptClient(Ithaca *ptIthaca) {
  * @Ret : None.
  *
  ************************************************/
-static void handleClient(Ithaca *ptIthaca, int nFd) {
-    int nResult = 0;
-    Message tMsg = {0};
+void handleClient(Ithaca *ptIthaca, int nFd) {
+    int nResult = RECEIVE_OK;
+    Message tMsg;
 
+    memset(&tMsg, 0, sizeof(Message));
     nResult = receiveMessage(&tMsg, nFd);
-    if (-2 == nResult) {
+    if (RECEIVE_BAD_LENGTH == nResult) {
         sendNack(nFd, NACK_INVALID_LENGTH);
         return;
     }
-    if (-3 == nResult) {
+    if (RECEIVE_BAD_FLAGS == nResult) {
         sendNack(nFd, NACK_INVALID_FLAGS);
         return;
     }
-    if (0 != nResult) {
+    if (RECEIVE_OK != nResult) {
         if (0 != removeClient(ptIthaca, nFd)) {
             // Never registered: drop the socket anyway
             close(nFd);
@@ -332,15 +347,20 @@ static void handleClient(Ithaca *ptIthaca, int nFd) {
  * @Ret : None.
  *
  ************************************************/
-static void runServer(Ithaca *ptIthaca) {
+void runServer(Ithaca *ptIthaca) {
     int nFd = 0;
-    fd_set tReadFds = {0};
+    PoolJob *ptJob = NULL;
+    fd_set tReadFds;
+    // Different from 0 so the message is printed on the first pass
+    size_t tLastClients = 1;
 
+    FD_ZERO(&tReadFds);
     while (0 == nEvQuit) {
-        // Only the server socket is in the set
-        if (ptIthaca->nMaxFd == ptIthaca->nServerFd) {
+        // Printed once each time the last connected ship leaves
+        if (0 == ptIthaca->tNumClients && 0 != tLastClients) {
             println(WAITING_FOR_CLIENTS);
         }
+        tLastClients = ptIthaca->tNumClients;
 
         tReadFds = ptIthaca->tFdsClients;
         if (-1 == select(ptIthaca->nMaxFd + 1, &tReadFds, NULL, NULL, NULL)) {
@@ -354,6 +374,10 @@ static void runServer(Ithaca *ptIthaca) {
 
             if (nFd == ptIthaca->nServerFd) {
                 acceptClient(ptIthaca);
+            } else if (nFd == poolNotifyFd(&ptIthaca->tPool)) {
+                if (POOL_OK == poolCollect(&ptIthaca->tPool, &ptJob)) {
+                    finishJob(ptIthaca, ptJob);
+                }
             } else {
                 handleClient(ptIthaca, nFd);
             }
@@ -373,6 +397,24 @@ static void runServer(Ithaca *ptIthaca) {
  ************************************************/
 void closeIthaca(Ithaca *ptIthaca, Voyage **patVoyages, size_t *ptNumVoyages) {
     int nFd = 0;
+    size_t i = 0;
+
+    for (i = 0; i < ptIthaca->tNumClients; i++) {
+        if (NULL != ptIthaca->atClients[i].ptJob) {
+            shutdown(ptIthaca->atClients[i].nFd, SHUT_RDWR);
+        }
+    }
+
+    FD_CLR(poolNotifyFd(&ptIthaca->tPool), &ptIthaca->tFdsClients);
+    poolDestroy(&ptIthaca->tPool);
+
+    for (i = 0; i < ptIthaca->tNumClients; i++) {
+        if (NULL != ptIthaca->atClients[i].ptJob) {
+            close(ptIthaca->atClients[i].nFd);
+            freeJob(ptIthaca->atClients[i].ptJob);
+            ptIthaca->atClients[i].ptJob = NULL;
+        }
+    }
 
     for (nFd = 0; nFd <= ptIthaca->nMaxFd; nFd++) {
         if (0 != FD_ISSET(nFd, &ptIthaca->tFdsClients)) {
@@ -397,10 +439,11 @@ void closeIthaca(Ithaca *ptIthaca, Voyage **patVoyages, size_t *ptNumVoyages) {
 int main(int argc, char *argv[]) {
     int nFdIthaca = -1;
     int nFdVoyage = -1;
-    Ithaca tIthaca = {0};
+    Ithaca tIthaca;
     Voyage *atVoyages = NULL;
     size_t tNumVoyages = 0;
 
+    memset(&tIthaca, 0, sizeof(Ithaca));
     if (0 != checkArgcIthaca(argc, argv)) {
         return EXIT_FAILURE;
     }

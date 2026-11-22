@@ -13,7 +13,6 @@
 // header
 #include "../include/utils/utils.h"
 
-
 /***********************************************
  *
  * @Name : freeLines
@@ -26,7 +25,7 @@
  ************************************************/
 void freeLines(char **apsLines, size_t tCount) {
     size_t i = 0;
- 
+
     if (NULL == apsLines) {
         return;
     }
@@ -35,7 +34,7 @@ void freeLines(char **apsLines, size_t tCount) {
     }
     free(apsLines);
 }
- 
+
 /***********************************************
  *
  * @Name : writeToFileAndStdOut
@@ -49,7 +48,7 @@ void writeToFileAndStdOut(int nFd, const char *psMessage) {
     write(nFd, psMessage, strlen(psMessage));
     write(STDOUT_FILENO, psMessage, strlen(psMessage));
 }
- 
+
 /***********************************************
  *
  * @Name : println
@@ -62,7 +61,7 @@ void println(const char *psMessage) {
     write(STDOUT_FILENO, psMessage, strlen(psMessage));
     write(STDOUT_FILENO, NEW_LINE, strlen(NEW_LINE));
 }
- 
+
 /***********************************************
  *
  * @Name : print
@@ -74,7 +73,7 @@ void println(const char *psMessage) {
 void print(const char *psMessage) {
     write(STDOUT_FILENO, psMessage, strlen(psMessage));
 }
- 
+
 /***********************************************
  *
  * @Name : printErr
@@ -87,7 +86,7 @@ void printErr(const char *psMessage) {
     write(STDERR_FILENO, psMessage, strlen(psMessage));
     write(STDERR_FILENO, NEW_LINE, strlen(NEW_LINE));
 }
- 
+
 /***********************************************
  *
  * @Name : strToUpper
@@ -98,7 +97,7 @@ void printErr(const char *psMessage) {
  ************************************************/
 void strToUpper(char *psString) {
     int i = 0;
- 
+
     if (NULL == psString) {
         return;
     }
@@ -109,46 +108,7 @@ void strToUpper(char *psString) {
         }
     }
 }
- 
-/***********************************************
- *
- * @Name : readUntil
- * @Def : Reads characters from a file descriptor until the end character.
- *        The end character is not stored.
- * @Arg : In: nFd = file descriptor to be read
- *        In: cEnd = character that ends the reading
- * @Ret : Dynamically allocated string with the characters read, or NULL if
- *        the file ended or there was a read error before cEnd.
- *
- ************************************************/
-char *readUntil(int nFd, char cEnd) {
-    int i = 0;
-    int nCharsRead = 0;
-    char cChar = ' ';
-    char *psBuffer = NULL;
- 
-    while (cChar != cEnd) {
-        nCharsRead = (int)read(nFd, &cChar, sizeof(char));
-        if (0 >= nCharsRead) {
-            free(psBuffer);
-            return NULL;
-        }
-        if (NULL == psBuffer) {
-            psBuffer = (char *)malloc(sizeof(char));
-        }
-        if (0 < nCharsRead) {
-            if (cChar != cEnd) {
-                psBuffer[i] = cChar;
-                psBuffer = (char *)realloc(psBuffer, (sizeof(char)) * (i + 2));
-            }
-            i++;
-        }
-    }
- 
-    psBuffer[i - 1] = '\0';
-    return psBuffer;
-}
- 
+
 /***********************************************
  *
  * @Name : growBuffer
@@ -161,17 +121,16 @@ char *readUntil(int nFd, char cEnd) {
  *        (the old buffer is already freed).
  *
  ************************************************/
-static void *growBuffer(void *pvBuffer, size_t tNewCapacity,
-                        size_t tElementSize) {
+void *growBuffer(void *pvBuffer, size_t tNewCapacity, size_t tElementSize) {
     void *pvTemp = NULL;
- 
+
     pvTemp = realloc(pvBuffer, tNewCapacity * tElementSize);
     if (NULL == pvTemp) {
         free(pvBuffer);
     }
     return pvTemp;
 }
- 
+
 /***********************************************
  *
  * @Name : trimBuffer
@@ -183,16 +142,16 @@ static void *growBuffer(void *pvBuffer, size_t tNewCapacity,
  * @Ret : The reduced buffer, or the old one if realloc failed.
  *
  ************************************************/
-static void *trimBuffer(void *pvBuffer, size_t tCount, size_t tElementSize) {
+void *trimBuffer(void *pvBuffer, size_t tCount, size_t tElementSize) {
     void *pvExact = NULL;
- 
+
     pvExact = realloc(pvBuffer, tCount * tElementSize);
     if (NULL != pvExact) {
         return pvExact;
     }
     return pvBuffer;
 }
- 
+
 /***********************************************
  *
  * @Name : readElement
@@ -206,15 +165,15 @@ static void *trimBuffer(void *pvBuffer, size_t tCount, size_t tElementSize) {
  * @Ret : 1 if a whole element was read, 0 on EOF or read error.
  *
  ************************************************/
-static int readElement(int nFd, char *pcBuffer, size_t tOffset,
-                       size_t tElementSize, ssize_t *ptBytesRead) {
+int readElement(int nFd, char *pcBuffer, size_t tOffset, size_t tElementSize,
+                ssize_t *ptBytesRead) {
     size_t tTotalRead = 0;
- 
+
     *ptBytesRead = read(nFd, pcBuffer + tOffset, tElementSize);
     if (0 >= *ptBytesRead) {
         return 0;
     }
- 
+
     // Handle partial reads (for pipes)
     tTotalRead = *ptBytesRead;
     while (tTotalRead < tElementSize) {
@@ -225,14 +184,14 @@ static int readElement(int nFd, char *pcBuffer, size_t tOffset,
         }
         tTotalRead += *ptBytesRead;
     }
- 
+
     // EOF or read error
     if (tTotalRead < tElementSize) {
         return 0;
     }
     return 1;
 }
- 
+
 /***********************************************
  *
  * @Name : readUntilEmpty
@@ -251,19 +210,19 @@ void *readUntilEmpty(int nFd, size_t tElementSize, size_t *ptOutCount) {
     int nCount = 0;
     void *pvBuffer = NULL;
     ssize_t tBytesRead = 0;
- 
+
     if (0 == tElementSize || NULL == ptOutCount) {
         return NULL;
     }
- 
+
     pvBuffer = malloc(tElementSize * nCapacity);
     if (NULL == pvBuffer) {
         printErr(ERROR_MALLOC);
         return NULL;
     }
- 
-    while (1 == readElement(nFd, pvBuffer, nCount * tElementSize,
-                            tElementSize, &tBytesRead)) {
+
+    while (1 == readElement(nFd, pvBuffer, nCount * tElementSize, tElementSize,
+                            &tBytesRead)) {
         nCount++;
         // Resize check before next read
         if (nCount == nCapacity) {
@@ -275,27 +234,61 @@ void *readUntilEmpty(int nFd, size_t tElementSize, size_t *ptOutCount) {
             }
         }
     }
- 
+
     // Check if it's a true error and not just an interruption
     if (0 > tBytesRead && EINTR != errno) {
         printErr(ERROR_READ);
         free(pvBuffer);
         return NULL;
     }
- 
+
     if (0 == nCount) {
         free(pvBuffer);
         *ptOutCount = 0;
         return NULL;
     }
- 
+
     if (nCount < nCapacity) {
         pvBuffer = trimBuffer(pvBuffer, nCount, tElementSize);
     }
     *ptOutCount = nCount;
     return pvBuffer;
 }
- 
+
+/***********************************************
+ *
+ * @Name : waitReadable
+ * @Def : Waits until a file descriptor has data to read. It uses select()
+ *        with a short timeout, so a signal that sets the quit flag is
+ *        noticed even if it arrives just before select() starts.
+ * @Arg : In: nFd = file descriptor to wait on
+ *        In: pnQuit = flag set by the signal handler
+ * @Ret : 1 if nFd is readable, WAIT_QUIT if the quit flag was set,
+ *        -1 on a select error.
+ *
+ ************************************************/
+int waitReadable(int nFd, sig_atomic_t *pnQuit) {
+    fd_set tReadFds;
+    struct timeval stTimeout;
+    int nReady = 0;
+
+    while (0 == *pnQuit) {
+        FD_ZERO(&tReadFds);
+        FD_SET(nFd, &tReadFds);
+        stTimeout.tv_sec = 0;
+        stTimeout.tv_usec = WAIT_POLL_USEC;
+
+        nReady = select(nFd + 1, &tReadFds, NULL, NULL, &stTimeout);
+        if (0 < nReady) {
+            return 1;
+        }
+        if (-1 == nReady && EINTR != errno) {
+            return -1;
+        }
+    }
+    return WAIT_QUIT;
+}
+
 /***********************************************
  *
  * @Name : readLine
@@ -313,21 +306,21 @@ int readLine(int nFd, char **ppsBuffer) {
     size_t tLength = 0;
     char *psBuffer = NULL;
     size_t tBufferSize = INITIAL_LINES_CAPACITY;
- 
+
     if (NULL == ppsBuffer) {
         return -1;
     }
- 
+
     psBuffer = malloc(tBufferSize);
     if (NULL == psBuffer) {
         return -1;
     }
- 
+
     while (0 < (tBytesRead = read(nFd, &cChar, 1))) {
         if ('\n' == cChar) {
             break;
         }
- 
+
         if (tLength + 1 >= tBufferSize) {
             psBuffer = growBuffer(psBuffer, tBufferSize + 1, sizeof(char));
             if (NULL == psBuffer) {
@@ -337,17 +330,17 @@ int readLine(int nFd, char **ppsBuffer) {
         }
         psBuffer[tLength++] = cChar;
     }
- 
+
     if (-1 == tBytesRead) {
         free(psBuffer);
         return -1;
     }
- 
+
     if (0 == tBytesRead && 0 == tLength) {
         free(psBuffer);
         return 0;
     }
- 
+
     if (0 < tLength && '\r' == psBuffer[tLength - 1]) {
         tLength--;
     }
@@ -355,7 +348,7 @@ int readLine(int nFd, char **ppsBuffer) {
     *ppsBuffer = psBuffer;
     return 1;
 }
- 
+
 /***********************************************
  *
  * @Name : readLines
@@ -374,17 +367,17 @@ char **readLines(int nFd, size_t *ptOutCount) {
     char **apsTemp = NULL;
     char *psLine = NULL;
     int nReadResult = 0;
- 
+
     if (NULL == ptOutCount) {
         return NULL;
     }
     *ptOutCount = 0;
- 
+
     apsLines = malloc(tLinesCapacity * sizeof(char *));
     if (NULL == apsLines) {
         return NULL;
     }
- 
+
     while (1 == (nReadResult = readLine(nFd, &psLine))) {
         if (tLinesCount >= tLinesCapacity) {
             tNewCapacity = tLinesCapacity * 2;
@@ -397,21 +390,21 @@ char **readLines(int nFd, size_t *ptOutCount) {
             apsLines = apsTemp;
             tLinesCapacity = tNewCapacity;
         }
- 
+
         apsLines[tLinesCount] = psLine;
         psLine = NULL;
         tLinesCount++;
     }
- 
+
     if (-1 == nReadResult) {
         freeLines(apsLines, tLinesCount);
         return NULL;
     }
- 
+
     *ptOutCount = tLinesCount;
     return apsLines;
 }
- 
+
 /***********************************************
  *
  * @Name : readBinaryElement
@@ -426,11 +419,11 @@ char **readLines(int nFd, size_t *ptOutCount) {
  *        freed).
  *
  ************************************************/
-static int readBinaryElement(int nFd, char **ppcBuffer, size_t *ptCapacity,
-                             size_t tCount, size_t tElementSize) {
+int readBinaryElement(int nFd, char **ppcBuffer, size_t *ptCapacity,
+                      size_t tCount, size_t tElementSize) {
     char *pcDestination = NULL;
     int nBytesRead = 0;
- 
+
     if (tCount >= *ptCapacity) {
         *ptCapacity *= 2;
         *ppcBuffer = growBuffer(*ppcBuffer, *ptCapacity, tElementSize);
@@ -438,7 +431,7 @@ static int readBinaryElement(int nFd, char **ppcBuffer, size_t *ptCapacity,
             return -1;
         }
     }
- 
+
     pcDestination = *ppcBuffer + tCount * tElementSize;
     nBytesRead = read(nFd, pcDestination, tElementSize);
     if (0 > nBytesRead) {
@@ -454,7 +447,7 @@ static int readBinaryElement(int nFd, char **ppcBuffer, size_t *ptCapacity,
     }
     return 1;
 }
- 
+
 /***********************************************
  *
  * @Name : readBinary
@@ -474,7 +467,7 @@ void *readBinary(int nFd, size_t tElementSize, size_t *ptOutCount) {
     char *pcBuffer = NULL;
     int nDone = 0;
     int nResult = 0;
- 
+
     if (NULL == ptOutCount) {
         return NULL;
     }
@@ -482,15 +475,15 @@ void *readBinary(int nFd, size_t tElementSize, size_t *ptOutCount) {
     if (0 == tElementSize) {
         return NULL;
     }
- 
+
     pcBuffer = malloc(tCapacity * tElementSize);
     if (NULL == pcBuffer) {
         return NULL;
     }
- 
+
     while (0 == nDone) {
-        nResult = readBinaryElement(nFd, &pcBuffer, &tCapacity, tCount,
-                                    tElementSize);
+        nResult =
+            readBinaryElement(nFd, &pcBuffer, &tCapacity, tCount, tElementSize);
         if (-1 == nResult) {
             return NULL;
         } else if (0 == nResult) {
@@ -499,19 +492,19 @@ void *readBinary(int nFd, size_t tElementSize, size_t *ptOutCount) {
             tCount++;
         }
     }
- 
+
     if (0 == tCount) {
         free(pcBuffer);
         *ptOutCount = 0;
         return NULL;
     }
- 
+
     pcBuffer = trimBuffer(pcBuffer, tCount, tElementSize);
- 
+
     *ptOutCount = tCount;
     return pcBuffer;
 }
- 
+
 /***********************************************
  *
  * @Name : isAllDigits
@@ -522,7 +515,7 @@ void *readBinary(int nFd, size_t tElementSize, size_t *ptOutCount) {
  ************************************************/
 int isAllDigits(const char *psString) {
     const char *pcCurrent = NULL;
- 
+
     if (NULL == psString || '\0' == *psString) {
         return 0;
     }
@@ -533,7 +526,24 @@ int isAllDigits(const char *psString) {
     }
     return 1;
 }
- 
+
+/***********************************************
+ *
+ * @Name : isBoundedNumber
+ * @Def : Checks whether a string is a non-negative integer short enough
+ *        to fit in an int (0 is accepted, unlike isPositiveInteger).
+ * @Arg : In: psString = string to check
+ * @Ret : Returns 1 if it is, 0 otherwise.
+ *
+ ************************************************/
+int isBoundedNumber(const char *psString) {
+    if (NULL == psString || 0 == isAllDigits(psString)) {
+        return 0;
+    }
+    // Bounded length so atoi never overflows
+    return MAX_INT_DIGITS >= strlen(psString);
+}
+
 /***********************************************
  *
  * @Name : isPositiveInteger
@@ -546,12 +556,11 @@ int isPositiveInteger(const char *psString) {
     if (NULL == psString || '\0' == *psString) {
         return 0;
     }
- 
+
     if (0 == isAllDigits(psString)) {
         return 0;
     }
- 
+
     // Bounded length so atoi never overflows
     return MAX_INT_DIGITS >= strlen(psString) && 0 < atoi(psString);
 }
- 
